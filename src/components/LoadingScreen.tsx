@@ -6,6 +6,7 @@ import useAppStore from '../lib/store'
 
 export default function LoadingScreen() {
   const progress = useAppStore(s => s.progress)
+  const setScreen = useAppStore(s => s.setScreen)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const tips = useMemo(
     () => [
@@ -20,6 +21,7 @@ export default function LoadingScreen() {
     []
   )
   const selectedTip = useMemo(() => tips[Math.floor(Math.random() * tips.length)], [tips])
+  const done = Math.floor(progress) >= 100
 
   return (
     <div className="relative w-full h-full">
@@ -113,7 +115,26 @@ export default function LoadingScreen() {
           </div>
         </div>
       </div>
-
+      {/* start overlay when done */}
+      {done && (
+        <div
+          className="absolute inset-0 z-20"
+          onClick={() => setScreen('main')}
+          onPointerDown={() => setScreen('main')}
+          role="button"
+          aria-label="터치하여 시작하기"
+        >
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <motion.div
+              className="text-white/85 text-[12px] tracking-wide"
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              터치하여 시작하기
+            </motion.div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
