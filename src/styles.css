@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fonts and smoothing */
+html, body, #root {
+  height: 100%;
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override specific Tailwind utilities */
+@layer utilities {
+  .text-sm {
+    font-size: 0.99rem;
+  }
+  .mt-4 {
+    margin-top: 0rem;
+  }
+}

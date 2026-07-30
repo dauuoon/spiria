@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/bgmplayer.tsx","./src/components/devremote.tsx","./src/components/loadingscreen.tsx","./src/components/mainscreen.tsx","./src/components/particlescanvas.tsx","./src/components/softglow.tsx","./src/lib/store.ts"],"version":"5.9.3"}
