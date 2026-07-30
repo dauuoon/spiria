@@ -1,30 +1,65 @@
 import { useEffect, useRef, useState } from 'react'
+import useAppStore from '../lib/store'
 
-const BGM_SRC = `${import.meta.env.BASE_URL}assets/sound/bgm1.mp3`
+const BGM_SRC_1 = `${import.meta.env.BASE_URL}assets/sound/bgm1.mp3`
+const BGM_SRC_2 = `${import.meta.env.BASE_URL}assets/sound/magic_bgm.mp3`
+const BGM_EXPEDITION = `${import.meta.env.BASE_URL}assets/sound/expedition_bgm.mp3`
 
 export default function BgmPlayer() {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef1 = useRef<HTMLAudioElement | null>(null)
+  const audioRef2 = useRef<HTMLAudioElement | null>(null)
+  const expeditionRef = useRef<HTMLAudioElement | null>(null)
   const interactionHooked = useRef(false)
   const [enabled, setEnabled] = useState(true)
+  const screen = useAppStore(s => s.screen)
 
   // Create the audio element once
   useEffect(() => {
-    const audio = new Audio(BGM_SRC)
-    audio.loop = true
-    audio.volume = 0.45
-    audioRef.current = audio
+    const a1 = new Audio(BGM_SRC_1)
+    a1.loop = true
+    a1.volume = 0.35
+    audioRef1.current = a1
+
+    const a2 = new Audio(BGM_SRC_2)
+    a2.loop = true
+    a2.volume = 0.25
+    audioRef2.current = a2
+
+    const ae = new Audio(BGM_EXPEDITION)
+    ae.loop = true
+    ae.volume = 0.5
+    expeditionRef.current = ae
 
     const tryPlay = async () => {
-      if (!audioRef.current || !enabled) return
+      if (!enabled) return
       try {
-        await audioRef.current.play()
+        // Play depending on current screen
+        if (screen === 'expedition') {
+          await Promise.allSettled([
+            expeditionRef.current?.play() ?? Promise.resolve(),
+          ])
+        } else {
+          await Promise.allSettled([
+            audioRef1.current?.play() ?? Promise.resolve(),
+            audioRef2.current?.play() ?? Promise.resolve(),
+          ])
+        }
       } catch {
         // Autoplay likely blocked; wait for a user gesture
         if (!interactionHooked.current) {
           const resume = async () => {
-            if (!audioRef.current || !enabled) return
+            if (!enabled) return
             try {
-              await audioRef.current.play()
+              if (screen === 'expedition') {
+                await Promise.allSettled([
+                  expeditionRef.current?.play() ?? Promise.resolve(),
+                ])
+              } else {
+                await Promise.allSettled([
+                  audioRef1.current?.play() ?? Promise.resolve(),
+                  audioRef2.current?.play() ?? Promise.resolve(),
+                ])
+              }
             } catch {
               // ignore
             } finally {
@@ -42,24 +77,43 @@ export default function BgmPlayer() {
     void tryPlay()
 
     return () => {
-      audio.pause()
-      audio.src = ''
-      audioRef.current = null
+      for (const a of [audioRef1.current, audioRef2.current, expeditionRef.current]) {
+        if (a) {
+          a.pause()
+          a.src = ''
+        }
+      }
+      audioRef1.current = null
+      audioRef2.current = null
+      expeditionRef.current = null
     }
   }, [])
 
   // React to enable/disable
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (enabled) {
-      void audio.play().catch(() => {
-        // ignore; will resume on next gesture
-      })
-    } else {
-      audio.pause()
+    const a1 = audioRef1.current
+    const a2 = audioRef2.current
+    const ae = expeditionRef.current
+    if (!a1 && !a2 && !ae) return
+
+    if (!enabled) {
+      a1?.pause(); a2?.pause(); ae?.pause()
+      return
     }
-  }, [enabled])
+
+    if (screen === 'expedition') {
+      a1?.pause(); a2?.pause()
+      void Promise.allSettled([
+        ae?.play() ?? Promise.resolve(),
+      ])
+    } else {
+      ae?.pause()
+      void Promise.allSettled([
+        a1?.play() ?? Promise.resolve(),
+        a2?.play() ?? Promise.resolve(),
+      ])
+    }
+  }, [enabled, screen])
 
   if (!import.meta.env.DEV) return null
 

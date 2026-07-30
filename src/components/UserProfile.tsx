@@ -1,0 +1,62 @@
+import { motion } from 'framer-motion'
+
+export type UserProfileProps = {
+  name?: string
+  level?: number
+  xp?: number
+  maxXp?: number
+  avatar?: string // relative to BASE_URL or absolute
+}
+
+export default function UserProfile({
+  name = '정령 소환사',
+  level = 12,
+  xp = 1250,
+  maxXp = 3000,
+  avatar,
+}: UserProfileProps) {
+  const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
+  const pct = Math.min(100, Math.max(0, Math.round((xp / maxXp) * 100)))
+
+  return (
+    <div className="absolute top-[32px] left-[16px] z-10 pointer-events-auto">
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div className="relative w-[52px] h-[52px] rounded-full overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          {avatar ? (
+            <img
+              src={avatar.startsWith('http') ? avatar : a(avatar)}
+              alt="avatar"
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
+          ) : (
+            <div className="w-full h-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,226,188,0.15),rgba(70,60,130,0.5)_60%,rgba(10,12,30,0.8))]" />
+          )}
+        </div>
+
+        {/* Name + XP */}
+        <div className="min-w-[180px] max-w-[64vw]">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-[#ac8a7a] text-[16px] leading-tight font-semibold truncate">{name}</h2>
+          </div>
+
+          {/* XP level indicator + bar (reduced size, bar overlaps under level) */}
+          <div className="mt-1.5 flex items-center gap-1">
+            <div className="relative z-10 flex items-center justify-center w-[22px] h-[22px] rounded-full bg-gradient-to-br from-[#a894ff] to-[#7b63e6] text-black text-[12px] font-extrabold shadow-[0_2px_10px_rgba(115,85,210,0.35)] select-none">{level}</div>
+            <div className="relative -ml-[7px] h-[7px] w-[min(18vw,70px)] rounded-full bg-black/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.35)]">
+              <motion.div
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#6e57d6] via-[#8f75e3] to-[#c1b1ff] shadow-[0_0_10px_rgba(145,120,235,0.45)] overflow-hidden"
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ type: 'spring', stiffness: 70, damping: 18 }}
+              />
+              {/* highlight removed per request */}
+            </div>
+          </div>
+          {/* XP text removed on main per request */}
+        </div>
+      </div>
+    </div>
+  )
+}

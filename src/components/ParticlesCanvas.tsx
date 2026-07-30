@@ -10,7 +10,14 @@ type Particle = {
   maxLife: number
 }
 
-export default function ParticlesCanvas({ density = 0.00006 }: { density?: number }) {
+type Props = {
+  density?: number
+  baseAlpha?: number // baseline opacity at glow core
+  swingAlpha?: number // additional opacity that oscillates
+  sizeScale?: number // scales particle size and gradient radius
+}
+
+export default function ParticlesCanvas({ density = 0.00006, baseAlpha = 0.1, swingAlpha = 0.4, sizeScale = 1 }: Props) {
   const ref = useRef<HTMLCanvasElement | null>(null)
   const anim = useRef<number>()
 
@@ -65,13 +72,13 @@ export default function ParticlesCanvas({ density = 0.00006 }: { density?: numbe
         if (p.y > ch) p.y = 0
         if (p.life > p.maxLife) particles[i] = spawn(cw, ch)
 
-        const alpha = 0.1 + 0.4 * Math.sin((p.life / p.maxLife) * Math.PI)
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5)
+        const alpha = baseAlpha + swingAlpha * Math.sin((p.life / p.maxLife) * Math.PI)
+        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5 * sizeScale)
         gradient.addColorStop(0, `rgba(255, 230, 180, ${alpha})`)
         gradient.addColorStop(1, 'rgba(255, 230, 180, 0)')
         ctx.fillStyle = gradient
         ctx.beginPath()
-        ctx.arc(p.x, p.y, p.size * 1.4, 0, Math.PI * 2)
+        ctx.arc(p.x, p.y, p.size * 1.4 * sizeScale, 0, Math.PI * 2)
         ctx.fill()
       }
 
@@ -85,7 +92,7 @@ export default function ParticlesCanvas({ density = 0.00006 }: { density?: numbe
       if (anim.current) cancelAnimationFrame(anim.current)
       window.removeEventListener('resize', resize)
     }
-  }, [density])
+  }, [density, baseAlpha, swingAlpha, sizeScale])
 
   return <canvas ref={ref} className="absolute inset-0 w-full h-full" />
 }

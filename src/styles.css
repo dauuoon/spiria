@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* subtle yellow glow flicker animation for main objects */
+@keyframes glowFlicker {
+  0% { opacity: 0.28; transform: scale(1); }
+  25% { opacity: 0.46; transform: scale(1.04); }
+  50% { opacity: 0.6; transform: scale(1.08); }
+  75% { opacity: 0.42; transform: scale(1.03); }
+  100% { opacity: 0.28; transform: scale(1); }
+}
+
+/* Global font family using Hahmlet declared in index.html */
+html, body, #root {
+  font-family: 'Hahmlet', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
 /* Fonts and smoothing */
 html, body, #root {
   height: 100%;
@@ -19,4 +33,46 @@ body {
   .mt-4 {
     margin-top: 0rem;
   }
+}
+
+/* Subtle horizontal wiggle for notification badge */
+@keyframes wiggle7 {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(2px); }
+  40% { transform: translateX(0); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(0); }
+}
+
+/* Bell-like swing: quick damped rotations, then rest */
+@keyframes bell7 {
+  0% { transform: rotate(0deg); }
+  5% { transform: rotate(18deg); }
+  10% { transform: rotate(-14deg); }
+  15% { transform: rotate(10deg); }
+  20% { transform: rotate(-6deg); }
+  25% { transform: rotate(3deg); }
+  30% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* Book screen scrollbar: dark theme and slim width */
+.book-scroll {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(92,95,120,0.7) rgba(18,20,32,0.35);
+}
+.book-scroll::-webkit-scrollbar { /* Chrome/Safari */
+  width: 8px;
+}
+.book-scroll::-webkit-scrollbar-track {
+  background: rgba(18,20,32,0.35);
+  border-radius: 8px;
+}
+.book-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3b3e57, #23253a);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.book-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4a4e6b, #2b2e45);
 }

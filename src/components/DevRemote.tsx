@@ -1,4 +1,4 @@
-type Screen = 'loading' | 'main'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag'
 
 type Props = {
   screen: Screen
@@ -36,6 +36,50 @@ export default function DevRemote({ screen, onSelect }: Props) {
           }`}
         >
           Main
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('book')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'book'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Book
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('expedition')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'expedition'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Expedition
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('craft')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'craft'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Craft
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('bag')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'bag'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Bag
         </button>
       </div>
     </div>
