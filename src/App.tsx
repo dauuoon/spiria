@@ -22,7 +22,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       {/* Mobile viewport (9:20) */}
-      <div className="aspect-[9/20] w-[min(45vh,calc(100vw-2rem))] max-h-[92vh] rounded-3xl overflow-hidden shadow-soft border border-white/5 relative">
+      <div className="aspect-[9/20] w-[min(45dvh,calc(100vw-2rem))] max-h-[92dvh] rounded-3xl overflow-hidden shadow-soft border border-white/5 relative">
         {screen === 'loading' ? (
           <LoadingScreen />
         ) : (
