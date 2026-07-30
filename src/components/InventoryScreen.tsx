@@ -10,16 +10,31 @@ export default function InventoryScreen() {
 
   return (
     <div className="relative w-full h-full bg-black">
-      {/* background */}
+      {/* background (match Book) */}
       <img
-        src={a('assets/background/main_back_em.png')}
+        src={a('assets/background/book.png')}
         alt="Inventory background"
         className="absolute inset-0 w-full h-full object-cover"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src = a('assets/background/main_back_em.png')
+        }}
       />
 
       {/* particles */}
       <div className="absolute inset-0 z-[3] opacity-55 pointer-events-none">
         <ParticlesCanvas density={0.00006} baseAlpha={0.18} swingAlpha={0.65} sizeScale={1.2} />
+      </div>
+
+      {/* top book overlay image (prevents scroll-over) */}
+      <div className="absolute top-0 left-0 right-0 z-[12] pointer-events-none">
+        <img
+          src={a('assets/background/book_top.png')}
+          alt=""
+          className="block w-full h-auto object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none'
+          }}
+        />
       </div>
 
       {/* top bar */}
@@ -33,8 +48,8 @@ export default function InventoryScreen() {
       </div>
 
       {/* content */}
-      <div className="absolute inset-0 z-[5] pt-[240px] pb-6 px-5 overflow-hidden">
-        <div className="h-[calc(100%_-_50px)] w-full rounded-2xl bg-[rgba(16,18,32,0.72)] border border-white/10 backdrop-blur-md p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
+      <div className="absolute inset-0 z-[6] pt-[240px] pb-6 px-5">
+        <div className="h-[calc(100%_-_50px)] w-full rounded-2xl bg-[rgba(16,18,32,0.72)] border border-white/10 backdrop-blur-md p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-y-auto book-scroll">
           {/* summary row */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
