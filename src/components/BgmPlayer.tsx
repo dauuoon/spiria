@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const BGM_SRC = '/assets/sound/bgm1.mp3'
+const BGM_SRC = `${import.meta.env.BASE_URL}assets/sound/bgm1.mp3`
 
 export default function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null)

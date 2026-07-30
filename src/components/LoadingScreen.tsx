@@ -6,6 +6,7 @@ import useAppStore from '../lib/store'
 
 export default function LoadingScreen() {
   const progress = useAppStore(s => s.progress)
+  const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const tips = useMemo(
     () => [
       '탐험은 재료를 모으고, 조합은 이야기를 만듭니다.',
@@ -24,7 +25,7 @@ export default function LoadingScreen() {
     <div className="relative w-full h-full">
       {/* background image */}
       <img
-        src="/assets/background/loading.png"
+        src={a('assets/background/loading.png')}
         alt="Loading background"
         className="absolute inset-0 w-full h-full object-cover"
       />
@@ -41,7 +42,7 @@ export default function LoadingScreen() {
       {/* content */}
       <div className="relative z-10 w-full h-full flex flex-col items-center justify-center text-center px-6">
         <motion.img
-          src="/assets/logo/logo.png"
+          src={a('assets/logo/logo.png')}
           alt="Spiria logo"
           className="w-[17rem] -mt-[410px] drop-shadow-[0_6px_24px_rgba(217,179,108,0.35)]"
           initial={{ opacity: 0, y: 8 }}
@@ -97,7 +98,7 @@ export default function LoadingScreen() {
 
               {/* Leading icon follows the fill head, placed above bar */}
               <motion.img
-                src="/assets/particle/light.png"
+                src={a('assets/particle/light.png')}
                 alt="loading icon"
                 className="absolute top-1/2 -translate-y-1/2 mt-[1px] -translate-x-1/2 w-6 h-6 pointer-events-none drop-shadow-[0_0_12px_rgba(227,189,135,0.85)]"
                 initial={{ left: '0%' }}
