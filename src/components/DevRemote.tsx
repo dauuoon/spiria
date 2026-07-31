@@ -1,4 +1,4 @@
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2'
 
 type Props = {
   screen: Screen
@@ -80,6 +80,28 @@ export default function DevRemote({ screen, onSelect }: Props) {
           }`}
         >
           Bag
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('map1')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'map1'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Map1
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('map2')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'map2'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Map2
         </button>
         <button
           type="button"

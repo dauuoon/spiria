@@ -67,10 +67,11 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="1단계"
           className="absolute left-[10%] top-[26%] w-[48%] max-w-none cursor-pointer"
-          data-suppress-tap-sfx={!hasEnergy ? 'true' : undefined}
+          data-suppress-tap-sfx="true"
           onClick={() => {
             if (!hasEnergy) { playLockSfx(); return }
-            spendEnergy(1)
+            const ok = spendEnergy(1)
+            if (ok) setScreen('map1')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: -25, y: -25 }} whileTap={{ scale: 1.06 }}>
@@ -95,11 +96,12 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="2단계"
           className="absolute right-[8%] top-[30%] w-[51%] max-w-none cursor-pointer"
-          data-suppress-tap-sfx={!isUnlocked(2) ? 'true' : undefined}
+          data-suppress-tap-sfx="true"
           onClick={() => {
             if (!isUnlocked(2)) { playLockSfx(); return }
             if (!hasEnergy) { playLockSfx(); return }
-            spendEnergy(1)
+            const ok = spendEnergy(1)
+            if (ok) setScreen('map2')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: 65, y: -30 }} whileTap={{ scale: 1.06 }}>
@@ -124,7 +126,7 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="3단계"
           className="absolute left-[6%] top-[56%] w-[56%] max-w-none cursor-pointer"
-          data-suppress-tap-sfx={!isUnlocked(3) ? 'true' : undefined}
+          data-suppress-tap-sfx="true"
           onClick={() => {
             if (!isUnlocked(3)) { playLockSfx(); return }
             if (!hasEnergy) { playLockSfx(); return }
@@ -153,7 +155,7 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="4단계"
           className="absolute right-[6%] top-[55%] w-[56%] max-w-none cursor-pointer"
-          data-suppress-tap-sfx={!isUnlocked(4) ? 'true' : undefined}
+          data-suppress-tap-sfx="true"
           onClick={() => {
             if (!isUnlocked(4)) { playLockSfx(); return }
             if (!hasEnergy) { playLockSfx(); return }
@@ -183,7 +185,7 @@ export default function ExpeditionScreen() {
           aria-label="5단계"
           className="absolute left-1/2 -translate-x-1/2 w-[68%] max-w-none cursor-pointer"
           style={{ bottom: 'calc(7% + 20px)' }}
-          data-suppress-tap-sfx={!isUnlocked(5) ? 'true' : undefined}
+          data-suppress-tap-sfx="true"
           onClick={() => {
             if (!isUnlocked(5)) { playLockSfx(); return }
             if (!hasEnergy) { playLockSfx(); return }

@@ -3,9 +3,10 @@ import useAppStore from '../lib/store'
 
 type Props = {
   onBack?: () => void
+  title?: string
 }
 
-export default function TopBar({ onBack }: Props) {
+export default function TopBar({ onBack, title }: Props) {
   const setScreen = useAppStore((s) => s.setScreen)
   const energy = useAppStore((s) => s.energy)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
@@ -14,16 +15,23 @@ export default function TopBar({ onBack }: Props) {
 
   return (
     <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
-      <motion.button
-        type="button"
-        whileTap={{ scale: 0.95 }}
-        onClick={handleBack}
-        className="relative inline-flex items-center justify-center w-[48px] h-[48px] p-0 bg-transparent border-0 text-white shadow-none"
-        aria-label="뒤로"
-      >
-        <span aria-hidden className="pointer-events-none absolute -inset-1 rounded-full bg-[radial-gradient(closest-side,rgba(227,189,135,0.45),rgba(227,189,135,0)_75%)] blur-[12px]" />
-        <img src={a('assets/particle/back.png')} alt="뒤로" className="w-[48px] h-[48px] object-contain" draggable={false} />
-      </motion.button>
+      <div className="flex items-center gap-3">
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.95 }}
+          onClick={handleBack}
+          className="relative inline-flex items-center justify-center w-[48px] h-[48px] p-0 bg-transparent border-0 text-white shadow-none"
+          aria-label="뒤로"
+        >
+          <span aria-hidden className="pointer-events-none absolute -inset-1 rounded-full bg-[radial-gradient(closest-side,rgba(227,189,135,0.45),rgba(227,189,135,0)_75%)] blur-[12px]" />
+          <img src={a('assets/particle/back.png')} alt="뒤로" className="w-[48px] h-[48px] object-contain" draggable={false} />
+        </motion.button>
+        {title && (
+          <div className="text-[#d5bd8a] text-[16px] font-extrabold tracking-wide drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
+            {title}
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-2">
         <motion.button
           type="button"

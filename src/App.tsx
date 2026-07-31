@@ -6,6 +6,8 @@ import CraftScreen from './components/CraftScreen'
 import BookScreen from './components/BookScreen'
 import InventoryScreen from './components/InventoryScreen'
 import ProfileScreen from './components/ProfileScreen'
+import Map1Screen from './components/Map1Screen'
+import Map2Screen from './components/Map2Screen'
 import DevRemote from './components/DevRemote'
 import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
@@ -52,6 +54,10 @@ export default function App() {
               <InventoryScreen />
             ) : screen === 'profile' ? (
               <ProfileScreen />
+            ) : screen === 'map1' ? (
+              <Map1Screen />
+            ) : screen === 'map2' ? (
+              <Map2Screen />
             ) : (
               <MainScreen />
             )}
