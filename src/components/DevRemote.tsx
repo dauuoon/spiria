@@ -1,4 +1,4 @@
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
 type Props = {
   screen: Screen
@@ -6,8 +6,6 @@ type Props = {
 }
 
 export default function DevRemote({ screen, onSelect }: Props) {
-  if (!import.meta.env.DEV) return null
-
   return (
     <div className="fixed top-1/2 right-0 -translate-y-1/2 z-[60] select-none group">
       {/* Panel slides in on hover; a thin handle stays visible */}
@@ -102,6 +100,39 @@ export default function DevRemote({ screen, onSelect }: Props) {
           }`}
         >
           Map2
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('map3')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'map3'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Map3
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('map4')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'map4'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Map4
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('map5')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'map5'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Map5
         </button>
         <button
           type="button"

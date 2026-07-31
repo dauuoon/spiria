@@ -6,6 +6,25 @@ import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
 import { useEffect, useMemo, useState } from 'react'
 
+type MapScreen = 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
+
+type EntryTarget = {
+  stage: number
+  screen: MapScreen
+}
+
+const TAP_SFX_PATH = 'assets/sound/tap.mp3'
+
+function playTapSfx() {
+  try {
+    const audio = new Audio(`${import.meta.env.BASE_URL}${TAP_SFX_PATH}`)
+    audio.volume = 0.85
+    void audio.play()
+  } catch {
+    // ignore audio failures
+  }
+}
+
 export default function ExpeditionScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const level = useAppStore(s => s.level)
@@ -14,6 +33,7 @@ export default function ExpeditionScreen() {
   const nextRegenAt = useAppStore(s => s.nextRegenAt)
   const recomputeEnergy = useAppStore(s => s.recomputeEnergy)
   const spendEnergy = useAppStore(s => s.spendEnergy)
+  const [entryTarget, setEntryTarget] = useState<EntryTarget | null>(null)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const isUnlocked = (stage: number) => level >= DUNGEONS[stage - 1]?.unlockLv
   const hasEnergy = energy > 0
@@ -24,6 +44,23 @@ export default function ExpeditionScreen() {
       void audio.play()
     } catch {
       // ignore
+    }
+  }
+
+  const requestEnter = (stage: number, screen: MapScreen) => {
+    if (!isUnlocked(stage)) { playLockSfx(); return }
+    if (!hasEnergy) { playLockSfx(); return }
+    setEntryTarget({ stage, screen })
+  }
+
+  const confirmEnter = () => {
+    if (!entryTarget) return
+    const ok = spendEnergy(1)
+    if (ok) {
+      setScreen(entryTarget.screen)
+      setEntryTarget(null)
+    } else {
+      playLockSfx()
     }
   }
 
@@ -69,9 +106,7 @@ export default function ExpeditionScreen() {
           className="absolute left-[10%] top-[26%] w-[48%] max-w-none cursor-pointer"
           data-suppress-tap-sfx="true"
           onClick={() => {
-            if (!hasEnergy) { playLockSfx(); return }
-            const ok = spendEnergy(1)
-            if (ok) setScreen('map1')
+            requestEnter(1, 'map1')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: -25, y: -25 }} whileTap={{ scale: 1.06 }}>
@@ -98,10 +133,7 @@ export default function ExpeditionScreen() {
           className="absolute right-[8%] top-[30%] w-[51%] max-w-none cursor-pointer"
           data-suppress-tap-sfx="true"
           onClick={() => {
-            if (!isUnlocked(2)) { playLockSfx(); return }
-            if (!hasEnergy) { playLockSfx(); return }
-            const ok = spendEnergy(1)
-            if (ok) setScreen('map2')
+            requestEnter(2, 'map2')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: 65, y: -30 }} whileTap={{ scale: 1.06 }}>
@@ -128,9 +160,7 @@ export default function ExpeditionScreen() {
           className="absolute left-[6%] top-[56%] w-[56%] max-w-none cursor-pointer"
           data-suppress-tap-sfx="true"
           onClick={() => {
-            if (!isUnlocked(3)) { playLockSfx(); return }
-            if (!hasEnergy) { playLockSfx(); return }
-            spendEnergy(1)
+            requestEnter(3, 'map3')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: 200, y: -95 }} whileTap={{ scale: 1.06 }}>
@@ -157,9 +187,7 @@ export default function ExpeditionScreen() {
           className="absolute right-[6%] top-[55%] w-[56%] max-w-none cursor-pointer"
           data-suppress-tap-sfx="true"
           onClick={() => {
-            if (!isUnlocked(4)) { playLockSfx(); return }
-            if (!hasEnergy) { playLockSfx(); return }
-            spendEnergy(1)
+            requestEnter(4, 'map4')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: -180, y: -75 }} whileTap={{ scale: 1.06 }}>
@@ -187,9 +215,7 @@ export default function ExpeditionScreen() {
           style={{ bottom: 'calc(7% + 20px)' }}
           data-suppress-tap-sfx="true"
           onClick={() => {
-            if (!isUnlocked(5)) { playLockSfx(); return }
-            if (!hasEnergy) { playLockSfx(); return }
-            spendEnergy(1)
+            requestEnter(5, 'map5')
           }}
         >
           <motion.div className="relative w-full h-full" style={{ x: 65, y: -75 }} whileTap={{ scale: 1.06 }}>
@@ -217,6 +243,88 @@ export default function ExpeditionScreen() {
         nextRegenAt={nextRegenAt}
         onTick={recomputeEnergy}
       />
+
+      {entryTarget && (
+        <MapEntryModal
+          a={a}
+          mapName={DUNGEONS[entryTarget.stage - 1]?.name ?? `${entryTarget.stage}단계`}
+          onCancel={() => setEntryTarget(null)}
+          onConfirm={confirmEnter}
+        />
+      )}
+    </div>
+  )
+}
+
+function MapEntryModal({
+  a,
+  mapName,
+  onCancel,
+  onConfirm,
+}: {
+  a: (p: string) => string
+  mapName: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="absolute inset-0 z-[40] bg-black/65 backdrop-blur-[2px] flex items-center justify-center px-5">
+      <div className="relative w-full max-w-[426px] shadow-[0_18px_50px_rgba(0,0,0,0.45)] text-center">
+        <img
+          src={a('assets/background/paper_bg_dark_l.png')}
+          alt="입장 확인 배경"
+          className="block w-full h-auto"
+          draggable={false}
+        />
+        <div className="absolute inset-0 p-5">
+          <div className="text-white text-[21px] font-medium">정말 입장하시겠습니까?</div>
+          <p className="mt-0 text-white/75 text-[13px] leading-relaxed">
+            <span className="text-[#efdcaf] font-semibold">{mapName}</span> 입장 시 아래 비용이 소요됩니다.
+          </p>
+          <div className="mt-2 mb-[20px] flex items-center justify-center gap-2 text-[#877cf1] font-bold text-[14px] -translate-x-[5px]">
+            <img src={a('assets/particle/gem.png')} alt="보석" className="w-4 h-4 translate-y-[2px]" draggable={false} />
+            <span>-1개</span>
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              playTapSfx()
+              onCancel()
+            }}
+            data-suppress-tap-sfx="true"
+            className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-slate-200/45 bg-[rgba(130,140,150,0.35)] text-white transition-transform duration-100 active:scale-95"
+          >
+            <img
+              src={a('assets/particle/btn_bg_sliver.png')}
+              alt="취소 버튼 이미지"
+              className="absolute inset-0 w-full h-full object-cover opacity-60"
+              draggable={false}
+            />
+            <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">취소하기</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              playTapSfx()
+              onConfirm()
+            }}
+            data-suppress-tap-sfx="true"
+            className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white transition-transform duration-100 active:scale-95"
+          >
+            <img
+              src={a('assets/particle/btn_bg_brown.png')}
+              alt="입장하기 버튼 이미지"
+              className="absolute inset-0 w-full h-full object-cover opacity-62"
+              draggable={false}
+            />
+            <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">입장하기</span>
+          </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -259,7 +367,8 @@ function EnergyOverlays({ a, energy, max, nextRegenAt, onTick }: {
           <img src={a('assets/particle/possiblenum.png')} alt="탐험 가능 횟수 패널" className="w-full h-auto" />
           <div className="absolute inset-0 flex flex-col justify-center pl-20 pr-8 translate-y-[17px] rotate-[8deg] origin-left">
             <div className="text-[#000000] drop-shadow-sm text-[14px] leading-none opacity-90">탐험 가능 횟수</div>
-            <div className="mt-1 flex items-baseline">
+            <div className="mt-1 flex items-center gap-1">
+              <img src={a('assets/particle/gem.png')} alt="보석" className="w-4 h-4" draggable={false} />
               <div className="text-black text-xl font-semibold tracking-wide">{energy}/{max}</div>
             </div>
           </div>

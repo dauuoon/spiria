@@ -8,6 +8,9 @@ import InventoryScreen from './components/InventoryScreen'
 import ProfileScreen from './components/ProfileScreen'
 import Map1Screen from './components/Map1Screen'
 import Map2Screen from './components/Map2Screen'
+import Map3Screen from './components/Map3Screen'
+import Map4Screen from './components/Map4Screen'
+import Map5Screen from './components/Map5Screen'
 import DevRemote from './components/DevRemote'
 import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
@@ -58,6 +61,12 @@ export default function App() {
               <Map1Screen />
             ) : screen === 'map2' ? (
               <Map2Screen />
+            ) : screen === 'map3' ? (
+              <Map3Screen />
+            ) : screen === 'map4' ? (
+              <Map4Screen />
+            ) : screen === 'map5' ? (
+              <Map5Screen />
             ) : (
               <MainScreen />
             )}
