@@ -5,6 +5,7 @@ import ExpeditionScreen from './components/ExpeditionScreen'
 import CraftScreen from './components/CraftScreen'
 import BookScreen from './components/BookScreen'
 import InventoryScreen from './components/InventoryScreen'
+import ProfileScreen from './components/ProfileScreen'
 import DevRemote from './components/DevRemote'
 import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
@@ -49,6 +50,8 @@ export default function App() {
               <CraftScreen />
             ) : screen === 'bag' ? (
               <InventoryScreen />
+            ) : screen === 'profile' ? (
+              <ProfileScreen />
             ) : (
               <MainScreen />
             )}

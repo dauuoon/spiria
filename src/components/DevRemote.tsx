@@ -1,4 +1,4 @@
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile'
 
 type Props = {
   screen: Screen
@@ -80,6 +80,17 @@ export default function DevRemote({ screen, onSelect }: Props) {
           }`}
         >
           Bag
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('profile')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'profile'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Profile
         </button>
       </div>
     </div>

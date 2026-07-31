@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import useAppStore from '../lib/store'
 import { formatLevelNumber, getLevelTitle } from '../data/levelTitles'
 import { LEVEL_COLORS } from '../data/levels'
 
@@ -20,12 +21,20 @@ export default function UserProfile({
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const pct = Math.min(100, Math.max(0, Math.round((xp / maxXp) * 100)))
   const levelColor = LEVEL_COLORS[level ?? 1] || '#A894FF'
+  const setScreen = useAppStore(s => s.setScreen)
 
   return (
     <div className="absolute top-[32px] left-[16px] z-10 pointer-events-auto">
       <div className="flex items-center gap-3">
         {/* Avatar */}
-        <div className="relative w-[52px] h-[52px] rounded-full overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setScreen('profile')}
+          aria-label="프로필 열기"
+          title="프로필 열기"
+          className="relative w-[52px] h-[52px] rounded-full overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)] cursor-pointer"
+        >
           {avatar ? (
             <img
               src={avatar.startsWith('http') ? avatar : a(avatar)}
@@ -36,7 +45,7 @@ export default function UserProfile({
           ) : (
             <div className="w-full h-full bg-[radial-gradient(circle_at_30%_30%,rgba(255,226,188,0.15),rgba(70,60,130,0.5)_60%,rgba(10,12,30,0.8))]" />
           )}
-        </div>
+        </motion.button>
 
         {/* Name + XP */}
         <div className="min-w-[180px] max-w-[64vw]">

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ITEMS } from '../data/items'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile'
 
 type AppState = {
   progress: number
