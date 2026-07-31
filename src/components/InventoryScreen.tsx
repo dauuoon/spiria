@@ -4,42 +4,21 @@ import TopBar from './TopBar'
 import ParticlesCanvas from './ParticlesCanvas'
 import { ITEMS } from '../data/items'
 import useAppStore from '../lib/store'
-
-type ItemRarity = '일반' | '레어' | '에픽' | '전설'
+import { getRarityByItemId, INVENTORY_RARITY_UI, SPIRIT_RARITY_TOKENS } from '../data/rarity'
+import type { SpiritRarity } from '../types/game'
 
 const ITEM_DESCRIPTION_BY_ID: Record<string, string> = {
-  soul: '정령의 힘이 응축된 조각입니다. 강한 기운이 느껴집니다.',
+  fragment_spirit_soyo: '소요 정령을 해금하기 위한 조각입니다.',
+  fragment_spirit_rua: '루아 정령을 해금하기 위한 조각입니다.',
+  fragment_spirit_pleo: '플레오 정령을 해금하기 위한 조각입니다.',
+  fragment_spirit_stellio: '스텔리오 정령을 해금하기 위한 조각입니다.',
+  fragment_spirit_porina: '포리나 정령을 해금하기 위한 조각입니다.',
+  fragment_spirit_nubi: '누비 정령을 해금하기 위한 조각입니다.',
   forest_trace: '숲 지역을 탐험하며 남긴 흔적입니다.',
   wind_trace: '바람 지역의 정령 기운이 담긴 흔적입니다.',
   lake_trace: '설원 지역에서 발견되는 차가운 기억의 흔적입니다.',
   ruins_trace: '화염 지역의 잔재가 굳어진 흔적입니다.',
   final_trace: '어둠 지역의 깊은 기운을 머금은 흔적입니다.',
-}
-
-const RARITY_META: Record<ItemRarity, { badgeClass: string; titleClass: string }> = {
-  일반: {
-    badgeClass: 'text-[#d7dbe1] bg-[#d7dbe1]/12 border-[#d7dbe1]/35',
-    titleClass: 'text-[#d7dbe1]',
-  },
-  레어: {
-    badgeClass: 'text-[#9ef1d6] bg-[#9ef1d6]/12 border-[#9ef1d6]/35',
-    titleClass: 'text-[#9ef1d6]',
-  },
-  에픽: {
-    badgeClass: 'text-[#c592ff] bg-[#c592ff]/12 border-[#c592ff]/35',
-    titleClass: 'text-[#c592ff]',
-  },
-  전설: {
-    badgeClass: 'text-[#f4dc84] bg-[#f4dc84]/12 border-[#f4dc84]/35',
-    titleClass: 'text-[#f4dc84]',
-  },
-}
-
-const ITEM_BG_BY_RARITY: Record<ItemRarity, string> = {
-  일반: 'assets/background/item_common_bg.png',
-  레어: 'assets/background/item_rare_bg.png',
-  에픽: 'assets/background/item_epic_bg.png',
-  전설: 'assets/background/item_lehendary_bg.png',
 }
 
 export default function InventoryScreen() {
@@ -49,14 +28,7 @@ export default function InventoryScreen() {
   const [tab, setTab] = useState<(typeof filters)[number]>('전체')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const getCategory = (id: string): '재료' | '기타' => ITEMS.find((it) => it.id === id)?.category ?? '재료'
-  const getRarity = (id: string): ItemRarity => {
-    const category = getCategory(id)
-    if (category === '재료') return '일반'
-    if (id === 'soul' || id === 'final_trace') return '전설'
-    if (id === 'forest_trace' || id === 'wind_trace') return '레어'
-    if (id === 'lake_trace' || id === 'ruins_trace') return '에픽'
-    return '일반'
-  }
+  const getRarity = (id: string): SpiritRarity => getRarityByItemId(id, getCategory(id))
   const getDescription = (id: string): string => {
     const fixed = ITEM_DESCRIPTION_BY_ID[id]
     if (fixed) return fixed
@@ -183,7 +155,7 @@ export default function InventoryScreen() {
                 >
                   <div
                     className="relative w-full h-[86px] overflow-visible bg-center bg-cover bg-no-repeat flex items-center justify-center"
-                    style={{ backgroundImage: `url(${a(ITEM_BG_BY_RARITY[rarity])})` }}
+                    style={{ backgroundImage: `url(${a(INVENTORY_RARITY_UI[rarity].bgImage)})` }}
                   >
                     <img
                       src={iconSrc}
@@ -246,15 +218,15 @@ export default function InventoryScreen() {
                   draggable={false}
                 />
                 <div className="min-w-0">
-                  <div className={`text-[17px] font-semibold truncate ${RARITY_META[selectedRarity].titleClass}`}>
+                  <div className={`text-[17px] font-semibold truncate ${INVENTORY_RARITY_UI[selectedRarity].titleClass}`}>
                     {selectedItem.name} ({selectedCount})
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[12px]">
                     <span className="px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/80">
                       {selectedCategory}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full border ${RARITY_META[selectedRarity].badgeClass}`}>
-                      {selectedRarity}
+                    <span className={`px-2 py-0.5 rounded-full border ${INVENTORY_RARITY_UI[selectedRarity].badgeClass}`}>
+                      {SPIRIT_RARITY_TOKENS[selectedRarity].ko}
                     </span>
                   </div>
                   <p className="mt-3 text-[13px] leading-relaxed text-white/80">

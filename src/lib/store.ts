@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ITEMS } from '../data/items'
+import { INITIAL_MANA, LEGACY_ENERGY_STORAGE_KEY, MANA_REGEN_MS, MANA_STORAGE_KEY, MAX_MANA } from '../data/constants'
 
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
@@ -10,12 +11,12 @@ type AppState = {
   setScreen: (s: Screen) => void
   level: number
   setLevel: (n: number) => void
-  energy: number
-  energyMax: number
-  energyRegenMs: number
-  nextRegenAt: number | null
-  spendEnergy: (n?: number) => boolean
-  recomputeEnergy: () => void
+  mana: number
+  maxMana: number
+  manaRegenMs: number
+  manaUpdatedAt: number | null
+  spendMana: (n?: number) => boolean
+  recomputeMana: () => void
   inventory: Record<string, number>
   setItemCount: (id: string, count: number) => void
   addItem: (id: string, delta?: number) => void
@@ -25,26 +26,35 @@ type AppState = {
   spendCoins: (delta?: number) => number
 }
 
-const loadEnergy = () => {
+const loadMana = () => {
   try {
-    const raw = localStorage.getItem('spiria.energy')
-    if (!raw) return null
-    return JSON.parse(raw) as { energy: number; nextRegenAt: number | null }
+    const currentRaw = localStorage.getItem(MANA_STORAGE_KEY)
+    if (currentRaw) {
+      return JSON.parse(currentRaw) as { mana: number; manaUpdatedAt: number | null }
+    }
+
+    const legacyRaw = localStorage.getItem(LEGACY_ENERGY_STORAGE_KEY)
+    if (!legacyRaw) return null
+    const legacy = JSON.parse(legacyRaw) as { energy?: number; nextRegenAt?: number | null }
+    const migrated = {
+      mana: Math.max(0, Math.floor(legacy.energy ?? INITIAL_MANA)),
+      manaUpdatedAt: legacy.nextRegenAt ?? null,
+    }
+    localStorage.setItem(MANA_STORAGE_KEY, JSON.stringify(migrated))
+    return migrated
   } catch {
     return null
   }
 }
 
-const saveEnergy = (energy: number, nextRegenAt: number | null) => {
+const saveMana = (mana: number, manaUpdatedAt: number | null) => {
   try {
-    localStorage.setItem('spiria.energy', JSON.stringify({ energy, nextRegenAt }))
+    localStorage.setItem(MANA_STORAGE_KEY, JSON.stringify({ mana, manaUpdatedAt }))
   } catch {
     // ignore
   }
 }
 
-const ENERGY_MAX = 5
-const ENERGY_REGEN_MS = 20 * 60 * 1000
 const INITIAL_COINS = 1250
 
 const createInitialInventory = () => {
@@ -58,7 +68,7 @@ const createInitialInventory = () => {
       water: 4,
       fire: 2,
       gem: 1,
-      soul: 6,
+      fragment_spirit_soyo: 6,
       forest_trace: 2,
       wind_trace: 1,
     })
@@ -74,39 +84,39 @@ const useAppStore = create<AppState>((set, get) => ({
   setScreen: (s) => set({ screen: s }),
   level: 12,
   setLevel: (n) => set({ level: Math.max(1, Math.floor(n)) }),
-  energy: (() => {
-    const loaded = loadEnergy()
-    return loaded?.energy ?? ENERGY_MAX
+  mana: (() => {
+    const loaded = loadMana()
+    return loaded?.mana ?? INITIAL_MANA
   })(),
-  energyMax: ENERGY_MAX,
-  energyRegenMs: ENERGY_REGEN_MS,
-  nextRegenAt: (() => {
-    const loaded = loadEnergy()
-    return loaded?.nextRegenAt ?? null
+  maxMana: MAX_MANA,
+  manaRegenMs: MANA_REGEN_MS,
+  manaUpdatedAt: (() => {
+    const loaded = loadMana()
+    return loaded?.manaUpdatedAt ?? null
   })(),
-  spendEnergy: (n = 1) => {
+  spendMana: (n = 1) => {
     const st = get()
-    if (st.energy < n) return false
+    if (st.mana < n) return false
     const now = Date.now()
-    const wasMax = st.energy === st.energyMax
-    const energy = st.energy - n
-    const nextRegenAt = wasMax ? now + st.energyRegenMs : st.nextRegenAt
-    saveEnergy(energy, nextRegenAt ?? null)
-    set({ energy, nextRegenAt: nextRegenAt ?? null })
+    const wasMax = st.mana === st.maxMana
+    const mana = st.mana - n
+    const manaUpdatedAt = wasMax ? now + st.manaRegenMs : st.manaUpdatedAt
+    saveMana(mana, manaUpdatedAt ?? null)
+    set({ mana, manaUpdatedAt: manaUpdatedAt ?? null })
     return true
   },
-  recomputeEnergy: () => {
+  recomputeMana: () => {
     const st = get()
-    if (st.energy >= st.energyMax || !st.nextRegenAt) return
+    if (st.mana >= st.maxMana || !st.manaUpdatedAt) return
     const now = Date.now()
-    if (now < st.nextRegenAt) return
-    const elapsed = now - st.nextRegenAt
-    const gained = Math.floor(elapsed / st.energyRegenMs) + 1
-    const newEnergy = Math.min(st.energyMax, st.energy + gained)
-    const stillMissing = st.energyMax - newEnergy
-    const nextRegenAt = stillMissing > 0 ? st.nextRegenAt + gained * st.energyRegenMs : null
-    saveEnergy(newEnergy, nextRegenAt)
-    set({ energy: newEnergy, nextRegenAt })
+    if (now < st.manaUpdatedAt) return
+    const elapsed = now - st.manaUpdatedAt
+    const gained = Math.floor(elapsed / st.manaRegenMs) + 1
+    const nextMana = Math.min(st.maxMana, st.mana + gained)
+    const stillMissing = st.maxMana - nextMana
+    const manaUpdatedAt = stillMissing > 0 ? st.manaUpdatedAt + gained * st.manaRegenMs : null
+    saveMana(nextMana, manaUpdatedAt)
+    set({ mana: nextMana, manaUpdatedAt })
   },
   coins: INITIAL_COINS,
   addCoins: (delta = 0) => set((st) => ({ coins: Math.max(0, st.coins + Math.max(0, Math.floor(delta))) })),

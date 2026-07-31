@@ -5,6 +5,7 @@ import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
 import { getSpiritCraftCostByLevel } from '../data/economy'
+import { buildOrderedRecipe } from '../lib/crafting'
 
 // Inventory counts are TBD; UI focuses on selection layout (3x4 grid)
 // When counts become available, wire them from store/state.
@@ -55,7 +56,7 @@ export default function CraftScreen() {
     { id: 'light', name: '태양' },
     { id: 'magic', name: '마법' },
     { id: 'ether', name: '에테르' },
-    { id: 'gem', name: '보석' },
+    { id: 'gem', name: '젬' },
   ] as const
 
   const matItems = craftMaterials
@@ -91,7 +92,7 @@ export default function CraftScreen() {
     () => selected.filter((id) => (inventory[id] ?? 0) < craftCost.requiredPerMaterial),
     [selected, inventory, craftCost.requiredPerMaterial],
   )
-  const canCraft = selected.length === craftCost.materialKinds && selectedShortageIds.length === 0 && !isCraftStartPending
+  const canCraft = selected.length === craftCost.selectedMaterialKinds && selectedShortageIds.length === 0 && !isCraftStartPending
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -104,7 +105,7 @@ export default function CraftScreen() {
 
   const resetSelected = () => setSelected([])
 
-  const requestCraftStart = async (_materialIds: string[]) => {
+  const requestCraftStart = async (_recipe: { materialIds: [string, string, string]; recipeKey: string }) => {
     await new Promise((resolve) => window.setTimeout(resolve, 120))
     return true
   }
@@ -116,18 +117,19 @@ export default function CraftScreen() {
       return
     }
 
-    const normalizedMaterialIds = [...selected].sort()
+    const orderedMaterialIds = [...selected] as [string, string, string]
+    const recipe = buildOrderedRecipe(orderedMaterialIds)
     const targetQuest = acceptedQuest
     setIsCraftStartPending(true)
     try {
-      const started = await requestCraftStart(normalizedMaterialIds)
+      const started = await requestCraftStart(recipe)
       if (!started) return
 
       const currentInventory = useAppStore.getState().inventory
-      const hasEnough = normalizedMaterialIds.every((id) => (currentInventory[id] ?? 0) >= craftCost.requiredPerMaterial)
+      const hasEnough = orderedMaterialIds.every((id) => (currentInventory[id] ?? 0) >= craftCost.requiredPerMaterial)
       if (!hasEnough) return
 
-      normalizedMaterialIds.forEach((id) => {
+      orderedMaterialIds.forEach((id) => {
         consumeItem(id, craftCost.requiredPerMaterial)
       })
 
@@ -400,6 +402,7 @@ export default function CraftScreen() {
                 const isSelectable = itemCount > 0
                 const active = isSelectable && selected.includes(it.id)
                 const isShortage = active && itemCount < craftCost.requiredPerMaterial
+                const shortageAmount = Math.max(0, craftCost.requiredPerMaterial - itemCount)
                 const itemState = itemCount <= 0 ? 'dis' : active ? 'on' : 'off'
                 return (
                   <motion.button
@@ -427,7 +430,7 @@ export default function CraftScreen() {
                     />
                     {isShortage && (
                       <span className="absolute z-30 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[48px] rounded-full bg-[rgba(120,20,30,0.92)] border border-red-300/60 px-3 h-[20px] text-[12px] leading-[18px] font-extrabold text-[#ffd6d9] shadow-[0_6px_18px_rgba(0,0,0,0.35)] text-center whitespace-nowrap inline-flex items-center justify-center">
-                        부족
+                        부족 {shortageAmount}
                       </span>
                     )}
                     <span className="absolute z-20 left-1/2 bottom-[6px] -translate-x-1/2 text-[14px] font-semibold text-[#ebc8ab] drop-shadow-[0_2px_5px_rgba(0,0,0,0.7)] pointer-events-none select-none">

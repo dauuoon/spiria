@@ -2,6 +2,7 @@
 // Truth source for numbers: balance Excel + src/data
 
 export type HexColor = `#${string}`
+export type BalanceValue = number | 'TBD' | 'Draft'
 
 export interface LevelEntry {
   level: number
@@ -34,6 +35,36 @@ export interface ItemDef {
   price?: number // TBD
 }
 
+export type MaterialCategory = 'nature' | 'element' | 'sky' | 'mystic'
+
+export interface CraftingMaterial {
+  id: string
+  name: string
+  englishName: string
+  category: '재료'
+  materialCategory: MaterialCategory
+}
+
+export type CurrencyType = 'exp' | 'gold' | 'mana'
+
+export type SpiritRarity = 'common' | 'rare' | 'epic' | 'legendary'
+
+export interface SpiritFragment {
+  fragmentId: string
+  spiritId: string
+  ownedAmount: number
+  requiredAmount: number
+}
+
+export interface RegionTrace {
+  regionId: string
+  itemId: string
+  name: string
+  hiddenStageRequiredAmount: number
+  dropChance: BalanceValue
+  dropAmount: BalanceValue
+}
+
 // Level title labels shown in UI (profile, badges, toasts)
 export type LevelTitle =
   | '견습 빚음꾼'
@@ -58,8 +89,8 @@ export interface DropDef {
 export interface SpiritDef {
   id: string
   name: string
-  // grade, stats, growth cost are TBD
-  grade?: string // TBD
+  rarity?: SpiritRarity
+  // stats, growth cost are TBD
   // stats?: Record<string, number> // TBD
 }
 
@@ -70,23 +101,36 @@ export interface RecipeDef {
   // crafting failure and success rates TBD
 }
 
+export interface OrderedCraftingRecipe {
+  materialIds: [string, string, string]
+  recipeKey: string
+}
+
 export interface EconomySettings {
   mainColor: HexColor
 }
 
-export interface CraftingMaterialCostRange {
+export interface CraftingCostTier {
   minLevel: number
   maxLevel: number
   requiredPerMaterial: number
-  materialKinds: number
+  selectedMaterialKinds: number
 }
 
 export interface CraftingMaterialCost {
   minLevel: number
   maxLevel: number
   requiredPerMaterial: number
-  materialKinds: number
-  totalRequired: number
+  selectedMaterialKinds: number
+  totalMaterialCost: number
+}
+
+export interface HiddenStageReward {
+  regionId: string
+  guaranteedSpiritFragmentAmount: BalanceValue
+  mana: BalanceValue
+  gold: BalanceValue
+  exp: BalanceValue
 }
 
 // Dungeon definitions for Expedition
@@ -95,7 +139,7 @@ export interface DungeonDef {
   name: string
   unlockLv: number
   recommendedLv: number
-  energyCost: number
+  manaCost: number
   baseExp: number
   goldReward: number
   materialDropCount: number

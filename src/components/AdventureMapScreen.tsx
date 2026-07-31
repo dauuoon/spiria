@@ -6,6 +6,10 @@ import { DUNGEONS } from '../data/dungeons'
 import ParticlesCanvas from './ParticlesCanvas'
 import SoftGlow from './SoftGlow'
 import { ITEMS, MATERIAL_ITEM_IDS, TRACE_ITEM_BY_STAGE } from '../data/items'
+import { EXPEDITION_REWARD_DRAFT } from '../data/drops'
+import { SPIRIT_FRAGMENT_ITEM_BY_STAGE } from '../data/progression'
+import { getRarityByItemId, RESULT_RARITY_UI, SPIRIT_RARITY_TOKENS } from '../data/rarity'
+import type { SpiritRarity } from '../types/game'
 
 type AdventureMapScreenProps = {
   stage: 1 | 2 | 3 | 4 | 5
@@ -18,12 +22,10 @@ type ExploreResult = {
   exp: number
   gold: number
   materials: number
-  gems: number
-  etcRewards: Array<{ id: string; name: string; count: number; iconSrc: string; rarity: ItemRarity }>
-  itemRewards: Array<{ id: string; name: string; count: number; iconSrc: string; category: '재료' | '기타'; rarity: ItemRarity }>
+  mana: number
+  etcRewards: Array<{ id: string; name: string; count: number; iconSrc: string; rarity: SpiritRarity }>
+  itemRewards: Array<{ id: string; name: string; count: number; iconSrc: string; category: '재료' | '기타'; rarity: SpiritRarity }>
 }
-
-type ItemRarity = '일반' | '레어' | '에픽' | '전설'
 
 const TOTAL_EXPLORES = 10
 
@@ -31,47 +33,6 @@ const TAP_SFX_PATH = 'assets/sound/tap.mp3'
 const RESULT_POP_SFX_PATH = 'assets/sound/ex_resgult.mp3'
 const RESULT_COUNT_SFX_PATH = 'assets/sound/num_coin.mp3'
 
-const RARITY_COLOR: Record<ItemRarity, { rowClass: string; textClass: string; valueClass: string; lootClass: string }> = {
-  일반: {
-    rowClass: 'bg-white/[0.04] border border-white/10',
-    textClass: 'text-white',
-    valueClass: 'text-white',
-    lootClass: 'border border-white/20 bg-white/10',
-  },
-  레어: {
-    rowClass: 'bg-[#c6f8e9]/15 border border-[#9ef1d6]/50',
-    textClass: 'text-[#c6f8e9]',
-    valueClass: 'text-[#9ef1d6]',
-    lootClass: 'border border-[#9ef1d6]/50 bg-[#9ef1d6]/16',
-  },
-  에픽: {
-    rowClass: 'bg-[#c9b7ff]/15 border border-[#c9b7ff]/50',
-    textClass: 'text-[#dccfff]',
-    valueClass: 'text-[#c9b7ff]',
-    lootClass: 'border border-[#c9b7ff]/50 bg-[#c9b7ff]/15',
-  },
-  전설: {
-    rowClass: 'bg-[#f9e8a9]/15 border border-[#f9e8a9]',
-    textClass: 'text-[#f9e8a9]',
-    valueClass: 'text-[#f4dc84]',
-    lootClass: 'border border-[#f4dc84]/55 bg-[#f4dc84]/16',
-  },
-}
-
-const RARITY_BORDER_COLOR: Record<ItemRarity, string> = {
-  일반: 'rgba(255,255,255,0.2)',
-  레어: 'rgba(158,241,214,0.6)',
-  에픽: 'rgba(201,183,255,0.62)',
-  전설: 'rgba(244,220,132,0.7)',
-}
-
-function getItemRarity(id: string, category: '재료' | '기타'): ItemRarity {
-  if (category === '재료') return '일반'
-  if (id === 'soul' || id === 'final_trace') return '전설'
-  if (id === 'forest_trace' || id === 'wind_trace') return '레어'
-  if (id === 'lake_trace' || id === 'ruins_trace') return '에픽'
-  return '일반'
-}
 
 function playSfx(path: string, volume = 0.75) {
   try {
@@ -118,10 +79,13 @@ export default function AdventureMapScreen({
 
     const traceItemId = TRACE_ITEM_BY_STAGE[stage]
     const traceDef = getItemDef(traceItemId)
-    const soulDef = getItemDef('soul')
+    const fragmentItemId = SPIRIT_FRAGMENT_ITEM_BY_STAGE[stage]
+    const fragmentDef = getItemDef(fragmentItemId)
 
-    const traceCount = 1 + Math.floor(Math.random() * 2)
-    const soulCount = Math.random() < 0.72 ? 1 + Math.floor(Math.random() * 2) : 0
+    const traceCount = EXPEDITION_REWARD_DRAFT.traceDropAmountMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.traceDropAmountMax - EXPEDITION_REWARD_DRAFT.traceDropAmountMin + 1))
+    const fragmentCount = Math.random() < EXPEDITION_REWARD_DRAFT.spiritFragmentDropChance
+      ? EXPEDITION_REWARD_DRAFT.spiritFragmentDropAmountMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.spiritFragmentDropAmountMax - EXPEDITION_REWARD_DRAFT.spiritFragmentDropAmountMin + 1))
+      : 0
 
     const etcRewards: ExploreResult['etcRewards'] = []
     if (traceDef) {
@@ -130,16 +94,16 @@ export default function AdventureMapScreen({
         name: traceDef.name,
         count: traceCount,
         iconSrc: a(traceDef.icon ?? `assets/item/it/it_${traceDef.id}.png`),
-        rarity: getItemRarity(traceDef.id, '기타'),
+        rarity: getRarityByItemId(traceDef.id, '기타'),
       })
     }
-    if (soulDef && soulCount > 0) {
+    if (fragmentDef && fragmentCount > 0) {
       etcRewards.push({
-        id: soulDef.id,
-        name: soulDef.name,
-        count: soulCount,
-        iconSrc: a(soulDef.icon ?? 'assets/item/it/it_soul.png'),
-        rarity: getItemRarity(soulDef.id, '기타'),
+        id: fragmentDef.id,
+        name: fragmentDef.name,
+        count: fragmentCount,
+        iconSrc: a(fragmentDef.icon ?? 'assets/item/it/it_soul.png'),
+        rarity: getRarityByItemId(fragmentDef.id, '기타'),
       })
     }
 
@@ -151,7 +115,7 @@ export default function AdventureMapScreen({
         count: materialTotal,
         iconSrc: a(`assets/item/it/it_${matDef.id}.png`),
         category: '재료',
-        rarity: getItemRarity(matDef.id, '재료'),
+        rarity: getRarityByItemId(matDef.id, '재료'),
       })
     }
     for (const reward of etcRewards) {
@@ -169,7 +133,7 @@ export default function AdventureMapScreen({
       exp: baseExp * TOTAL_EXPLORES + Math.floor(Math.random() * (12 + stage * 3)),
       gold: baseGold * TOTAL_EXPLORES + Math.floor(Math.random() * (30 + stage * 8)),
       materials: materialTotal,
-      gems: Math.floor(Math.random() * 2),
+      mana: EXPEDITION_REWARD_DRAFT.manaRewardMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.manaRewardMax - EXPEDITION_REWARD_DRAFT.manaRewardMin + 1)),
       etcRewards,
       itemRewards,
     }
@@ -211,7 +175,7 @@ export default function AdventureMapScreen({
           setResult(nextResult)
           setShowResult(true)
           resultTimerRef.current = null
-        }, 700)
+        }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
       }
       return next
     })
@@ -413,17 +377,19 @@ function ResultModal({
   onGoCraft: () => void
   onBackToExpedition: () => void
 }) {
+  const [selectedLootId, setSelectedLootId] = useState<string | null>(null)
+
   useEffect(() => {
     playSfx(RESULT_POP_SFX_PATH, 0.9)
   }, [])
 
-  const rows: Array<{ label: string; value: number; iconSrc?: string; rarity?: ItemRarity }> = [
+  const rows: Array<{ label: string; value: number; iconSrc?: string; rarity?: SpiritRarity }> = [
     { label: '경험치', value: result.exp, iconSrc: a('assets/particle/exp.png') },
     { label: '골드', value: result.gold, iconSrc: a('assets/particle/money.png') },
-    { label: '보석', value: result.gems, iconSrc: a('assets/particle/gem.png') },
+    { label: '마나', value: result.mana, iconSrc: a('assets/particle/gem.png') },
     { label: '재료', value: result.materials, iconSrc: a('assets/particle/in_icon.png') },
     ...result.etcRewards.map((reward) => ({
-      label: reward.name,
+      label: `[${SPIRIT_RARITY_TOKENS[reward.rarity].ko}]${reward.name}`,
       value: reward.count,
       iconSrc: undefined,
       rarity: reward.rarity,
@@ -450,7 +416,7 @@ function ResultModal({
           <div className="relative z-[1] text-[#efd8ab] text-[18px] font-extrabold tracking-wide">탐색 결과</div>
 
           <div className="relative z-[1] mt-[10px] w-full max-w-[360px] space-y-2 text-[14px]">
-            {rows.map((row: { label: string; value: number; iconSrc?: string; rarity?: ItemRarity }, idx) => (
+            {rows.map((row: { label: string; value: number; iconSrc?: string; rarity?: SpiritRarity }, idx) => (
               <AnimatedResultRow
                 key={row.label}
                 label={row.label}
@@ -464,14 +430,25 @@ function ResultModal({
           <div className="relative z-[1] mt-2 w-full max-w-[360px] rounded-md border border-white/20 bg-black/20 p-2">
             <div className="grid grid-cols-6 gap-1.5">
               {lootRows.map((loot) => (
-                <div
+                <button
                   key={`${loot.id}`}
-                  className={`relative aspect-square rounded-sm px-1 py-1 flex items-center justify-center bg-center bg-cover bg-no-repeat ${RARITY_COLOR[loot.rarity].lootClass}`}
+                  type="button"
+                  onClick={() => {
+                    playSfx(TAP_SFX_PATH, 0.78)
+                    setSelectedLootId((current) => (current === loot.id ? null : loot.id))
+                  }}
+                  className={`relative aspect-square rounded-sm px-1 py-1 flex items-center justify-center bg-center bg-cover bg-no-repeat ${RESULT_RARITY_UI[loot.rarity].lootClass}`}
                   style={{
                     backgroundImage: `url(${a('assets/background/item_bg.png')})`,
-                    borderColor: RARITY_BORDER_COLOR[loot.rarity],
+                    borderColor: RESULT_RARITY_UI[loot.rarity].borderColor,
                   }}
+                  aria-label={`${loot.name} 상세 보기`}
                 >
+                  {selectedLootId === loot.id && (
+                    <div className="absolute left-1/2 bottom-[calc(100%+6px)] z-[3] -translate-x-1/2 whitespace-nowrap rounded-md border border-[#ead7ae]/35 bg-[rgba(9,10,24,0.94)] px-2.5 py-1 text-[11px] font-semibold text-[#f2dfb2] shadow-[0_10px_24px_rgba(0,0,0,0.38)]">
+                      {loot.name}
+                    </div>
+                  )}
                   <img
                     src={loot.iconSrc}
                     alt=""
@@ -485,7 +462,7 @@ function ResultModal({
                   <span className="absolute right-[4px] bottom-[4px] min-w-[16px] px-1 h-[14px] rounded-full border border-[#b7afe1]/25 bg-[rgba(10,12,30,0.82)] text-[9px] font-semibold text-[#ebc8ab] leading-[12px] text-center pointer-events-none select-none tabular-nums">
                     {loot.count}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -543,7 +520,7 @@ function AnimatedResultRow({
   label: string
   targetValue: number
   iconSrc?: string
-  rarity?: ItemRarity
+  rarity?: SpiritRarity
   delay: number
 }) {
   const [value, setValue] = useState(0)
@@ -581,13 +558,13 @@ function AnimatedResultRow({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut', delay }}
-      className={`flex items-center justify-between rounded-lg px-3 py-2 ${rarity ? RARITY_COLOR[rarity].rowClass : 'bg-white/[0.04] border border-white/10'}`}
+      className={`flex items-center justify-between rounded-lg px-3 py-2 ${rarity ? RESULT_RARITY_UI[rarity].rowClass : 'bg-white/[0.04] border border-white/10'}`}
     >
-      <span className={`flex items-center gap-1.5 ${rarity ? RARITY_COLOR[rarity].textClass : 'text-white'}`}>
+      <span className={`flex items-center gap-1.5 ${rarity ? RESULT_RARITY_UI[rarity].textClass : 'text-white'}`}>
         {iconSrc && <img src={iconSrc} alt="" className="w-4 h-4" draggable={false} />}
         {label}
       </span>
-      <span className={`font-bold tabular-nums ${rarity ? RARITY_COLOR[rarity].valueClass : 'text-white'}`}>+{value}</span>
+      <span className={`font-bold tabular-nums ${rarity ? RESULT_RARITY_UI[rarity].valueClass : 'text-white'}`}>+{value}</span>
     </motion.div>
   )
 }

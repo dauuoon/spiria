@@ -5,6 +5,7 @@ import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
 import { useEffect, useMemo, useState } from 'react'
+import { MANA_PER_EXPLORE } from '../data/constants'
 
 type MapScreen = 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
@@ -28,15 +29,15 @@ function playTapSfx() {
 export default function ExpeditionScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const level = useAppStore(s => s.level)
-  const energy = useAppStore(s => s.energy)
-  const energyMax = useAppStore(s => s.energyMax)
-  const nextRegenAt = useAppStore(s => s.nextRegenAt)
-  const recomputeEnergy = useAppStore(s => s.recomputeEnergy)
-  const spendEnergy = useAppStore(s => s.spendEnergy)
+  const mana = useAppStore(s => s.mana)
+  const maxMana = useAppStore(s => s.maxMana)
+  const manaUpdatedAt = useAppStore(s => s.manaUpdatedAt)
+  const recomputeMana = useAppStore(s => s.recomputeMana)
+  const spendMana = useAppStore(s => s.spendMana)
   const [entryTarget, setEntryTarget] = useState<EntryTarget | null>(null)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const isUnlocked = (stage: number) => level >= DUNGEONS[stage - 1]?.unlockLv
-  const hasEnergy = energy > 0
+  const hasMana = mana > 0
   const playLockSfx = () => {
     try {
       const audio = new Audio(a('assets/sound/lock.mp3'))
@@ -49,13 +50,14 @@ export default function ExpeditionScreen() {
 
   const requestEnter = (stage: number, screen: MapScreen) => {
     if (!isUnlocked(stage)) { playLockSfx(); return }
-    if (!hasEnergy) { playLockSfx(); return }
+    if (!hasMana) { playLockSfx(); return }
     setEntryTarget({ stage, screen })
   }
 
   const confirmEnter = () => {
     if (!entryTarget) return
-    const ok = spendEnergy(1)
+    const manaCost = DUNGEONS[entryTarget.stage - 1]?.manaCost ?? MANA_PER_EXPLORE
+    const ok = spendMana(manaCost)
     if (ok) {
       setScreen(entryTarget.screen)
       setEntryTarget(null)
@@ -235,19 +237,20 @@ export default function ExpeditionScreen() {
           </motion.div>
         </motion.button>
       </div>
-      {/* bottom overlays: energy count and timer */}
+      {/* bottom overlays: mana count and timer */}
       <EnergyOverlays
         a={a}
-        energy={energy}
-        max={energyMax}
-        nextRegenAt={nextRegenAt}
-        onTick={recomputeEnergy}
+        mana={mana}
+        maxMana={maxMana}
+        manaUpdatedAt={manaUpdatedAt}
+        onTick={recomputeMana}
       />
 
       {entryTarget && (
         <MapEntryModal
           a={a}
           mapName={DUNGEONS[entryTarget.stage - 1]?.name ?? `${entryTarget.stage}단계`}
+          manaCost={DUNGEONS[entryTarget.stage - 1]?.manaCost ?? MANA_PER_EXPLORE}
           onCancel={() => setEntryTarget(null)}
           onConfirm={confirmEnter}
         />
@@ -259,11 +262,13 @@ export default function ExpeditionScreen() {
 function MapEntryModal({
   a,
   mapName,
+  manaCost,
   onCancel,
   onConfirm,
 }: {
   a: (p: string) => string
   mapName: string
+  manaCost: number
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -282,8 +287,8 @@ function MapEntryModal({
             <span className="text-[#efdcaf] font-semibold">{mapName}</span> 입장 시 아래 비용이 소요됩니다.
           </p>
           <div className="mt-2 mb-[20px] flex items-center justify-center gap-2 text-[#877cf1] font-bold text-[14px] -translate-x-[5px]">
-            <img src={a('assets/particle/gem.png')} alt="보석" className="w-4 h-4 translate-y-[2px]" draggable={false} />
-            <span>-1개</span>
+            <img src={a('assets/particle/gem.png')} alt="마나" className="w-4 h-4 translate-y-[2px]" draggable={false} />
+            <span>-{manaCost}개</span>
           </div>
 
           <div className="flex items-center justify-center gap-2">
@@ -329,11 +334,11 @@ function MapEntryModal({
   )
 }
 
-function EnergyOverlays({ a, energy, max, nextRegenAt, onTick }: {
+function EnergyOverlays({ a, mana, maxMana, manaUpdatedAt, onTick }: {
   a: (p: string) => string
-  energy: number
-  max: number
-  nextRegenAt: number | null
+  mana: number
+  maxMana: number
+  manaUpdatedAt: number | null
   onTick: () => void
 }) {
   const [now, setNow] = useState(() => Date.now())
@@ -346,9 +351,9 @@ function EnergyOverlays({ a, energy, max, nextRegenAt, onTick }: {
   }, [onTick])
 
   const timeLeftMs = useMemo(() => {
-    if (!nextRegenAt || energy >= max) return 0
-    return Math.max(0, nextRegenAt - now)
-  }, [nextRegenAt, now, energy, max])
+    if (!manaUpdatedAt || mana >= maxMana) return 0
+    return Math.max(0, manaUpdatedAt - now)
+  }, [manaUpdatedAt, now, mana, maxMana])
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000)
@@ -368,8 +373,8 @@ function EnergyOverlays({ a, energy, max, nextRegenAt, onTick }: {
           <div className="absolute inset-0 flex flex-col justify-center pl-20 pr-8 translate-y-[17px] rotate-[8deg] origin-left">
             <div className="text-[#000000] drop-shadow-sm text-[14px] leading-none opacity-90">탐험 가능 횟수</div>
             <div className="mt-1 flex items-center gap-1">
-              <img src={a('assets/particle/gem.png')} alt="보석" className="w-4 h-4" draggable={false} />
-              <div className="text-black text-xl font-semibold tracking-wide">{energy}/{max}</div>
+              <img src={a('assets/particle/gem.png')} alt="마나" className="w-4 h-4" draggable={false} />
+              <div className="text-black text-xl font-semibold tracking-wide">{mana}/{maxMana}</div>
             </div>
           </div>
         </div>
@@ -382,7 +387,7 @@ function EnergyOverlays({ a, energy, max, nextRegenAt, onTick }: {
           <div className="absolute inset-0 flex flex-col items-center justify-center pb-0.9">
             <div className="text-[#EDE7FF] text-[14px] opacity-90">마력 회복까지</div>
             <div className="mt-0.5 text-white text-xl font-semibold tracking-wide">
-              {energy >= max ? 'MAX' : fmt(timeLeftMs)}
+              {mana >= maxMana ? 'MAX' : fmt(timeLeftMs)}
             </div>
           </div>
         </div>

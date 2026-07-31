@@ -12,8 +12,8 @@ export default function MainScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const setProgress = useAppStore(s => s.setProgress)
   const coins = useAppStore(s => s.coins)
-  const energy = useAppStore(s => s.energy)
-  const recomputeEnergy = useAppStore(s => s.recomputeEnergy)
+  const mana = useAppStore(s => s.mana)
+  const recomputeMana = useAppStore(s => s.recomputeMana)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [storeModalOpen, setStoreModalOpen] = useState(false)
@@ -27,11 +27,11 @@ export default function MainScreen() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  // Keep energy (gem) display in sync on main screen as well
+  // Keep mana display in sync on main screen as well.
   useEffect(() => {
-    const id = setInterval(() => recomputeEnergy(), 1000)
+    const id = setInterval(() => recomputeMana(), 1000)
     return () => clearInterval(id)
-  }, [recomputeEnergy])
+  }, [recomputeMana])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -87,7 +87,7 @@ export default function MainScreen() {
       {/* dim overlay for readability */}
       <div className="absolute inset-0 bg-black/20" />
 
-      {/* Top-right currency badges (coin + gem), no plus button */}
+      {/* Top-right currency badges (coin + mana), no plus button */}
       <div className="absolute top-[32px] right-[17px] z-10 flex items-center gap-2">
         <motion.button
           type="button"
@@ -106,13 +106,13 @@ export default function MainScreen() {
           type="button"
           whileTap={{ scale: 0.96 }}
           className="flex items-center gap-2 rounded-full px-3 py-1.5 bg-[rgba(10,12,30,0.55)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_24px_rgba(0,0,0,0.25)]"
-          aria-label="보석"
+          aria-label="마나"
         >
           <span className="relative inline-flex w-5 h-5 items-center justify-center">
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(155,203,255,0.5),rgba(155,203,255,0)_70%)] blur-[6px]" />
-            <img src={a('assets/particle/gem.png')} alt="gem" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(155,203,255,0.35)]" />
+            <img src={a('assets/particle/gem.png')} alt="mana" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(155,203,255,0.35)]" />
           </span>
-          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{energy}</span>
+          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{mana}</span>
         </motion.button>
       </div>
 

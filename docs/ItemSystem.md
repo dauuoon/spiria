@@ -1,45 +1,66 @@
 # Item System
 
-## 1) 아이템 구조
-- 재료 아이템(12종): 정령 조합 재료
-- 기타 아이템:
-  - 정령의 조각 (`soul`): 대표 이미지 1개 사용
-    - 이미지: `public/assets/item/it/it_soul.png`
-  - 지역의 흔적(히든 스테이지 진입용 누적 아이템)
-    - 별빛 숲속 -> 숲의 잔향 (`forest_trace`)
-      - 이미지: `public/assets/item/it/it_forestmap.png`
-    - 바람의 협곡 -> 바람의 메아리 (`wind_trace`)
-      - 이미지: `public/assets/item/it/it_windmap.png`
-    - 얼어붙은 설원 -> 설원의 기억 (`lake_trace`)
-      - 이미지: `public/assets/item/it/it_lakemap.png`
-    - 화염의 산맥 -> 화염의 잔재 (`ruins_trace`)
-      - 이미지: `public/assets/item/it/it_ruinsmap.png`
-    - 어둠의 습지 -> 어둠의 흔적 (`final_trace`)
-      - 이미지: `public/assets/item/it/it_finalmap.png`
+## 1. 분류 체계
 
-## 2) 보상 반영 로직
-- 탐색 완료(10회) 시 보상 생성:
-  - 재료: 12종 중 1종 랜덤 + 수량
-  - 기타: 현재 스테이지의 지역 흔적 + 확률 기반 정령의 조각
-- 생성된 보상은 즉시 인벤토리에 누적 반영
-- 탐색 결과창 하단 보상 박스는 실제 획득한 아이템 이미지를 표시
+- Crafting Materials: 정령 제작 재료
+- Currency and Progression: EXP, Gold, Mana
+- Spirit Fragments: 정령 해금용 조각
+- Region Traces: 지역 Hidden Stage 입장 재료
 
-## 3) 인벤토리(가방) 표시 규칙
-- 4x4 그리드 배치
-- 모든 아이템 타일은 `item_bg` 위에 아이템 이미지를 오버레이
-- 수량은 둥근 배지(숫자)로 표기
-- 아이템명은 이미지 하단 4px 아래에 표기
+## 2. Crafting Materials (12종)
 
-## 4) 제작 화면 규칙
-- 제작 화면 재료는 기존 상태 이미지(`in_<id>_on/off/dis`)를 유지
-- 제작 화면에서는 `item_bg`를 사용하지 않음
+런타임 데이터: `src/data/items.ts`의 `CRAFTING_MATERIALS`
 
-## 5) 테스트 환경
-- 개발 모드(`import.meta.env.DEV`)에서 인벤토리에 샘플 아이템이 자동 주입되어 가방 UI/필터/표시를 빠르게 검증할 수 있음
-- 샘플 값은 `src/lib/store.ts`의 `createInitialInventory()`에서 관리
+- Nature: 꽃(`flower`), 잎(`leaf`), 흙(`soil`)
+- Element: 물(`water`), 불(`fire`), 바람(`wind`)
+- Sky: 별(`star`), 달(`moon`), 태양(`light`)
+- Mystic: 마법(`magic`), 에테르(`ether`), 젬(`gem`)
 
-## 6) 확장 포인트
-- 조각/흔적 누적 임계치는 데이터 상수로 관리
-  - `SOUL_UNLOCK_THRESHOLD`
-  - `TRACE_UNLOCK_THRESHOLD`
-- 실제 정령 해금/히든 스테이지 입장 판정은 위 상수를 기준으로 연결 가능
+규칙:
+
+- 카테고리는 데이터 관리/확장용이며 현재 UI에는 카테고리명을 노출하지 않는다.
+- 제작 재료 보석은 `Gem / 젬 / gem`으로 통일한다.
+
+## 3. Currency and Progression
+
+런타임 데이터: `src/lib/store.ts`, `src/data/constants.ts`
+
+- EXP: 레벨 성장에 사용, 인벤토리 아이템으로 저장하지 않음
+- Gold: 일반 재화, 내부 ID `gold`
+- Mana: 탐험 에너지, 내부 ID `mana`
+
+Gem과 Mana 구분:
+
+- `inventory.gem`: 제작 재료 젬
+- `player.mana`(store state): 탐험 에너지
+
+## 4. Spirit Fragments
+
+런타임 데이터: `src/data/progression.ts`의 `SPIRIT_FRAGMENTS`
+
+- 조각은 정령 단위로 관리한다.
+- 각 조각은 `fragmentId`, `spiritId`, `ownedAmount`, `requiredAmount`를 가진다.
+- 현재 해금 필요 수량은 모든 정령에 대해 100이다.
+
+## 5. Region Traces
+
+런타임 데이터: `src/data/progression.ts`의 `REGION_TRACES`
+
+- 별빛 숲속: 숲의 잔향(`forest_trace`)
+- 바람의 협곡: 바람의 메아리(`wind_trace`)
+- 얼어붙은 설원: 설원의 기억(`lake_trace`)
+- 화염의 산맥: 화염의 잔재(`ruins_trace`)
+- 어둠의 습지: 어둠의 흔적(`final_trace`)
+
+각 흔적은 Hidden Stage 입장 요구 수량 20을 사용한다.
+
+## 6. 희귀도 토큰
+
+런타임 데이터: `src/data/rarity.ts`의 `SPIRIT_RARITY_TOKENS`
+
+- Common: main `#C2C7D1`, border `#B8BEC9`
+- Rare: main `#5FBFFF`, border `#67B8FF`
+- Epic: main `#A894FF`, border `#8A73F5`
+- Legendary: main `#F6E7A8`, border `#E7C55B`
+
+해당 토큰은 인벤토리/결과/정령 관련 UI에서 공통으로 사용한다.

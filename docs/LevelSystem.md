@@ -38,7 +38,14 @@
 | 50 | 79 | 4 | 3 | 12 |
 | 80 | 99 | 5 | 3 | 15 |
 
-런타임 기준 함수는 `src/data/economy.ts`의 `getSpiritCraftCostByLevel(level)`을 사용한다.
+런타임 기준:
+
+- `src/data/economy.ts`의 `CRAFTING_COST_TIERS`
+- `src/data/economy.ts`의 `getSpiritCraftCostByLevel(level)`
+
+주의:
+
+- 제작 비용은 정령 희귀도가 아니라 플레이어 레벨 구간으로만 결정한다.
 
 ---
 
@@ -67,6 +74,8 @@
 - 일부 해금 알림
 
 레벨 컬러는 정령 등급 컬러와 별개의 체계로 관리한다.
+
+정령 희귀도 컬러 토큰은 `src/data/rarity.ts`의 `SPIRIT_RARITY_TOKENS`에서 별도로 관리한다.
 
 ---
 
