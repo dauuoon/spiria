@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import LoadingScreen from './components/LoadingScreen'
 import MainScreen from './components/MainScreen'
 import ExpeditionScreen from './components/ExpeditionScreen'
@@ -64,6 +64,31 @@ export default function App() {
 
       {/* Global tap SFX (plays on pointerdown / Enter / Space) */}
       <TapSfx />
+
+      {/* Resolution guard overlay (height <= 874px) */}
+      <ResolutionOverlay />
+    </div>
+  )
+}
+
+function ResolutionOverlay() {
+  const [tooSmall, setTooSmall] = useState(false)
+  useEffect(() => {
+    const check = () => setTooSmall(window.innerHeight <= 874)
+    check()
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    return () => {
+      window.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', check)
+    }
+  }, [])
+  if (!tooSmall) return null
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-[1px] flex items-center justify-center select-none">
+      <div className="text-center px-6">
+        <p className="text-white text-[16px] sm:text-[18px] font-semibold tracking-wide">해상도가 제한됩니다.</p>
+      </div>
     </div>
   )
 }
