@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useState } from 'react'
 import useAppStore from '../lib/store'
 import SoftGlow from './SoftGlow'
@@ -11,20 +11,25 @@ export default function BookScreen() {
   const filters = ['전체','발견','미발견'] as const
   const [tab, setTab] = useState<(typeof filters)[number]>('전체')
 
-  type Card = { name: string; img: string; discovered: boolean }
+  type Card = { id: string; name: string; img: string; discovered: boolean }
   const baseDiscovered: readonly Card[] = [
-    { name: '소요', img: 'assets/codex/soyo.png', discovered: true },
-    { name: '루아', img: 'assets/codex/rua.png', discovered: true },
-    { name: '플레오', img: 'assets/codex/pleo.png', discovered: true },
-    { name: '스텔리오', img: 'assets/codex/stellio.png', discovered: true },
-    { name: '포리나', img: 'assets/codex/porina.png', discovered: true },
-    { name: '누비', img: 'assets/codex/nubi.png', discovered: true },
-    { name: '???', img: '', discovered: false },
-    { name: '???', img: '', discovered: false },
-    { name: '???', img: '', discovered: false },
+    { id: 'spirit_soyo', name: '소요', img: 'assets/codex/soyo.png', discovered: true },
+    { id: 'spirit_rua', name: '루아', img: 'assets/codex/rua.png', discovered: true },
+    { id: 'spirit_pleo', name: '플레오', img: 'assets/codex/pleo.png', discovered: true },
+    { id: 'spirit_stellio', name: '스텔리오', img: 'assets/codex/stellio.png', discovered: true },
+    { id: 'spirit_porina', name: '포리나', img: 'assets/codex/porina.png', discovered: true },
+    { id: 'spirit_nubi', name: '누비', img: 'assets/codex/nubi.png', discovered: true },
+    { id: 'spirit_unknown_1', name: '???', img: '', discovered: false },
+    { id: 'spirit_unknown_2', name: '???', img: '', discovered: false },
+    { id: 'spirit_unknown_3', name: '???', img: '', discovered: false },
   ] as const
   const totalCount = 220
-  const fillers: Card[] = Array.from({ length: totalCount - baseDiscovered.length }, () => ({ name: '???', img: '', discovered: false }))
+  const fillers: Card[] = Array.from({ length: totalCount - baseDiscovered.length }, (_, idx) => ({
+    id: `spirit_unknown_filler_${idx + 1}`,
+    name: '???',
+    img: '',
+    discovered: false,
+  }))
   const allCards: Card[] = [...baseDiscovered, ...fillers]
   const discoveredCount = allCards.reduce((acc, c) => acc + (c.discovered ? 1 : 0), 0)
   const undiscoveredCount = allCards.length - discoveredCount
@@ -116,15 +121,21 @@ export default function BookScreen() {
         {/* top overlay image moved outside scroll; keep spacer if needed */}
 
         {/* 3-col grid placeholder: positioned well under the top overlay */}
-        <div className="grid grid-cols-3 gap-3 mt-[10px] pb-6 relative z-[1]">
-          {filteredCards.map((c, idx) => (
-            <motion.button
-              key={idx}
-              type="button"
-              whileTap={{ scale: 0.96, y: 1 }}
-              className="relative rounded-xl aspect-[3/4] overflow-hidden block w-full bg-transparent border-0 p-0 select-none focus:outline-none cursor-pointer"
-              aria-label={c.discovered ? c.name : '미발견 슬롯'}
-            >
+        <motion.div layout className="grid grid-cols-3 gap-3 mt-[10px] pb-6 relative z-[1]">
+          <AnimatePresence initial={false} mode="popLayout">
+            {filteredCards.map((c) => (
+              <motion.button
+                key={c.id}
+                layout
+                type="button"
+                whileTap={{ scale: 0.96, y: 1 }}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="relative rounded-xl aspect-[3/4] overflow-hidden block w-full bg-transparent border-0 p-0 select-none focus:outline-none cursor-pointer"
+                aria-label={c.discovered ? c.name : '미발견 슬롯'}
+              >
               {/* card frame background */}
               <img
                 aria-hidden
@@ -172,9 +183,10 @@ export default function BookScreen() {
                   {c.discovered ? c.name : '???'}
                 </span>
               </div>
-            </motion.button>
-          ))}
-        </div>
+              </motion.button>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       </div>
 
       {/* particles layer like main */}

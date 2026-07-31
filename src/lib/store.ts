@@ -20,6 +20,9 @@ type AppState = {
   setItemCount: (id: string, count: number) => void
   addItem: (id: string, delta?: number) => void
   consumeItem: (id: string, delta?: number) => void
+  coins: number
+  addCoins: (delta?: number) => void
+  spendCoins: (delta?: number) => number
 }
 
 const loadEnergy = () => {
@@ -42,6 +45,27 @@ const saveEnergy = (energy: number, nextRegenAt: number | null) => {
 
 const ENERGY_MAX = 5
 const ENERGY_REGEN_MS = 20 * 60 * 1000
+const INITIAL_COINS = 1250
+
+const createInitialInventory = () => {
+  const base = Object.fromEntries(ITEMS.map(it => [it.id, 0])) as Record<string, number>
+
+  // Keep a richer local test state so bag UI/filters can be verified quickly.
+  if (import.meta.env.DEV) {
+    Object.assign(base, {
+      flower: 5,
+      leaf: 3,
+      water: 4,
+      fire: 2,
+      gem: 1,
+      soul: 6,
+      forest_trace: 2,
+      wind_trace: 1,
+    })
+  }
+
+  return base
+}
 
 const useAppStore = create<AppState>((set, get) => ({
   progress: 0,
@@ -84,7 +108,16 @@ const useAppStore = create<AppState>((set, get) => ({
     saveEnergy(newEnergy, nextRegenAt)
     set({ energy: newEnergy, nextRegenAt })
   },
-  inventory: Object.fromEntries(ITEMS.map(it => [it.id, 0])),
+  coins: INITIAL_COINS,
+  addCoins: (delta = 0) => set((st) => ({ coins: Math.max(0, st.coins + Math.max(0, Math.floor(delta))) })),
+  spendCoins: (delta = 0) => {
+    const amount = Math.max(0, Math.floor(delta))
+    const current = get().coins
+    const spent = Math.min(current, amount)
+    set({ coins: current - spent })
+    return spent
+  },
+  inventory: createInitialInventory(),
   setItemCount: (id, count) => set((st) => ({ inventory: { ...st.inventory, [id]: Math.max(0, Math.floor(count)) } })),
   addItem: (id, delta = 1) => set((st) => ({ inventory: { ...st.inventory, [id]: Math.max(0, (st.inventory[id] ?? 0) + delta) } })),
   consumeItem: (id, delta = 1) => set((st) => ({ inventory: { ...st.inventory, [id]: Math.max(0, (st.inventory[id] ?? 0) - delta) } })),

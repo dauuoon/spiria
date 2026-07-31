@@ -4,11 +4,14 @@ import { useEffect, useRef } from 'react'
 // Uses WebAudio for low-latency playback and BASE_URL for correct path.
 export default function TapSfx() {
   const ctxRef = useRef<AudioContext | null>(null)
-  const bufferRef = useRef<AudioBuffer | null>(null)
+  const tapBufferRef = useRef<AudioBuffer | null>(null)
+  const lockBufferRef = useRef<AudioBuffer | null>(null)
   const gainRef = useRef<GainNode | null>(null)
-  const loadingRef = useRef(false)
+  const loadingTapRef = useRef(false)
+  const loadingLockRef = useRef(false)
 
-  const srcUrl = `${import.meta.env.BASE_URL}assets/sound/tap.mp3`
+  const tapSrcUrl = `${import.meta.env.BASE_URL}assets/sound/tap.mp3`
+  const lockSrcUrl = `${import.meta.env.BASE_URL}assets/sound/lock.mp3`
 
   const ensureContext = async () => {
     if (!ctxRef.current) {
@@ -29,27 +32,43 @@ export default function TapSfx() {
     }
   }
 
-  const ensureBuffer = async () => {
-    if (bufferRef.current || loadingRef.current) return
-    loadingRef.current = true
+  const ensureTapBuffer = async () => {
+    if (tapBufferRef.current || loadingTapRef.current) return
+    loadingTapRef.current = true
     try {
-      const res = await fetch(srcUrl)
+      const res = await fetch(tapSrcUrl)
       const arr = await res.arrayBuffer()
       await ensureContext()
       if (!ctxRef.current) return
       const buf = await ctxRef.current.decodeAudioData(arr)
-      bufferRef.current = buf
+      tapBufferRef.current = buf
     } finally {
-      loadingRef.current = false
+      loadingTapRef.current = false
     }
   }
 
-  const playTap = async () => {
+  const ensureLockBuffer = async () => {
+    if (lockBufferRef.current || loadingLockRef.current) return
+    loadingLockRef.current = true
+    try {
+      const res = await fetch(lockSrcUrl)
+      const arr = await res.arrayBuffer()
+      await ensureContext()
+      if (!ctxRef.current) return
+      const buf = await ctxRef.current.decodeAudioData(arr)
+      lockBufferRef.current = buf
+    } finally {
+      loadingLockRef.current = false
+    }
+  }
+
+  const playBuffer = async (kind: 'tap' | 'lock') => {
     await ensureContext()
-    await ensureBuffer()
+    if (kind === 'tap') await ensureTapBuffer()
+    else await ensureLockBuffer()
     const ctx = ctxRef.current
     const gain = gainRef.current
-    const buf = bufferRef.current
+    const buf = kind === 'tap' ? tapBufferRef.current : lockBufferRef.current
     if (!ctx || !buf || !gain) return
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -59,6 +78,23 @@ export default function TapSfx() {
     } catch {
       // ignore start race
     }
+  }
+
+  const isDisabledTarget = (e: Event) => {
+    const anyE = e as any
+    const path: any[] = typeof anyE.composedPath === 'function' ? anyE.composedPath() : []
+    const nodes: any[] = path.length ? path : [e.target]
+
+    for (const n of nodes) {
+      if (!(n instanceof Element)) continue
+
+      if (n instanceof HTMLButtonElement && n.disabled) return true
+
+      if (n.getAttribute('aria-disabled') === 'true') return true
+      if (n.getAttribute('data-disabled') === 'true') return true
+    }
+
+    return false
   }
 
   useEffect(() => {
@@ -80,11 +116,15 @@ export default function TapSfx() {
       return false
     }
     const onPointerDown = (e: PointerEvent) => {
+      if (isDisabledTarget(e)) {
+        void playBuffer('lock')
+        return
+      }
       if (shouldSuppress(e)) return
-      void playTap()
+      void playBuffer('tap')
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Enter' || e.code === 'Space') void playTap()
+      if (e.code === 'Enter' || e.code === 'Space') void playBuffer('tap')
     }
     window.addEventListener('pointerdown', onPointerDown, { capture: true })
     window.addEventListener('keydown', onKeyDown, { capture: true })

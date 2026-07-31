@@ -27,6 +27,7 @@ export interface DungeonBaseReward {
 export interface ItemDef {
   id: string
   name: string
+  category: '재료' | '기타'
   icon?: string // optional: inventory icon image path under public/assets
   // rarity, price, etc. are TBD and should be filled when confirmed in balance
   rarity?: string // TBD
@@ -71,6 +72,21 @@ export interface RecipeDef {
 
 export interface EconomySettings {
   mainColor: HexColor
+}
+
+export interface CraftingMaterialCostRange {
+  minLevel: number
+  maxLevel: number
+  requiredPerMaterial: number
+  materialKinds: number
+}
+
+export interface CraftingMaterialCost {
+  minLevel: number
+  maxLevel: number
+  requiredPerMaterial: number
+  materialKinds: number
+  totalRequired: number
 }
 
 // Dungeon definitions for Expedition

@@ -11,6 +11,7 @@ export default function MainScreen() {
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const setScreen = useAppStore(s => s.setScreen)
   const setProgress = useAppStore(s => s.setProgress)
+  const coins = useAppStore(s => s.coins)
   const energy = useAppStore(s => s.energy)
   const recomputeEnergy = useAppStore(s => s.recomputeEnergy)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -98,7 +99,7 @@ export default function MainScreen() {
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(255,214,99,0.55),rgba(255,214,99,0)_70%)] blur-[6px]" />
             <img src={a('assets/particle/money.png')} alt="coin" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(227,189,135,0.35)]" />
           </span>
-          <span className="text-white/90 text-[14px] font-semibold tabular-nums">1,250</span>
+          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{coins.toLocaleString()}</span>
         </motion.button>
 
         <motion.button

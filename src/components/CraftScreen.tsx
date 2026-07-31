@@ -4,24 +4,44 @@ import useAppStore from '../lib/store'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
+import { getSpiritCraftCostByLevel } from '../data/economy'
 
 // Inventory counts are TBD; UI focuses on selection layout (3x4 grid)
 // When counts become available, wire them from store/state.
 
 export default function CraftScreen() {
   const setScreen = useAppStore(s => s.setScreen)
+  const inventory = useAppStore(s => s.inventory)
+  const level = useAppStore(s => s.level)
+  const consumeItem = useAppStore(s => s.consumeItem)
+  const spendCoins = useAppStore(s => s.spendCoins)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const [selected, setSelected] = useState<string[]>([])
   const [questIndex, setQuestIndex] = useState(0)
+  const [acceptedQuestId, setAcceptedQuestId] = useState<string | null>(null)
+  const [isCraftStartPending, setIsCraftStartPending] = useState(false)
   const bubblingRef = useRef<HTMLAudioElement | null>(null)
   const PAPER_SFX_PATH = 'assets/sound/paper.mp3'
   const BUBBLING_SFX_PATH = 'assets/sound/bubbling.mp3'
+  const COIN_PENALTY_SFX_PATH = 'assets/sound/num_coin.mp3'
 
-  const questPages = [
-    '밤 안개 속에서 길을 잃은 이들을 위해, 은은하게 빛나는 등불이 되어줄 정령이 필요해요.',
-    '깊은 숲의 균열에서 새어 나오는 냉기를 잠재울 수 있는 정령이 필요해요.',
-    '메마른 들판에 다시 숨결이 돌 수 있도록 따뜻한 기운의 정령을 빚어 주세요.',
-  ] as const
+  const [questPages, setQuestPages] = useState([
+    {
+      id: 'req_lumen',
+      spiritName: '소요',
+      text: '밤 안개 속에서 길을 잃은 이들을 위해, 은은하게 빛나는 등불이 되어줄 정령이 필요해요.',
+    },
+    {
+      id: 'req_frostseal',
+      spiritName: '루아',
+      text: '깊은 숲의 균열에서 새어 나오는 냉기를 잠재울 수 있는 정령이 필요해요.',
+    },
+    {
+      id: 'req_blossomwind',
+      spiritName: '플레오',
+      text: '메마른 들판에 다시 숨결이 돌 수 있도록 따뜻한 기운의 정령을 빚어 주세요.',
+    },
+  ])
 
   const craftMaterials = [
     { id: 'flower', name: '꽃' },
@@ -38,10 +58,40 @@ export default function CraftScreen() {
     { id: 'gem', name: '보석' },
   ] as const
 
-  const canCraft = selected.length === 3
   const matItems = craftMaterials
+  const craftBgColors = [
+    '#4E5EEA',
+    '#79D8C6',
+    '#E5C466',
+    '#B8BEC9',
+    '#866BFF',
+    '#6EBEFF',
+    '#8ED46B',
+    '#A894FF',
+    '#6A46E8',
+    '#F6E7A8',
+  ]
 
   const slots = useMemo(() => [0, 1, 2].map((i) => selected[i] ?? null), [selected])
+  const craftCost = useMemo(() => getSpiritCraftCostByLevel(level), [level])
+  const activeQuest = questPages[questIndex] ?? null
+  const acceptedQuest = useMemo(
+    () => (acceptedQuestId ? questPages.find((q) => q.id === acceptedQuestId) ?? null : null),
+    [questPages, acceptedQuestId],
+  )
+  const discoveredSpiritNames = useMemo(
+    () => new Set(['소요', '루아', '플레오', '스텔리오', '포리나', '누비']),
+    [],
+  )
+  const visibleTargetSpiritName = useMemo(() => {
+    if (!activeQuest) return '???'
+    return discoveredSpiritNames.has(activeQuest.spiritName) ? activeQuest.spiritName : '???'
+  }, [activeQuest, discoveredSpiritNames])
+  const selectedShortageIds = useMemo(
+    () => selected.filter((id) => (inventory[id] ?? 0) < craftCost.requiredPerMaterial),
+    [selected, inventory, craftCost.requiredPerMaterial],
+  )
+  const canCraft = selected.length === craftCost.materialKinds && selectedShortageIds.length === 0 && !isCraftStartPending
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -54,6 +104,48 @@ export default function CraftScreen() {
 
   const resetSelected = () => setSelected([])
 
+  const requestCraftStart = async (_materialIds: string[]) => {
+    await new Promise((resolve) => window.setTimeout(resolve, 120))
+    return true
+  }
+
+  const startCraft = async () => {
+    if (!canCraft || isCraftStartPending) return
+    if (questPages.length > 0 && !acceptedQuest) {
+      alert('먼저 의뢰를 수락해 주세요.')
+      return
+    }
+
+    const normalizedMaterialIds = [...selected].sort()
+    const targetQuest = acceptedQuest
+    setIsCraftStartPending(true)
+    try {
+      const started = await requestCraftStart(normalizedMaterialIds)
+      if (!started) return
+
+      const currentInventory = useAppStore.getState().inventory
+      const hasEnough = normalizedMaterialIds.every((id) => (currentInventory[id] ?? 0) >= craftCost.requiredPerMaterial)
+      if (!hasEnough) return
+
+      normalizedMaterialIds.forEach((id) => {
+        consumeItem(id, craftCost.requiredPerMaterial)
+      })
+
+      if (targetQuest) {
+        alert(`${targetQuest.spiritName} 제작이 시작되었습니다! 의뢰가 완료되었습니다.`)
+        setQuestPages((prev) => prev.filter((q) => q.id !== targetQuest.id))
+        setAcceptedQuestId(null)
+      } else {
+        alert('프로토타입: 정령 제작이 시작되었습니다!')
+      }
+      setSelected([])
+    } catch {
+      // do not consume materials when start request fails
+    } finally {
+      setIsCraftStartPending(false)
+    }
+  }
+
   const playPaperSfx = () => {
     try {
       const audio = new Audio(a(PAPER_SFX_PATH))
@@ -65,14 +157,51 @@ export default function CraftScreen() {
   }
 
   const goPrevQuest = () => {
+    if (questPages.length === 0) return
     playPaperSfx()
     setQuestIndex((i) => (i - 1 + questPages.length) % questPages.length)
   }
 
   const goNextQuest = () => {
+    if (questPages.length === 0) return
     playPaperSfx()
     setQuestIndex((i) => (i + 1) % questPages.length)
   }
+
+  const acceptQuest = () => {
+    if (!activeQuest) return
+    playPaperSfx()
+    setAcceptedQuestId(activeQuest.id)
+    alert(`의뢰 수락: ${activeQuest.spiritName} 제작을 시작하세요.`)
+  }
+
+  const rejectQuest = () => {
+    if (!activeQuest) return
+    playPaperSfx()
+    const rejected = activeQuest
+    setQuestPages((prev) => prev.filter((q) => q.id !== rejected.id))
+    if (acceptedQuestId === rejected.id) {
+      setAcceptedQuestId(null)
+    }
+    const spent = spendCoins(200)
+    try {
+      const audio = new Audio(a(COIN_PENALTY_SFX_PATH))
+      audio.volume = 0.86
+      void audio.play()
+    } catch {
+      // ignore audio failures
+    }
+    alert(`의뢰를 거절했습니다. 코인 -${spent.toLocaleString()}`)
+  }
+
+  useEffect(() => {
+    if (questPages.length === 0) {
+      setQuestIndex(0)
+      setAcceptedQuestId(null)
+      return
+    }
+    setQuestIndex((prev) => Math.min(prev, questPages.length - 1))
+  }, [questPages])
 
   useEffect(() => {
     const audio = new Audio(`${import.meta.env.BASE_URL}${BUBBLING_SFX_PATH}`)
@@ -110,6 +239,12 @@ export default function CraftScreen() {
 
   return (
     <div className="relative w-full h-full bg-black">
+      <motion.div
+        className="absolute inset-0"
+        animate={{ backgroundColor: craftBgColors }}
+        transition={{ duration: 40, repeat: Infinity, repeatType: 'mirror', ease: 'linear' }}
+      />
+
       {/* background */}
       <img
         src={a('assets/background/make_back.png')}
@@ -141,11 +276,11 @@ export default function CraftScreen() {
       {/* quest letter + slots */}
       <div className="absolute inset-0 z-[6] p-4 pt-16">
         {/* quest letter panel */}
-        <div className="absolute left-[-11px] top-[68px] w-[calc(68%+6px)] max-w-[330px] text-[rgb(55,42,36)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] text-center -rotate-[2deg]">
+        <div className="absolute left-[-11px] top-[38px] w-[calc(68%+26px)] max-w-[350px] text-[rgb(55,42,36)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] text-center -rotate-[2deg]">
           <img
             src={a('assets/background/paper_bg_light_l.png')}
             alt="의뢰서 배경"
-            className="block w-full h-auto object-contain pointer-events-none select-none"
+            className="block w-full h-[228px] object-fill pointer-events-none select-none"
             draggable={false}
           />
           <div className="absolute inset-0 px-4 py-3 translate-y-[8px]">
@@ -153,16 +288,16 @@ export default function CraftScreen() {
               <button
                 type="button"
                 onClick={goPrevQuest}
-                className="w-5 h-5 -translate-y-[3px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
+                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
                 aria-label="이전 의뢰"
               >
                 {'<'}
               </button>
-              <div className="text-[14px] font-extrabold">정령 의뢰서 ({questIndex + 1}/{questPages.length})</div>
+              <div className="text-[14px] font-extrabold">정령 의뢰서 ({questPages.length === 0 ? 0 : questIndex + 1}/{questPages.length})</div>
               <button
                 type="button"
                 onClick={goNextQuest}
-                className="w-5 h-5 -translate-y-[3px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
+                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
                 aria-label="다음 의뢰"
               >
                 {'>'}
@@ -170,9 +305,54 @@ export default function CraftScreen() {
             </div>
             <div className="relative z-[1] h-[1px] bg-[rgba(0,0,0,0.1)] my-2" />
             <p className="relative z-[1] text-[14px] leading-5 whitespace-pre-line [word-break:keep-all]">
-              {questPages[questIndex]}
+              {activeQuest ? activeQuest.text : '현재 진행 가능한 의뢰가 없습니다.'}
             </p>
-            <div className="relative z-[1] mt-2 text-[11px] text-[rgb(110,90,80)]">- 별빛 마을의 여행자 -</div>
+            <div className="relative z-[1] mt-1 text-[12px] font-semibold text-[rgb(95,76,67)] flex items-center justify-center gap-1.5">
+              <span>목표 정령</span>
+              <span className="inline-flex items-center justify-center px-2.5 h-[22px] rounded-full border border-[rgb(95,76,67)] text-[rgb(95,76,67)] text-[12px] font-bold">
+                {visibleTargetSpiritName}
+              </span>
+            </div>
+            <div className="relative z-[1] mt-[17px] px-2 py-1 rounded-md border border-[rgb(95,76,67)]/35 bg-[rgba(95,76,67,0.12)] text-[11px] text-[rgb(95,76,67)] font-semibold text-center">
+              {acceptedQuest ? `수락됨: ${acceptedQuest.spiritName} (제작 시 완료)` : '수락 후 제작 시 완료'}
+            </div>
+
+            <div className="relative z-[1] mt-[17px] flex items-start justify-center gap-2">
+              <div className="relative">
+                <div className="absolute z-[30] left-1/2 -translate-x-1/2 -top-[12px] h-[18px] px-2 rounded-md border border-red-300/40 bg-[rgb(90,22,28)] text-[11px] font-semibold text-[#ffd6d9] inline-flex items-center justify-center gap-1 whitespace-nowrap">
+                  <img src={a('assets/particle/money.png')} alt="coin" className="w-3.5 h-3.5 object-contain" draggable={false} />
+                  -200
+                </div>
+                <button
+                  type="button"
+                  onClick={rejectQuest}
+                  disabled={!activeQuest}
+                  className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-red-300/45 bg-[rgba(160,36,44,0.55)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_red.png')}
+                    alt="거절 버튼 배경"
+                    className="absolute inset-0 w-full h-full object-cover opacity-65"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#e4b4b4]">거절</span>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={acceptQuest}
+                disabled={!activeQuest || !!acceptedQuest}
+                className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <img
+                  src={a('assets/particle/btn_bg_brown.png')}
+                  alt="수락 버튼 배경"
+                  className="absolute inset-0 w-full h-full object-cover opacity-62"
+                  draggable={false}
+                />
+                <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#f9e0b5]">수락</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -198,7 +378,7 @@ export default function CraftScreen() {
         </motion.button>
 
         {/* 재료 12개 (4x3) */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-[43%] translate-y-[35px] relative w-[390px]">
+        <div className="absolute left-1/2 -translate-x-1/2 top-[43%] translate-y-[19px] relative w-[390px]">
           <button
             type="button"
             onClick={resetSelected}
@@ -214,16 +394,24 @@ export default function CraftScreen() {
             <span className="relative z-[1] inline-block -translate-y-[2px] text-[#d4bb8e] text-[14px] font-extrabold leading-none">↺</span>
           </button>
 
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-4 gap-x-2.5 gap-y-[18px]">
               {matItems.map((it) => {
-                const active = selected.includes(it.id)
+                const itemCount = inventory[it.id] ?? 0
+                const isSelectable = itemCount > 0
+                const active = isSelectable && selected.includes(it.id)
+                const isShortage = active && itemCount < craftCost.requiredPerMaterial
+                const itemState = itemCount <= 0 ? 'dis' : active ? 'on' : 'off'
                 return (
                   <motion.button
                     key={it.id}
                     type="button"
+                    disabled={!isSelectable}
                     whileTap={{ scale: 0.9, y: 3, filter: 'brightness(0.82)' }}
-                    onClick={() => toggle(it.id)}
-                    className="relative p-0 w-[90px] h-[90px] overflow-hidden transition-transform"
+                    onClick={() => {
+                      if (!isSelectable) return
+                      toggle(it.id)
+                    }}
+                    className={`relative p-0 w-[90px] h-[90px] overflow-visible transition-transform ${isSelectable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                   >
                     {active && (
                       <span
@@ -232,13 +420,21 @@ export default function CraftScreen() {
                       />
                     )}
                     <img
-                      src={a(`assets/item/in_${it.id}_${active ? 'on' : 'off'}.png`)}
+                      src={a(`assets/item/in_${it.id}_${itemState}.png`)}
                       alt={it.name}
-                      className="relative z-10 w-full h-full object-cover"
+                      className={`relative z-10 w-full h-full object-cover ${isShortage ? 'brightness-[0.85]' : ''}`}
                       draggable={false}
                     />
-                    <span className="absolute z-20 left-1/2 bottom-[4px] -translate-x-1/2 text-[14px] font-semibold text-[#ebc8ab] drop-shadow-[0_2px_5px_rgba(0,0,0,0.7)] pointer-events-none select-none">
+                    {isShortage && (
+                      <span className="absolute z-30 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[48px] rounded-full bg-[rgba(120,20,30,0.92)] border border-red-300/60 px-3 h-[20px] text-[12px] leading-[18px] font-extrabold text-[#ffd6d9] shadow-[0_6px_18px_rgba(0,0,0,0.35)] text-center whitespace-nowrap inline-flex items-center justify-center">
+                        부족
+                      </span>
+                    )}
+                    <span className="absolute z-20 left-1/2 bottom-[6px] -translate-x-1/2 text-[14px] font-semibold text-[#ebc8ab] drop-shadow-[0_2px_5px_rgba(0,0,0,0.7)] pointer-events-none select-none">
                       {it.name}
+                    </span>
+                    <span className="absolute z-20 left-1/2 -bottom-[10px] -translate-x-1/2 min-w-[30px] px-2 h-[16px] rounded-full border border-[#b7afe1]/25 bg-[rgba(10,12,30,0.82)] text-[10px] font-semibold text-[#ebc8ab] leading-[14px] text-center pointer-events-none select-none">
+                      {itemCount}
                     </span>
                     {active && (
                       <span className="absolute z-30 -top-[2px] right-[1px] w-[23px] h-[23px] rounded-full bg-[#A894FF] text-[14px] text-black font-black flex items-center justify-center">{selected.indexOf(it.id) + 1}</span>
@@ -251,31 +447,65 @@ export default function CraftScreen() {
 
         {/* 조합식 + 정령빚기 */}
         <div className="absolute left-1/2 -translate-x-1/2 top-[74%] w-[92%] flex items-stretch gap-5 translate-y-[110px]">
-          <div className="flex-1 rounded-2xl bg-[rgba(10,12,30,0.50)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_0_16px_32px_rgba(0,0,0,0.45)] px-4 h-[76px] flex items-center justify-center gap-4">
+          <div className="w-[calc(100%-91px)] rounded-2xl bg-[rgba(10,12,30,0.50)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_0_16px_32px_rgba(0,0,0,0.45)] px-4 h-[88px] flex flex-col justify-center">
+            <div className="flex items-center justify-center gap-2">
             {slots.map((s, i) => (
-              <div key={i} className="relative w-12 h-12 rounded-full border border-white/15 bg-black/30 flex items-center justify-center text-white/70">
+              <div key={i} className="relative w-12 h-[64px] flex flex-col items-center">
                 {s ? (
-                  <span className="text-[10px] font-semibold text-center leading-tight px-1">{craftMaterials.find((it) => it.id === s)?.name}</span>
+                  <>
+                    {(() => {
+                      const owned = inventory[s] ?? 0
+                      const ratio = Math.max(0, Math.min(1, owned / craftCost.requiredPerMaterial))
+                      const isEnough = owned >= craftCost.requiredPerMaterial
+                      return (
+                        <>
+                          <div className="relative w-12 h-12 rounded-full border border-white/20 bg-black/30 overflow-hidden flex items-center justify-center">
+                            <div
+                              className={`absolute left-0 bottom-0 w-full ${isEnough ? 'bg-[rgba(168,148,255,0.30)]' : 'bg-[rgba(160,70,88,0.30)]'}`}
+                              style={{ height: `${ratio * 100}%` }}
+                            />
+                            <span className="relative z-[1] text-[13px] font-bold text-center leading-tight px-1 text-[#ebc8ab]">{craftMaterials.find((it) => it.id === s)?.name}</span>
+                          </div>
+                          <span className={`mt-[-3px] min-w-[30px] px-2 h-[16px] rounded-full border text-[10px] font-semibold leading-[14px] text-center pointer-events-none select-none ${isEnough ? 'border-[#a894ff]/40 bg-[rgba(52,34,90,0.88)] text-[#e2d7ff]' : 'border-[#c77a86]/40 bg-[rgba(58,22,30,0.88)] text-[#ffd2d8]'}`}>
+                            {owned}/{craftCost.requiredPerMaterial}
+                          </span>
+                        </>
+                      )
+                    })()}
+                  </>
                 ) : (
-                  <span className="text-[18px]">+</span>
+                  <>
+                    <div className="w-12 h-12 rounded-full border border-white/15 bg-black/30 flex items-center justify-center text-white/70">
+                      <span className="text-[18px] -translate-y-[3px]">+</span>
+                    </div>
+                    <span className="mt-[-3px] min-w-[30px] px-2 h-[16px] rounded-full border border-white/20 bg-[rgba(10,12,30,0.72)] text-[10px] font-semibold leading-[14px] text-center text-white/70 pointer-events-none select-none">
+                      0/{craftCost.requiredPerMaterial}
+                    </span>
+                  </>
                 )}
               </div>
             ))}
             <div className="text-white/60 text-[18px]">→</div>
-            <div className="w-12 h-12 rounded-xl bg-[rgba(100,80,160,0.3)] border border-white/15 flex items-center justify-center text-white/80">?</div>
+            <img
+              src={a('assets/codex/make_unknown.png')}
+              alt="미확인 정령"
+              className="w-14 h-14 object-contain"
+              draggable={false}
+            />
+            </div>
           </div>
 
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}
             disabled={!canCraft}
-            className={`relative w-[76px] h-[76px] rounded-2xl overflow-hidden border-[2px] border-[#a894ff] text-white ${canCraft ? 'cursor-pointer shadow-[0_0_10px_rgba(168,148,255,0.35)]' : 'opacity-60 cursor-not-allowed'}`}
-            onClick={() => alert('프로토타입: 정령을 빚었습니다!')}
+            className={`relative w-[91px] h-[88px] rounded-2xl overflow-hidden border-[2px] text-white ${canCraft ? 'border-[#a894ff] cursor-pointer shadow-[0_0_10px_rgba(168,148,255,0.35)]' : 'border-slate-300/40 cursor-not-allowed'}`}
+            onClick={startCraft}
           >
             <img
-              src={a('assets/particle/btn_bg_purple.png')}
+              src={a(canCraft ? 'assets/particle/btn_bg_purple.png' : 'assets/particle/btn_bg_sliver.png')}
               alt="정령 빚기 버튼 배경"
-              className="absolute inset-0 w-full h-full object-cover"
+              className={`absolute inset-0 w-full h-full object-cover ${canCraft ? '' : 'opacity-78'}`}
               draggable={false}
             />
             {canCraft && (
@@ -284,7 +514,7 @@ export default function CraftScreen() {
                 className="absolute inset-0 bg-[linear-gradient(120deg,transparent_20%,rgba(255,255,255,0.22)_48%,transparent_72%)] animate-pulse"
               />
             )}
-            <span className="relative z-[1] whitespace-pre-line text-[16px] font-extrabold leading-[1.05] text-[#b7afe1]">
+            <span className={`relative z-[1] whitespace-pre-line text-[16px] font-extrabold leading-[1.05] ${canCraft ? 'text-white' : 'text-[#d5dae6]'}`}>
               {'정령\n빚기'}
             </span>
           </motion.button>
