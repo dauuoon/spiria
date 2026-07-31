@@ -7,6 +7,7 @@ type Props = {
 
 export default function TopBar({ onBack }: Props) {
   const setScreen = useAppStore((s) => s.setScreen)
+  const energy = useAppStore((s) => s.energy)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
 
   const handleBack = onBack ?? (() => setScreen('main'))
@@ -47,7 +48,7 @@ export default function TopBar({ onBack }: Props) {
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(155,203,255,0.5),rgba(155,203,255,0)_70%)] blur-[6px]" />
             <img src={a('assets/particle/gem.png')} alt="gem" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(155,203,255,0.35)]" />
           </span>
-          <span className="text-white/90 text-[14px] font-semibold tabular-nums">0</span>
+          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{energy}</span>
         </motion.button>
       </div>
     </div>

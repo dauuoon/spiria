@@ -27,6 +27,7 @@ export default function BookScreen() {
   const fillers: Card[] = Array.from({ length: totalCount - baseDiscovered.length }, () => ({ name: '???', img: '', discovered: false }))
   const allCards: Card[] = [...baseDiscovered, ...fillers]
   const discoveredCount = allCards.reduce((acc, c) => acc + (c.discovered ? 1 : 0), 0)
+  const undiscoveredCount = allCards.length - discoveredCount
   const filteredCards: Card[] = tab === '발견' ? allCards.filter(c => c.discovered)
     : tab === '미발견' ? allCards.filter(c => !c.discovered)
     : allCards
@@ -98,7 +99,7 @@ export default function BookScreen() {
                   : 'text-[#E3BD87]/80 bg-white/[0.04] border-[#6A59A8]/30 hover:bg-white/[0.08]')
               }
             >
-              {t}
+              {t}{'('}{t === '전체' ? allCards.length : t === '발견' ? discoveredCount : undiscoveredCount}{')'}
             </button>
           ))}
           <button className="ml-auto px-2.5 py-1.5 rounded-full border bg-white/10 text-white/80 hover:bg-white/15 border-white/20 text-[12px]">

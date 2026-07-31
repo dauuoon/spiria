@@ -62,8 +62,25 @@ export default function TapSfx() {
   }
 
   useEffect(() => {
-    // Pre-warm on first interaction; then play on each tap.
-    const onPointerDown = () => {
+    // Pre-warm on first interaction; then play on each tap unless suppressed.
+    const shouldSuppress = (e: Event) => {
+      const anyE = e as any
+      const path: any[] = typeof anyE.composedPath === 'function' ? anyE.composedPath() : []
+      const nodes: any[] = path.length ? path : [e.target]
+      for (const n of nodes) {
+        if (n && typeof n === 'object' && 'getAttribute' in n) {
+          try {
+            const val = (n as Element).getAttribute('data-suppress-tap-sfx')
+            if (val === 'true') return true
+          } catch {
+            // ignore
+          }
+        }
+      }
+      return false
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      if (shouldSuppress(e)) return
       void playTap()
     }
     const onKeyDown = (e: KeyboardEvent) => {

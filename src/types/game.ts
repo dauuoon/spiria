@@ -27,10 +27,25 @@ export interface DungeonBaseReward {
 export interface ItemDef {
   id: string
   name: string
+  icon?: string // optional: inventory icon image path under public/assets
   // rarity, price, etc. are TBD and should be filled when confirmed in balance
   rarity?: string // TBD
   price?: number // TBD
 }
+
+// Level title labels shown in UI (profile, badges, toasts)
+export type LevelTitle =
+  | '견습 빚음꾼'
+  | '초급 빚음꾼'
+  | '정령 빚음꾼'
+  | '숙련 빚음꾼'
+  | '정령 장인'
+  | '마도 장인'
+  | '대장인'
+  | '정령 현자'
+  | '대현자'
+  | '별의 계승자'
+  | '스피리아의 창조자'
 
 export interface DropDef {
   id: string
@@ -56,4 +71,17 @@ export interface RecipeDef {
 
 export interface EconomySettings {
   mainColor: HexColor
+}
+
+// Dungeon definitions for Expedition
+export interface DungeonDef {
+  id: string
+  name: string
+  unlockLv: number
+  recommendedLv: number
+  energyCost: number
+  baseExp: number
+  goldReward: number
+  materialDropCount: number
+  rareMaterialChance: number // 0..1
 }

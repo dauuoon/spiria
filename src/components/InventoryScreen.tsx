@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useMemo, useState } from 'react'
 import TopBar from './TopBar'
 import ParticlesCanvas from './ParticlesCanvas'
 import { ITEMS } from '../data/items'
@@ -7,6 +8,27 @@ import useAppStore from '../lib/store'
 export default function InventoryScreen() {
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^[\/]?/, '')}`
   const inventory = useAppStore(s => s.inventory)
+  const filters = ['전체','재료','기타'] as const
+  const [tab, setTab] = useState<(typeof filters)[number]>('전체')
+  const getCategory = (id: string): '재료' | '기타' => '재료'
+  const visibleItems = useMemo(() => (
+    tab === '전체' ? ITEMS : ITEMS.filter(it => getCategory(it.id) === tab)
+  ), [tab])
+  
+  // owned counts per category and total (types owned with count > 0)
+  const ownedCounts = useMemo(() => {
+    let mat = 0, etc = 0, total = 0
+    for (const it of ITEMS) {
+      const cnt = inventory[it.id] ?? 0
+      if (cnt > 0) {
+        const cat = getCategory(it.id)
+        if (cat === '재료') mat++
+        else etc++
+        total++
+      }
+    }
+    return { total, '재료': mat, '기타': etc } as const
+  }, [inventory])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -36,62 +58,87 @@ export default function InventoryScreen() {
           }}
         />
       </div>
+      {/* solid gradient mask under the overlay to fully block items */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[220px] z-[11] pointer-events-none bg-gradient-to-b from-[rgba(10,12,30,0.98)] via-[rgba(10,12,30,0.92)] to-[rgba(10,12,30,0)]"
+      />
 
       {/* top bar */}
       <TopBar />
 
-      {/* header like Book (정령 도감) */}
+      {/* header like Book (정령 도감) + tabs placed at top */}
       <div className="absolute left-5 right-5 top-[70px] z-[20]">
-        <div className="mb-3">
-          <h2 className="text-[#b78960] text-[26px] font-medium drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">가방</h2>
+        <div className="mb-2">
+          <h2 className="text-[#b78960] text-[26px] font-medium drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">아이템 가방</h2>
+          <p className="mt-[6px] text-[#b78960] text-[12px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+            재료와 기타 아이템을 확인할 수 있습니다.
+          </p>
+        </div>
+        {/* filters: moved to header top region */}
+        <div className="mt-[20px] mb-1 flex items-center gap-2">
+          {filters.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              aria-pressed={tab === t}
+              className={
+                `px-4 py-2 rounded-full text-[12px] transition-colors border ` +
+                (tab === t
+                  ? 'text-white bg-[linear-gradient(180deg,#6F49C6_0%,#8C66E8_100%)] border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_6px_18px_rgba(78,41,141,0.45)]'
+                  : 'text-[#E3BD87]/80 bg-white/[0.04] border-[#6A59A8]/30 hover:bg-white/[0.08]')
+              }
+            >
+              {t}{'('}{t === '전체' ? ownedCounts.total : ownedCounts[t]}{')'}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* content */}
-      <div className="absolute inset-0 z-[6] pt-[240px] pb-6 px-5">
-        <div className="h-[calc(100%_-_50px)] w-full rounded-2xl bg-[rgba(16,18,32,0.72)] border border-white/10 backdrop-blur-md p-4 shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-y-auto book-scroll">
-          {/* summary row */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-white/80 text-[13px]">보유 재료</span>
-              <span className="text-white/50 text-[12px]">{Object.values(inventory).reduce((a,b)=>a+(b>0?1:0),0)}/{ITEMS.length}</span>
-            </div>
-          </div>
-
-          {/* grid 3 x 4 */}
-          <div className="grid grid-cols-3 gap-3">
-            {ITEMS.map((it) => {
-              const count = inventory[it.id] ?? 0
-              const dimmed = count <= 0
-              return (
-                <motion.div
-                  key={it.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className={`relative rounded-xl border border-white/10 bg-[rgba(22,24,40,0.72)] p-3 select-none ${dimmed ? 'opacity-50' : ''}`}
+      <div className="absolute inset-0 z-[6] pt-[260px] pb-6 px-5 overflow-y-auto book-scroll">
+        {/* grid 5 columns; each cell shows image tile with name below (no overlaps) */}
+        <div className="grid grid-cols-5 gap-x-3 gap-y-4">
+          {visibleItems.map((it) => {
+            const count = inventory[it.id] ?? 0
+            const dimmed = count <= 0
+            return (
+              <motion.div
+                key={it.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className={`select-none ${dimmed ? 'opacity-50' : ''}`}
+              >
+                <div
+                  className="relative w-full aspect-square rounded-[14px] overflow-hidden bg-center bg-cover bg-no-repeat ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_6px_18px_rgba(0,0,0,0.45)]"
+                  style={{ backgroundImage: `url(${a('assets/particle/bag_item.png')})` }}
                 >
-                  {/* count badge */}
+                  {it.icon && (
+                    <img
+                      src={a(it.icon)}
+                      alt=""
+                      className="absolute left-1/2 top-1/2 w-[70%] h-[70%] -translate-x-1/2 -translate-y-1/2 object-contain pointer-events-none select-none"
+                      draggable={false}
+                      onError={(e) => {
+                        const el = e.currentTarget as HTMLImageElement
+                        el.style.display = 'none'
+                      }}
+                    />
+                  )}
                   <div className="absolute top-2 right-2 px-2 py-[2px] rounded-full bg-[rgba(10,12,30,0.66)] border border-white/10 text-[11px] text-white/85 tabular-nums">
                     x{count}
                   </div>
-
-                  {/* icon placeholder */}
-                  <div className="relative w-full aspect-square flex items-center justify-center">
-                    <span aria-hidden className="absolute w-[72%] h-[72%] rounded-full bg-[radial-gradient(closest-side,rgba(255,223,88,0.28),rgba(255,223,88,0)_75%)] blur-[12px]" />
-                    <div className="relative w-[60%] h-[60%] rounded-2xl border border-white/10 bg-[rgba(12,14,26,0.6)] flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
-                      <span className="text-[15px] text-[#ac8a7a] font-semibold">{it.name}</span>
-                    </div>
-                  </div>
-
-                  {/* label */}
-                  <div className="mt-2 text-center">
-                    <span className="text-[13px] text-white/85 font-medium">{it.name}</span>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
+                </div>
+                <div className="mt-1 text-center">
+                  <span className="text-[12px] text-white/85 font-medium leading-tight">{it.name}</span>
+                </div>
+              </motion.div>
+            )
+          })}
+          {visibleItems.length === 0 && (
+            <div className="col-span-5 py-10 text-center text-white/60 text-[13px]">표시할 아이템이 없습니다.</div>
+          )}
         </div>
       </div>
     </div>
