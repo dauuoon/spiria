@@ -1,3 +1,5 @@
+import useAppStore from '../lib/store'
+
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
 type Props = {
@@ -6,6 +8,9 @@ type Props = {
 }
 
 export default function DevRemote({ screen, onSelect }: Props) {
+  const level = useAppStore(s => s.level)
+  const setLevel = useAppStore(s => s.setLevel)
+
   return (
     <div className="fixed top-1/2 right-0 -translate-y-1/2 z-[60] select-none group">
       {/* Panel slides in on hover; a thin handle stays visible */}
@@ -13,6 +18,26 @@ export default function DevRemote({ screen, onSelect }: Props) {
         {/* Handle */}
         <div className="absolute -left-[16px] top-1/2 -translate-y-1/2 w-[16px] h-12 bg-white/10 border border-white/15 border-r-0 rounded-l-md" />
         <div className="text-[10px] text-white/60 tracking-widest text-center">DEV</div>
+        <div className="mt-1 rounded-md border border-white/15 bg-white/5 px-2 py-2">
+          <div className="text-[10px] text-white/70 text-center">USER LV</div>
+          <div className="mt-1 text-[12px] font-bold text-white text-center">{level}</div>
+          <div className="mt-2 grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setLevel(level - 1)}
+              className="px-2 py-1 rounded text-[11px] border bg-white/10 text-white/85 hover:bg-white/15 border-white/20"
+            >
+              -1
+            </button>
+            <button
+              type="button"
+              onClick={() => setLevel(level + 1)}
+              className="px-2 py-1 rounded text-[11px] border bg-white/10 text-white/85 hover:bg-white/15 border-white/20"
+            >
+              +1
+            </button>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => onSelect('loading')}

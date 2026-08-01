@@ -88,7 +88,7 @@ export default function ProfileScreen() {
         <div className="w-full max-w-[440px] flex flex-col items-center">
           <div className="flex items-center justify-center gap-2">
             <div
-              className="text-[24px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)]"
+              className="text-[25px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)]"
               style={{ color: levelColor }}
             >
               {nickname}
@@ -96,34 +96,36 @@ export default function ProfileScreen() {
             <button
               type="button"
               onClick={openNicknameModal}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
               aria-label="닉네임 수정"
               title="닉네임 수정"
             >
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
               </svg>
             </button>
           </div>
 
-          <div className="mt-4 flex items-center gap-2">
-            <div
-              className="relative z-10 translate-x-[5px] flex items-center justify-center w-[30px] h-[30px] rounded-full text-black text-[14px] font-extrabold select-none"
-              style={{ background: levelColor, boxShadow: `0 2px 12px ${levelColor}66` }}
-            >
-              {formatLevelNumber(level)}
-            </div>
-            <div className="relative -ml-[8px] h-[10px] w-[min(42vw,172px)] rounded-full bg-black/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.35)]">
+          <div className="translate-y-[5px]">
+            <div className="mt-4 flex items-center gap-2">
               <div
-                className="absolute inset-y-0 left-0 rounded-full"
-                style={{ width: `${pct}%`, background: levelColor, boxShadow: `0 0 10px ${levelColor}66` }}
-              />
+                className="relative z-10 translate-x-[5px] flex items-center justify-center w-[52px] h-[25px] rounded-full text-black text-[13px] font-extrabold select-none"
+                style={{ background: levelColor, boxShadow: `0 2px 12px ${levelColor}66` }}
+              >
+                Lv.{formatLevelNumber(level)}
+              </div>
+              <div className="relative -ml-[8px] h-[10px] w-[min(42vw,172px)] rounded-full bg-black/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.35)]">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${pct}%`, background: levelColor, boxShadow: `0 0 10px ${levelColor}66` }}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="mt-2 text-[13px] font-semibold text-[#e7d3a4] drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
-            현재 경험치 {xp.toLocaleString()} / {maxXp.toLocaleString()}
+            <div className="mt-2 text-[13px] font-semibold text-[#f5f5f5] drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
+              경험치 {xp.toLocaleString()} / <span className="font-extrabold text-white">{maxXp.toLocaleString()}</span>
+            </div>
           </div>
 
           <motion.button
@@ -162,32 +164,54 @@ export default function ProfileScreen() {
             />
           </motion.button>
 
-          <div className="mt-7 w-[calc(100%+30px)] -mx-[15px] grid grid-cols-2 gap-4">
-            <div className="relative h-[130px]">
+          <div className="mt-[48px] w-[calc(100%_-_30px)] mx-auto grid grid-cols-2 gap-5">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              className="relative h-[191px]"
+              aria-label="정령 도감"
+            >
               <img
-                src={a('assets/background/profile_box_bg.png')}
+                src={a('assets/background/profile_card_bg.png')}
                 alt="정령 도감 박스 배경"
-                className="absolute left-1/2 top-1/2 w-[112%] h-[112%] -translate-x-1/2 -translate-y-1/2 object-contain rotate-0 pointer-events-none"
+                className="absolute left-1/2 top-1/2 w-[98%] h-[118%] -translate-x-1/2 -translate-y-1/2 object-contain rotate-0 pointer-events-none"
                 draggable={false}
               />
-              <div className="relative z-[1] h-full flex flex-col items-center justify-center text-center px-2 pointer-events-none">
-                <div className="text-[15px] font-bold text-[#efd8ab]">정령 도감</div>
-                <div className="mt-1 text-[12px] font-semibold text-[#e8dcbc]/90">({discoveredSpiritCount} / {totalSpiritCount})</div>
-              </div>
-            </div>
-
-            <div className="relative h-[130px]">
               <img
-                src={a('assets/background/profile_box_bg.png')}
-                alt="아이템 박스 배경"
-                className="absolute left-1/2 top-1/2 w-[112%] h-[112%] -translate-x-1/2 -translate-y-1/2 object-contain rotate-0 pointer-events-none"
+                src={a('assets/particle/profile_book.png')}
+                alt="정령 도감 아이콘"
+                className="absolute left-1/2 top-[31px] w-[70px] h-[70px] -translate-x-1/2 object-contain pointer-events-none"
                 draggable={false}
               />
-              <div className="relative z-[1] h-full flex flex-col items-center justify-center text-center px-2 pointer-events-none">
-                <div className="text-[15px] font-bold text-[#efd8ab]">아이템</div>
-                <div className="mt-1 text-[12px] font-semibold text-[#e8dcbc]/90">({totalItemCount})</div>
+              <div className="relative z-[1] h-full flex flex-col items-center justify-center text-center px-2 pointer-events-none translate-y-[35px]">
+                <div className="text-[17px] font-bold text-[#efd8ab]">정령 도감</div>
+                <div className="mt-0.5 text-[14px] font-semibold text-[#e8dcbc]/90">({discoveredSpiritCount} / {totalSpiritCount})</div>
               </div>
-            </div>
+            </motion.button>
+
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              className="relative h-[191px]"
+              aria-label="아이템 가방"
+            >
+              <img
+                src={a('assets/background/profile_card_bg.png')}
+                alt="아이템 박스 배경"
+                className="absolute left-1/2 top-1/2 w-[98%] h-[118%] -translate-x-1/2 -translate-y-1/2 object-contain rotate-0 pointer-events-none"
+                draggable={false}
+              />
+              <img
+                src={a('assets/particle/profile_bag.png')}
+                alt="아이템 가방 아이콘"
+                className="absolute left-1/2 top-[31px] w-[70px] h-[70px] -translate-x-1/2 object-contain pointer-events-none"
+                draggable={false}
+              />
+              <div className="relative z-[1] h-full flex flex-col items-center justify-center text-center px-2 pointer-events-none translate-y-[35px]">
+                <div className="text-[17px] font-bold text-[#efd8ab]">아이템 가방</div>
+                <div className="mt-0.5 text-[14px] font-semibold text-[#e8dcbc]/90">({totalItemCount})</div>
+              </div>
+            </motion.button>
           </div>
 
         </div>
@@ -195,7 +219,7 @@ export default function ProfileScreen() {
 
       {isNicknameModalOpen && (
         <div className="absolute inset-0 z-[40] bg-black/65 backdrop-blur-[2px] flex items-center justify-center px-6">
-          <div className="w-full max-w-[360px] rounded-2xl border border-white/15 bg-[rgba(12,14,34,0.96)] p-5 shadow-[0_18px_46px_rgba(0,0,0,0.48)]">
+          <div className="w-full max-w-[360px] rounded-2xl border border-white/15 bg-[rgba(12,14,34,0.96)] p-5 shadow-[0_18px_46px_rgba(0,0,0,0.48)] flex flex-col items-center text-center">
             <div className="text-[18px] font-extrabold text-[#efd8ab]">닉네임 수정</div>
             <input
               autoFocus
@@ -205,10 +229,10 @@ export default function ProfileScreen() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') saveNickname()
               }}
-              className="mt-3 w-full h-11 rounded-lg border border-white/20 bg-black/30 px-3 text-white outline-none focus:border-[#c8b08c]"
+              className="mt-3 w-full max-w-[300px] h-11 rounded-lg border border-white/20 bg-black/30 px-3 text-center text-white outline-none focus:border-[#c8b08c]"
               placeholder="닉네임을 입력하세요"
             />
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="mt-4 flex items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsNicknameModalOpen(false)}
