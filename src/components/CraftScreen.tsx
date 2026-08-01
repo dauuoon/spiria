@@ -5,6 +5,7 @@ import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
 import { getSpiritCraftCostByLevel } from '../data/economy'
+import { QUEST_REWARDS } from '../data/quests'
 import { buildOrderedRecipe } from '../lib/crafting'
 
 // Inventory counts are TBD; UI focuses on selection layout (3x4 grid)
@@ -30,16 +31,19 @@ export default function CraftScreen() {
     {
       id: 'req_lumen',
       spiritName: '소요',
+      tier: 'Easy' as const,
       text: '밤 안개 속에서 길을 잃은 이들을 위해, 은은하게 빛나는 등불이 되어줄 정령이 필요해요.',
     },
     {
       id: 'req_frostseal',
       spiritName: '루아',
+      tier: 'Normal' as const,
       text: '깊은 숲의 균열에서 새어 나오는 냉기를 잠재울 수 있는 정령이 필요해요.',
     },
     {
       id: 'req_blossomwind',
       spiritName: '플레오',
+      tier: 'Hard' as const,
       text: '메마른 들판에 다시 숨결이 돌 수 있도록 따뜻한 기운의 정령을 빚어 주세요.',
     },
   ])
@@ -76,6 +80,11 @@ export default function CraftScreen() {
   const slots = useMemo(() => [0, 1, 2].map((i) => selected[i] ?? null), [selected])
   const craftCost = useMemo(() => getSpiritCraftCostByLevel(level), [level])
   const activeQuest = questPages[questIndex] ?? null
+  const activeQuestRewardGold = useMemo(() => {
+    if (!activeQuest) return 0
+    const reward = QUEST_REWARDS.find((entry) => entry.tier === activeQuest.tier)
+    return reward?.gold ?? 0
+  }, [activeQuest])
   const acceptedQuest = useMemo(
     () => (acceptedQuestId ? questPages.find((q) => q.id === acceptedQuestId) ?? null : null),
     [questPages, acceptedQuestId],
@@ -340,20 +349,26 @@ export default function CraftScreen() {
                   <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#e4b4b4]">거절</span>
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={acceptQuest}
-                disabled={!activeQuest || !!acceptedQuest}
-                className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <img
-                  src={a('assets/particle/btn_bg_brown.png')}
-                  alt="수락 버튼 배경"
-                  className="absolute inset-0 w-full h-full object-cover opacity-62"
-                  draggable={false}
-                />
-                <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#f9e0b5]">수락</span>
-              </button>
+              <div className="relative">
+                <div className="absolute z-[30] left-1/2 -translate-x-1/2 -top-[12px] h-[18px] px-2 rounded-md border border-[#e7d2a9]/40 bg-[rgb(71,49,20)] text-[11px] font-semibold text-[#fbe2b7] inline-flex items-center justify-center gap-1 whitespace-nowrap">
+                  <img src={a('assets/particle/money.png')} alt="coin" className="w-3.5 h-3.5 object-contain" draggable={false} />
+                  +{activeQuestRewardGold}
+                </div>
+                <button
+                  type="button"
+                  onClick={acceptQuest}
+                  disabled={!activeQuest || !!acceptedQuest}
+                  className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_brown.png')}
+                    alt="수락 버튼 배경"
+                    className="absolute inset-0 w-full h-full object-cover opacity-62"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#f9e0b5]">수락</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

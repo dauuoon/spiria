@@ -3,6 +3,7 @@ import { motion, useAnimation } from 'framer-motion'
 import useAppStore from '../lib/store'
 import TopBar from './TopBar'
 import { DUNGEONS } from '../data/dungeons'
+import { REGIONS } from '../data/regions'
 import ParticlesCanvas from './ParticlesCanvas'
 import SoftGlow from './SoftGlow'
 import { ITEMS, MATERIAL_ITEM_IDS, TRACE_ITEM_BY_STAGE } from '../data/items'
@@ -27,7 +28,18 @@ type ExploreResult = {
   itemRewards: Array<{ id: string; name: string; count: number; iconSrc: string; category: '재료' | '기타'; rarity: SpiritRarity }>
 }
 
-const TOTAL_EXPLORES = 10
+type ActiveEventState = {
+  id: string
+  kind: 'spirit' | 'regional' | 'treasure' | 'empty'
+  title: string
+  description: string
+  clickCount: number
+  targetClicks: number
+  resolved: boolean
+  rewardText: string
+}
+
+const TOTAL_EXPLORES = EXPEDITION_REWARD_DRAFT.exploreSteps
 
 const TAP_SFX_PATH = 'assets/sound/tap.mp3'
 const RESULT_POP_SFX_PATH = 'assets/sound/ex_resgult.mp3'
@@ -53,28 +65,94 @@ export default function AdventureMapScreen({
 }: AdventureMapScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen)
   const addItem = useAppStore((s) => s.addItem)
+  const addCoins = useAppStore((s) => s.addCoins)
+  const gainExp = useAppStore((s) => s.gainExp)
+  const markExplorationDiscovery = useAppStore((s) => s.markExplorationDiscovery)
+  const explorationProgress = useAppStore((s) => s.explorationProgress)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
 
   const [used, setUsed] = useState(0)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [showResult, setShowResult] = useState(false)
   const [result, setResult] = useState<ExploreResult | null>(null)
+  const [activeEvent, setActiveEvent] = useState<ActiveEventState | null>(null)
+  const [showLevelUpBadge, setShowLevelUpBadge] = useState(false)
   const resultTimerRef = useRef<number | null>(null)
+  const pendingFinalResultRef = useRef(false)
 
   const remaining = Math.max(0, TOTAL_EXPLORES - used)
   const bgControls = useAnimation()
   const circleControls = useAnimation()
 
   const dungeon = DUNGEONS[stage - 1]
-  const mapTitle = dungeon?.name ?? `Map${stage}`
+  const region = REGIONS[stage - 1]
+
+  const explorationRate = useMemo(() => {
+    const totals = region?.discoveryTotals ?? { material: 1, spirit: 1, regional: 1, treasure: 1 }
+    const weights = region?.explorationRateWeights ?? { material: 30, spirit: 30, regional: 30, treasure: 10 }
+    const materialRatio = Math.min(1, explorationProgress.materialDiscovered / Math.max(1, totals.material))
+    const spiritRatio = Math.min(1, explorationProgress.spiritDiscovered / Math.max(1, totals.spirit))
+    const regionalRatio = Math.min(1, explorationProgress.regionalEventDiscovered / Math.max(1, totals.regional))
+    const treasureRatio = Math.min(1, explorationProgress.treasureDiscovered / Math.max(1, totals.treasure))
+    const rate = (materialRatio * weights.material) + (spiritRatio * weights.spirit) + (regionalRatio * weights.regional) + (treasureRatio * weights.treasure)
+    return Math.round(rate)
+  }, [explorationProgress, region])
+  const mapTitle = dungeon?.name ?? region?.name ?? `Map${stage}`
   const getItemDef = useCallback((id: string) => ITEMS.find((it) => it.id === id), [])
+
+  const buildEventState = useCallback((): ActiveEventState => {
+    if (!region) {
+      return {
+        id: 'empty',
+        kind: 'empty',
+        title: '조용한 숲길',
+        description: '바람만 잔잔히 스쳐 지나갔다.',
+        clickCount: 0,
+        targetClicks: 0,
+        resolved: true,
+        rewardText: '아무 일도 일어나지 않았습니다.',
+      }
+    }
+
+    const templates = region.eventTemplates ?? []
+    const template = templates[Math.floor(Math.random() * templates.length)]
+    if (!template) {
+      return {
+        id: 'empty',
+        kind: 'empty',
+        title: '조용한 숲길',
+        description: region.emptyEventTexts?.[Math.floor(Math.random() * (region.emptyEventTexts?.length ?? 1))] ?? '바람만 잔잔히 스쳐 지나갔다.',
+        clickCount: 0,
+        targetClicks: 0,
+        resolved: true,
+        rewardText: '아무 일도 일어나지 않았습니다.',
+      }
+    }
+
+    const targetClicks = template.kind === 'treasure' ? 3 : template.kind === 'regional' && template.description.includes('3회') ? 3 : 1
+
+    return {
+      id: template.id,
+      kind: template.kind,
+      title: template.title,
+      description: template.description,
+      clickCount: 0,
+      targetClicks,
+      resolved: false,
+      rewardText: template.kind === 'spirit' ? '정령을 도와주면 보상을 받습니다.' : template.kind === 'treasure' ? '상자를 3회 클릭해 열어보세요.' : '지역의 기운을 모아보세요.',
+    }
+  }, [region])
 
   const buildResult = useCallback((): ExploreResult => {
     const baseExp = dungeon?.baseExp ?? 25
     const baseGold = dungeon?.goldReward ?? 20
     const baseMat = dungeon?.materialDropCount ?? 1
+    const regionDrop = region?.dropTable ?? []
     const materialTotal = baseMat * TOTAL_EXPLORES + Math.floor(Math.random() * (4 + stage))
-    const matId = MATERIAL_ITEM_IDS[Math.floor(Math.random() * MATERIAL_ITEM_IDS.length)]
+    const selectedDrop = regionDrop.length > 0
+      ? regionDrop[Math.floor(Math.random() * regionDrop.length)]
+      : undefined
+    const matId = selectedDrop?.itemId ?? MATERIAL_ITEM_IDS[Math.floor(Math.random() * MATERIAL_ITEM_IDS.length)]
     const matDef = getItemDef(matId)
 
     const traceItemId = TRACE_ITEM_BY_STAGE[stage]
@@ -130,8 +208,8 @@ export default function AdventureMapScreen({
     }
 
     return {
-      exp: baseExp * TOTAL_EXPLORES + Math.floor(Math.random() * (12 + stage * 3)),
-      gold: baseGold * TOTAL_EXPLORES + Math.floor(Math.random() * (30 + stage * 8)),
+      exp: EXPEDITION_REWARD_DRAFT.baseExpMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.baseExpMax - EXPEDITION_REWARD_DRAFT.baseExpMin + 1)) + baseExp,
+      gold: EXPEDITION_REWARD_DRAFT.baseGoldMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.baseGoldMax - EXPEDITION_REWARD_DRAFT.baseGoldMin + 1)) + baseGold,
       materials: materialTotal,
       mana: EXPEDITION_REWARD_DRAFT.manaRewardMin + Math.floor(Math.random() * (EXPEDITION_REWARD_DRAFT.manaRewardMax - EXPEDITION_REWARD_DRAFT.manaRewardMin + 1)),
       etcRewards,
@@ -141,8 +219,84 @@ export default function AdventureMapScreen({
 
   const randomAngle = () => (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.35)
 
+  const finalizeExploreResult = useCallback(() => {
+    pendingFinalResultRef.current = false
+    const nextResult = buildResult()
+    nextResult.itemRewards.forEach((reward) => addItem(reward.id, reward.count))
+    if (nextResult.itemRewards.some((reward) => reward.category === '재료')) markExplorationDiscovery('material')
+    if (nextResult.etcRewards.some((reward) => reward.id.includes('fragment_'))) markExplorationDiscovery('spirit')
+    if (nextResult.etcRewards.some((reward) => reward.id.includes('trace'))) markExplorationDiscovery('regional')
+    if (nextResult.itemRewards.some((reward) => reward.id === 'gem' || reward.id === 'gold')) markExplorationDiscovery('treasure')
+    const levelUpInfo = gainExp(nextResult.exp)
+    if (levelUpInfo) {
+      setShowLevelUpBadge(true)
+      window.setTimeout(() => setShowLevelUpBadge(false), 900)
+    }
+    if (resultTimerRef.current !== null) {
+      window.clearTimeout(resultTimerRef.current)
+    }
+    resultTimerRef.current = window.setTimeout(() => {
+      setResult(nextResult)
+      setShowResult(true)
+      resultTimerRef.current = null
+    }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
+  }, [addItem, buildResult, gainExp, markExplorationDiscovery])
+
+  const handleEventInteraction = useCallback((action: 'help' | 'pass' | 'click') => {
+    setActiveEvent((current) => {
+      if (!current) return current
+      let nextState = current
+      if (current.kind === 'spirit') {
+        if (action === 'help') {
+          gainExp(5)
+          addCoins(8)
+          markExplorationDiscovery('spirit')
+          nextState = { ...current, resolved: true, rewardText: '정령을 돕고 보상을 받았습니다.' }
+        } else {
+          nextState = { ...current, resolved: true, rewardText: '정령은 지나가게 두었습니다.' }
+        }
+      }
+
+      if (current.kind === 'regional') {
+        const nextCount = current.clickCount + 1
+        if (nextCount >= current.targetClicks) {
+          gainExp(4)
+          addCoins(6)
+          markExplorationDiscovery('regional')
+          nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '지역 이벤트를 해결했습니다.' }
+        } else {
+          nextState = { ...current, clickCount: nextCount }
+        }
+      }
+
+      if (current.kind === 'treasure') {
+        const nextCount = current.clickCount + 1
+        if (nextCount >= current.targetClicks) {
+          gainExp(8)
+          addCoins(15)
+          addItem('gem', 1)
+          markExplorationDiscovery('treasure')
+          nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '상자를 열고 보물을 얻었습니다.' }
+        } else {
+          nextState = { ...current, clickCount: nextCount }
+        }
+      }
+
+      if (nextState.resolved && pendingFinalResultRef.current) {
+        pendingFinalResultRef.current = false
+        finalizeExploreResult()
+      }
+
+      return nextState
+    })
+  }, [addCoins, addItem, finalizeExploreResult, gainExp, markExplorationDiscovery])
+
   const onExploreTap = useCallback(() => {
     if (remaining <= 0 || showExitConfirm || showResult) return
+
+    if (activeEvent && !activeEvent.resolved) {
+      return
+    }
 
     try {
       const audio = new Audio(a(footstepSrc))
@@ -163,23 +317,20 @@ export default function AdventureMapScreen({
       transition: { duration: 0.28, ease: 'easeOut' },
     })
 
+    const nextEvent = activeEvent && !activeEvent.resolved ? activeEvent : buildEventState()
+    setActiveEvent(nextEvent)
+
     setUsed((prev) => {
       const next = Math.min(TOTAL_EXPLORES, prev + 1)
       if (next >= TOTAL_EXPLORES && prev < TOTAL_EXPLORES) {
-        const nextResult = buildResult()
-        nextResult.itemRewards.forEach((reward) => addItem(reward.id, reward.count))
-        if (resultTimerRef.current !== null) {
-          window.clearTimeout(resultTimerRef.current)
+        pendingFinalResultRef.current = true
+        if (nextEvent.resolved) {
+          finalizeExploreResult()
         }
-        resultTimerRef.current = window.setTimeout(() => {
-          setResult(nextResult)
-          setShowResult(true)
-          resultTimerRef.current = null
-        }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
       }
       return next
     })
-  }, [remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildResult, addItem])
+  }, [activeEvent, remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildEventState, finalizeExploreResult])
 
   const progressTokens = useMemo(
     () => Array.from({ length: TOTAL_EXPLORES }, (_, i) => i < remaining),
@@ -251,24 +402,139 @@ export default function AdventureMapScreen({
       </div>
 
       <div
-        className="absolute left-3 bottom-3 z-[8] w-[260px] max-w-[62vw] select-none pointer-events-auto"
+        className="absolute left-3 right-3 bottom-3 z-[8] select-none pointer-events-auto"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div className="rounded-2xl bg-[rgba(10,12,30,0.45)] backdrop-blur-md shadow-[0_10px_32px_rgba(0,0,0,0.35)] p-3">
-          <div className="text-white/85 text-[12px] font-semibold">탐험 진행 ({remaining} / {TOTAL_EXPLORES})</div>
-          <div className="mt-2 flex items-center gap-2">
+        <div className="rounded-2xl bg-[rgba(10,12,30,0.45)] backdrop-blur-md shadow-[0_10px_32px_rgba(0,0,0,0.35)] px-3.5 py-3">
+          <div className="text-white/90 text-[14px] font-bold">탐색 횟수 ({remaining} / {TOTAL_EXPLORES})</div>
+          <div className="mt-2.5 flex w-full items-center justify-between">
             {progressTokens.map((filled, i) => (
               <img
                 key={i}
                 src={a(filled ? 'assets/particle/map_gem_on.png' : 'assets/particle/map_gem_off.png')}
                 alt={filled ? 'progress filled' : 'progress empty'}
-                className={`w-4 h-4 rounded-full object-cover ${filled ? 'opacity-100' : 'opacity-55'}`}
+                className={`w-[19px] h-[19px] rounded-full object-cover ${filled ? 'opacity-100' : 'opacity-55'}`}
                 draggable={false}
               />
             ))}
           </div>
         </div>
       </div>
+
+      <div
+        className="absolute right-4 top-[74px] z-[8] w-[135px] max-w-[44vw] select-none pointer-events-auto"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="rounded-xl border border-white/10 bg-[rgba(8,11,24,0.37)] backdrop-blur-md px-2.5 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
+          <div className="relative left-[-2px] flex items-center gap-1.5 text-[#f2d68f]">
+            <img src={a('assets/particle/magnific_icon.png')} alt="탐색률 아이콘" className="w-3 h-3 object-contain" draggable={false} />
+            <span className="text-[13px] font-medium whitespace-nowrap">탐색률</span>
+            <span
+              aria-hidden
+              className="flex-1 h-px mx-0.5"
+              style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(242,214,143,0.55) 0 2px, transparent 2px 5px)' }}
+            />
+            <span className="text-[14px] font-bold">{explorationRate}%</span>
+          </div>
+          <div className="mt-1.5 space-y-0.5 text-[13px] text-white/80">
+            <div className="flex items-center gap-1">
+              <span>재료</span>
+              <span
+                aria-hidden
+                className="flex-1 h-px mx-1"
+                style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
+              />
+              <span className="font-bold text-white/95">{explorationProgress.materialDiscovered}/{region?.discoveryTotals?.material ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>정령</span>
+              <span
+                aria-hidden
+                className="flex-1 h-px mx-1"
+                style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
+              />
+              <span className="font-bold text-white/95">{explorationProgress.spiritDiscovered}/{region?.discoveryTotals?.spirit ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>지역</span>
+              <span
+                aria-hidden
+                className="flex-1 h-px mx-1"
+                style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
+              />
+              <span className="font-bold text-white/95">{explorationProgress.regionalEventDiscovered}/{region?.discoveryTotals?.regional ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>보물</span>
+              <span
+                aria-hidden
+                className="flex-1 h-px mx-1"
+                style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
+              />
+              <span className="font-bold text-white/95">{explorationProgress.treasureDiscovered}/{region?.discoveryTotals?.treasure ?? 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {activeEvent && (
+        <div className="absolute inset-x-0 bottom-[140px] z-[9] px-3 pointer-events-none">
+          <div
+            className="mx-auto w-full max-w-[360px] rounded-[20px] border border-white/20 bg-[rgba(6,8,18,0.82)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.35)] pointer-events-auto"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between text-[12px] font-semibold text-[#f2d68f]">
+              <span>{activeEvent.title}</span>
+              {activeEvent.kind !== 'empty' && !activeEvent.resolved && (
+                <span className="text-[11px] text-white/70">{activeEvent.clickCount}/{activeEvent.targetClicks}</span>
+              )}
+            </div>
+            <div className="mt-1 text-[12px] leading-relaxed text-white/80">{activeEvent.description}</div>
+            {activeEvent.kind === 'spirit' && !activeEvent.resolved && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEventInteraction('help')}
+                  className="flex-1 rounded-lg border border-[#8fc7a5]/30 bg-[rgba(44,74,61,0.8)] px-2 py-2 text-[12px] font-semibold text-[#ecf9f0]"
+                >
+                  도와주기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEventInteraction('pass')}
+                  className="flex-1 rounded-lg border border-white/15 bg-[rgba(90,95,115,0.6)] px-2 py-2 text-[12px] font-semibold text-white/90"
+                >
+                  지나간다
+                </button>
+              </div>
+            )}
+            {(activeEvent.kind === 'regional' || activeEvent.kind === 'treasure') && !activeEvent.resolved && (
+              <button
+                type="button"
+                onClick={() => handleEventInteraction('click')}
+                className="mt-3 w-full rounded-lg border border-[#e3c88f]/35 bg-[rgba(118,87,34,0.75)] px-2 py-2 text-[12px] font-semibold text-[#fff3cf]"
+              >
+                {activeEvent.kind === 'treasure' ? '상자 열기' : '지역 기운 모으기'}
+              </button>
+            )}
+            {activeEvent.resolved && (
+              <div className="mt-2 text-[11px] font-medium text-[#f2d68f]">{activeEvent.rewardText}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showLevelUpBadge && (
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.95 }}
+          animate={{ opacity: [0, 1, 0], y: [6, 0, -8], scale: [0.95, 1, 1] }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+          className="absolute right-3 top-20 z-[12] flex items-center gap-2 rounded-full border border-[#f2d68f]/35 bg-[rgba(10,12,30,0.9)] px-3 py-2 text-[12px] font-semibold text-[#f2d68f]"
+        >
+          <img src={a('assets/particle/levelup_icon.png')} alt="level up" className="w-5 h-5 object-contain" draggable={false} />
+          <span>레벨업!</span>
+        </motion.div>
+      )}
 
       {showExitConfirm && (
         <ExitConfirmModal
@@ -285,16 +551,18 @@ export default function AdventureMapScreen({
         <ResultModal
           a={a}
           result={result}
-          onGoCraft={() => {
+          showLevelUpBadge={showLevelUpBadge}
+          onGoMain={() => {
             setShowResult(false)
-            setScreen('craft')
+            setScreen('main')
           }}
-          onBackToExpedition={() => {
+          onGoExpeditionMap={() => {
             setShowResult(false)
             setScreen('expedition')
           }}
         />
       )}
+
     </div>
   )
 }
@@ -369,13 +637,15 @@ function ExitConfirmModal({
 function ResultModal({
   a,
   result,
-  onGoCraft,
-  onBackToExpedition,
+  showLevelUpBadge,
+  onGoMain,
+  onGoExpeditionMap,
 }: {
   a: (path: string) => string
   result: ExploreResult
-  onGoCraft: () => void
-  onBackToExpedition: () => void
+  showLevelUpBadge: boolean
+  onGoMain: () => void
+  onGoExpeditionMap: () => void
 }) {
   const [selectedLootId, setSelectedLootId] = useState<string | null>(null)
 
@@ -419,8 +689,10 @@ function ResultModal({
             {rows.map((row: { label: string; value: number; iconSrc?: string; rarity?: SpiritRarity }, idx) => (
               <AnimatedResultRow
                 key={row.label}
+                a={a}
                 label={row.label}
                 targetValue={row.value}
+                showLevelUpBadge={showLevelUpBadge && row.label === '경험치'}
                 iconSrc={row.iconSrc}
                 rarity={row.rarity}
                 delay={idx * 0.18}
@@ -472,36 +744,36 @@ function ResultModal({
               type="button"
               onClick={() => {
                 playSfx(TAP_SFX_PATH, 0.85)
-                onGoCraft()
+                onGoMain()
               }}
               data-suppress-tap-sfx="true"
               className="relative h-11 w-[176px] max-w-full rounded-xl overflow-hidden border border-slate-200/45 bg-[rgba(130,140,150,0.35)] text-[#d5dae6] transition-transform duration-100 active:scale-95"
             >
               <img
                 src={a('assets/particle/btn_bg_sliver.png')}
-                alt="정령 빚기 버튼 이미지"
+                alt="메인 버튼 이미지"
                 className="absolute inset-0 w-full h-full object-cover opacity-60"
                 draggable={false}
               />
-              <span className="relative z-[1] inline-block -translate-y-[3px] text-[15px] font-bold tracking-wide">정령 빚기</span>
+              <span className="relative z-[1] inline-block -translate-y-[3px] text-[15px] font-bold tracking-wide">메인으로</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
                 playSfx(TAP_SFX_PATH, 0.85)
-                onBackToExpedition()
+                onGoExpeditionMap()
               }}
               data-suppress-tap-sfx="true"
               className="relative h-11 w-[176px] max-w-full rounded-xl overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white transition-transform duration-100 active:scale-95"
             >
               <img
                 src={a('assets/particle/btn_bg_brown.png')}
-                alt="돌아가기 버튼 이미지"
+                alt="탐험 맵 버튼 이미지"
                 className="absolute inset-0 w-full h-full object-cover opacity-62"
                 draggable={false}
               />
-              <span className="relative z-[1] inline-block -translate-y-[3px] text-[15px] font-bold tracking-wide">돌아가기</span>
+              <span className="relative z-[1] inline-block -translate-y-[3px] text-[15px] font-bold tracking-wide">탐험 맵으로</span>
             </button>
           </div>
         </div>
@@ -511,17 +783,21 @@ function ResultModal({
 }
 
 function AnimatedResultRow({
+  a,
   label,
   targetValue,
   iconSrc,
   rarity,
   delay,
+  showLevelUpBadge,
 }: {
+  a: (path: string) => string
   label: string
   targetValue: number
   iconSrc?: string
   rarity?: SpiritRarity
   delay: number
+  showLevelUpBadge?: boolean
 }) {
   const [value, setValue] = useState(0)
   const rafRef = useRef<number | null>(null)
@@ -563,6 +839,16 @@ function AnimatedResultRow({
       <span className={`flex items-center gap-1.5 ${rarity ? RESULT_RARITY_UI[rarity].textClass : 'text-white'}`}>
         {iconSrc && <img src={iconSrc} alt="" className="w-4 h-4" draggable={false} />}
         {label}
+        {showLevelUpBadge && (
+          <motion.img
+            src={a('assets/particle/levelup_icon.png')}
+            alt="level up"
+            className="w-4 h-4 object-contain"
+            animate={{ opacity: [0.35, 1, 0.35], scale: [0.92, 1.05, 0.92] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+            draggable={false}
+          />
+        )}
       </span>
       <span className={`font-bold tabular-nums ${rarity ? RESULT_RARITY_UI[rarity].valueClass : 'text-white'}`}>+{value}</span>
     </motion.div>

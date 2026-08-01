@@ -3,10 +3,20 @@ import { motion } from 'framer-motion'
 import useAppStore from '../lib/store'
 import TopBar from './TopBar'
 import { formatLevelNumber, getLevelTitle } from '../data/levelTitles'
-import { LEVEL_COLORS } from '../data/levels'
+import { EXP_TO_NEXT, LEVEL_COLORS } from '../data/levels'
+
+type ProfileBurstParticle = {
+  id: number
+  angle: number
+  distance: number
+  size: number
+  color: string
+  delay: number
+}
 
 const PROFILE_NICKNAME_STORAGE_KEY = 'spiria.profile.nickname' as const
 const DEFAULT_NICKNAME = '오늘도 가보자'
+const TWINKLE_SFX_SRC = 'assets/sound/twinkle.mp3'
 
 function getProfileIllustrationSrc(level: number): string {
   const lv = Math.max(1, Math.min(99, Math.floor(level)))
@@ -27,6 +37,7 @@ function getProfileIllustrationSrc(level: number): string {
 export default function ProfileScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const level = useAppStore(s => s.level)
+  const expInLevel = useAppStore(s => s.expInLevel)
   const inventory = useAppStore(s => s.inventory)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const [nickname, setNickname] = useState(() => {
@@ -42,8 +53,10 @@ export default function ProfileScreen() {
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false)
   const [nicknameDraft, setNicknameDraft] = useState(nickname)
   const [glowPulseKey, setGlowPulseKey] = useState(0)
-  const xp = 1250
-  const maxXp = 3000
+  const [burstParticles, setBurstParticles] = useState<ProfileBurstParticle[]>([])
+  const expToNext = EXP_TO_NEXT[level] ?? 0
+  const xp = Math.max(0, expInLevel)
+  const maxXp = Math.max(1, expToNext)
   const pct = Math.min(100, Math.max(0, Math.round((xp / maxXp) * 100)))
   const levelTitle = getLevelTitle(level)
   const illustrationSrc = a(getProfileIllustrationSrc(level))
@@ -68,6 +81,27 @@ export default function ProfileScreen() {
     setIsNicknameModalOpen(false)
   }
 
+  const playIllustrationEffect = () => {
+    setGlowPulseKey((k) => k + 1)
+    setBurstParticles([])
+
+    const nextParticles = Array.from({ length: 16 }, (_, index) => ({
+      id: Date.now() + index,
+      angle: (index / 16) * Math.PI * 2,
+      distance: 40 + (index % 5) * 16,
+      size: 4 + (index % 3) * 2,
+      color: levelColor,
+      delay: index * 0.012,
+    }))
+
+    setBurstParticles(nextParticles)
+    window.setTimeout(() => setBurstParticles([]), 720)
+
+    const audio = new Audio(a(TWINKLE_SFX_SRC))
+    audio.currentTime = 0
+    void audio.play().catch(() => undefined)
+  }
+
   return (
     <div className="relative w-full h-full bg-black">
       {/* background */}
@@ -86,9 +120,14 @@ export default function ProfileScreen() {
 
       <div className="absolute inset-0 z-[6] px-6 pt-[112px] pb-10 flex flex-col items-center justify-start text-center translate-y-[20px]">
         <div className="w-full max-w-[440px] flex flex-col items-center">
-          <div className="flex items-center justify-center gap-2">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.42, ease: 'easeOut' }}
+            className="flex items-center justify-center gap-2 -translate-y-[10px]"
+          >
             <div
-              className="text-[25px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)]"
+              className="text-[25px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)] translate-y-[-10px]"
               style={{ color: levelColor }}
             >
               {nickname}
@@ -96,7 +135,7 @@ export default function ProfileScreen() {
             <button
               type="button"
               onClick={openNicknameModal}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
+              className="h-7 w-7 translate-y-[-10px] inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
               aria-label="닉네임 수정"
               title="닉네임 수정"
             >
@@ -105,57 +144,90 @@ export default function ProfileScreen() {
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
               </svg>
             </button>
-          </div>
+          </motion.div>
 
-          <div className="translate-y-[5px]">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.42, delay: 0.12, ease: 'easeOut' }}
+            className="translate-y-[5px]"
+          >
             <div className="mt-4 flex items-center gap-2">
               <div
                 className="relative z-10 translate-x-[5px] flex items-center justify-center w-[52px] h-[25px] rounded-full text-black text-[13px] font-extrabold select-none"
-                style={{ background: levelColor, boxShadow: `0 2px 12px ${levelColor}66` }}
+                style={{ background: levelColor, boxShadow: `0 4px 12px ${levelColor}66`, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.35))' }}
               >
                 Lv.{formatLevelNumber(level)}
               </div>
-              <div className="relative -ml-[8px] h-[10px] w-[min(42vw,172px)] rounded-full bg-black/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.35)]">
-                <div
+              <div className="relative -ml-[8px] h-[10px] w-[min(42vw,172px)] rounded-full bg-black/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),0_8px_20px_rgba(0,0,0,0.35)] overflow-hidden">
+                <motion.div
                   className="absolute inset-y-0 left-0 rounded-full"
-                  style={{ width: `${pct}%`, background: levelColor, boxShadow: `0 0 10px ${levelColor}66` }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ type: 'spring', stiffness: 70, damping: 18 }}
+                  style={{ background: levelColor, boxShadow: `0 0 10px ${levelColor}66` }}
                 />
               </div>
             </div>
 
             <div className="mt-2 text-[13px] font-semibold text-[#f5f5f5] drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
-              경험치 {xp.toLocaleString()} / <span className="font-extrabold text-white">{maxXp.toLocaleString()}</span>
+              다음 레벨까지 {xp.toLocaleString()} / <span className="font-extrabold text-white">{maxXp.toLocaleString()}</span>
             </div>
-          </div>
+          </motion.div>
 
           <motion.button
             type="button"
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setGlowPulseKey((k) => k + 1)}
-            className="relative mt-7 w-[55vw] max-w-[284px] aspect-square"
+            whileTap={{ scale: 0.94, rotate: -1 }}
+            onClick={playIllustrationEffect}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.48, delay: 0.24, ease: 'easeOut' }}
+            whileHover={{ scale: 1.01 }}
+            className="relative mt-7 w-[55vw] max-w-[284px] aspect-square overflow-visible"
             aria-label="프로필 일러스트"
           >
             <motion.div
               aria-hidden="true"
-              className="absolute inset-[9%] rounded-full pointer-events-none"
+              className="absolute inset-[-8%] rounded-full pointer-events-none"
               style={{
-                background: `radial-gradient(circle, ${levelColor}99 0%, ${levelColor}22 52%, rgba(0,0,0,0) 78%)`,
-                filter: 'blur(11px)',
+                background: `radial-gradient(circle, ${levelColor}ff 0%, ${levelColor}cc 24%, ${levelColor}66 42%, ${levelColor}22 68%, rgba(0,0,0,0) 86%)`,
+                filter: 'blur(26px)',
               }}
-              animate={{ opacity: [0.42, 0.82, 0.42], scale: [0.94, 1.04, 0.94] }}
-              transition={{ duration: 2.1, repeat: Infinity, ease: 'easeInOut' }}
+              animate={{ opacity: [0.55, 0.95, 0.55], scale: [0.94, 1.06, 0.94] }}
+              transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div
               key={glowPulseKey}
               initial={{ opacity: 0, scale: 0.82 }}
               animate={{ opacity: [0, 0.72, 0], scale: [0.82, 1, 1.1] }}
               transition={{ duration: 0.62, ease: 'easeOut' }}
-              className="absolute inset-[7%] rounded-full pointer-events-none"
+              className="absolute inset-[-6%] rounded-full pointer-events-none"
               style={{
                 background: `radial-gradient(circle, ${levelColor}AA 0%, ${levelColor}33 48%, rgba(0,0,0,0) 80%)`,
                 filter: 'blur(8px)',
               }}
             />
+            <div className="absolute inset-0 z-[2] pointer-events-none">
+              {burstParticles.map((particle) => {
+                const tx = Math.cos(particle.angle) * particle.distance
+                const ty = Math.sin(particle.angle) * particle.distance
+                return (
+                  <motion.span
+                    key={particle.id}
+                    initial={{ opacity: 0, scale: 0.25 }}
+                    animate={{ opacity: [0, 0.95, 0], scale: [0.25, 0.85, 0.6], x: [0, tx], y: [0, ty] }}
+                    transition={{ duration: 0.8, delay: particle.delay, ease: 'easeOut' }}
+                    className="absolute left-1/2 top-1/2 rounded-full"
+                    style={{
+                      width: `${particle.size}px`,
+                      height: `${particle.size}px`,
+                      background: particle.color,
+                      boxShadow: `0 0 10px ${particle.color}88`,
+                    }}
+                  />
+                )
+              })}
+            </div>
             <img
               src={illustrationSrc}
               alt={`${levelTitle} 일러스트`}
@@ -164,10 +236,16 @@ export default function ProfileScreen() {
             />
           </motion.button>
 
-          <div className="mt-[48px] w-[calc(100%_-_30px)] mx-auto grid grid-cols-2 gap-5">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.46, delay: 0.36, ease: 'easeOut' }}
+            className="mt-[48px] w-[calc(100%_-_30px)] mx-auto grid grid-cols-2 gap-5"
+          >
             <motion.button
               type="button"
               whileTap={{ scale: 0.96 }}
+              onClick={() => setScreen('book')}
               className="relative h-[191px]"
               aria-label="정령 도감"
             >
@@ -192,6 +270,7 @@ export default function ProfileScreen() {
             <motion.button
               type="button"
               whileTap={{ scale: 0.96 }}
+              onClick={() => setScreen('bag')}
               className="relative h-[191px]"
               aria-label="아이템 가방"
             >
@@ -212,7 +291,7 @@ export default function ProfileScreen() {
                 <div className="mt-0.5 text-[14px] font-semibold text-[#e8dcbc]/90">({totalItemCount})</div>
               </div>
             </motion.button>
-          </div>
+          </motion.div>
 
         </div>
       </div>
@@ -221,6 +300,9 @@ export default function ProfileScreen() {
         <div className="absolute inset-0 z-[40] bg-black/65 backdrop-blur-[2px] flex items-center justify-center px-6">
           <div className="w-full max-w-[360px] rounded-2xl border border-white/15 bg-[rgba(12,14,34,0.96)] p-5 shadow-[0_18px_46px_rgba(0,0,0,0.48)] flex flex-col items-center text-center">
             <div className="text-[18px] font-extrabold text-[#efd8ab]">닉네임 수정</div>
+            <div className="mt-2 text-[12px] leading-5 text-[#d7c7a8]/80">
+              닉네임은 최대 3번만 수정할 수 있어요.
+            </div>
             <input
               autoFocus
               value={nicknameDraft}
@@ -232,7 +314,7 @@ export default function ProfileScreen() {
               className="mt-3 w-full max-w-[300px] h-11 rounded-lg border border-white/20 bg-black/30 px-3 text-center text-white outline-none focus:border-[#c8b08c]"
               placeholder="닉네임을 입력하세요"
             />
-            <div className="mt-4 flex items-center justify-center gap-2">
+            <div className="mt-5 flex items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsNicknameModalOpen(false)}

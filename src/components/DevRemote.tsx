@@ -1,4 +1,5 @@
 import useAppStore from '../lib/store'
+import { EXP_TO_NEXT } from '../data/levels'
 
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
@@ -10,6 +11,9 @@ type Props = {
 export default function DevRemote({ screen, onSelect }: Props) {
   const level = useAppStore(s => s.level)
   const setLevel = useAppStore(s => s.setLevel)
+  const expInLevel = useAppStore(s => s.expInLevel)
+  const setExpInLevel = useAppStore(s => s.setExpInLevel)
+  const expToNext = EXP_TO_NEXT[level] ?? 0
 
   return (
     <div className="fixed top-1/2 right-0 -translate-y-1/2 z-[60] select-none group">
@@ -21,6 +25,8 @@ export default function DevRemote({ screen, onSelect }: Props) {
         <div className="mt-1 rounded-md border border-white/15 bg-white/5 px-2 py-2">
           <div className="text-[10px] text-white/70 text-center">USER LV</div>
           <div className="mt-1 text-[12px] font-bold text-white text-center">{level}</div>
+          <div className="mt-1 text-[10px] text-white/60 text-center">다음 레벨 필요 EXP {expToNext}</div>
+          <div className="mt-1 text-[10px] text-white/50 text-center">현재 레벨 EXP {expInLevel}</div>
           <div className="mt-2 grid grid-cols-2 gap-1">
             <button
               type="button"
@@ -35,6 +41,22 @@ export default function DevRemote({ screen, onSelect }: Props) {
               className="px-2 py-1 rounded text-[11px] border bg-white/10 text-white/85 hover:bg-white/15 border-white/20"
             >
               +1
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setExpInLevel(Math.max(0, expInLevel - 10))}
+              className="px-2 py-1 rounded text-[11px] border bg-white/10 text-white/85 hover:bg-white/15 border-white/20"
+            >
+              EXP -10
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpInLevel(expInLevel + 10)}
+              className="px-2 py-1 rounded text-[11px] border bg-white/10 text-white/85 hover:bg-white/15 border-white/20"
+            >
+              EXP +10
             </button>
           </div>
         </div>

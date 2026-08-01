@@ -12,7 +12,7 @@ export const CRAFTING_MATERIALS: readonly CraftingMaterial[] = [
 	{ id: 'light', name: '태양', englishName: 'Sun', category: '재료', materialCategory: 'sky' },
 	{ id: 'magic', name: '마법', englishName: 'Magic', category: '재료', materialCategory: 'mystic' },
 	{ id: 'ether', name: '에테르', englishName: 'Aether', category: '재료', materialCategory: 'mystic' },
-	{ id: 'gem', name: '젬', englishName: 'Gem', category: '재료', materialCategory: 'mystic' },
+	{ id: 'gem', name: '보석', englishName: 'Gem', category: '재료', materialCategory: 'mystic' },
 ] as const
 
 export const ETC_ITEMS: readonly ItemDef[] = [

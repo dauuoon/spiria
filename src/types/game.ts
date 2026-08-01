@@ -133,6 +133,50 @@ export interface HiddenStageReward {
   exp: BalanceValue
 }
 
+export interface RegionDropTableEntry {
+  itemId: string
+  weight: number
+  minCount: number
+  maxCount: number
+}
+
+export interface RegionEventTemplate {
+  id: string
+  kind: 'spirit' | 'regional' | 'treasure'
+  title: string
+  description: string
+  reward: Record<string, number | string | string[] | undefined>
+}
+
+export interface RegionDef {
+  id: string
+  name: string
+  unlockLevel: number
+  recommendedLevel: number
+  manaCost: number
+  exploreSteps: number
+  traceItemId: string
+  traceName: string
+  hiddenStageRequiredAmount: number
+  nextRegionId: string
+  nextRegionUnlockLevel: number
+  explorationRateWeights: {
+    material: number
+    spirit: number
+    regional: number
+    treasure: number
+  }
+  discoveryTotals: {
+    material: number
+    spirit: number
+    regional: number
+    treasure: number
+  }
+  dropTable: RegionDropTableEntry[]
+  eventTemplates: RegionEventTemplate[]
+  emptyEventTexts: string[]
+}
+
 // Dungeon definitions for Expedition
 export interface DungeonDef {
   id: string

@@ -24,6 +24,15 @@ levels.push({ level: MAX_LEVEL, expToNext: 0, color: '#F6E7A8' }) // Lv.99 max
 
 export const LEVELS = levels as readonly LevelEntry[]
 
+const cumulativeExpByLevel: Record<number, number> = {}
+let cumulativeTotal = 0
+for (const cur of levels) {
+  cumulativeExpByLevel[cur.level] = cumulativeTotal
+  cumulativeTotal += cur.expToNext
+}
+
+export const CUMULATIVE_EXP_BY_LEVEL = Object.freeze(cumulativeExpByLevel)
+
 export const LEVEL_COLORS = Object.freeze(
   levels.reduce<Record<number, HexColor>>((acc, cur) => {
     acc[cur.level] = cur.color
@@ -37,3 +46,8 @@ export const EXP_TO_NEXT = Object.freeze(
     return acc
   }, {})
 )
+
+export function getCumulativeExpForLevel(level: number): number {
+  const lv = Math.max(1, Math.min(99, Math.floor(level)))
+  return CUMULATIVE_EXP_BY_LEVEL[lv] ?? 0
+}
