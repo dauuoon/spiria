@@ -6,7 +6,7 @@ import { EXP_TO_NEXT } from '../data/levels'
 import { getLevelTitle } from '../data/levelTitles'
 import { REGIONS } from '../data/regions'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
 type PersistedGameState = {
   level: number
@@ -39,6 +39,7 @@ type AppState = {
   pendingLevelUp: PendingLevelUp | null
   showLevelUpPopup: boolean
   dismissLevelUpPopup: () => void
+  claimPendingLevelUpRewards: () => void
   level: number
   setLevel: (n: number) => void
   expInLevel: number
@@ -64,6 +65,7 @@ type AppState = {
   coins: number
   addCoins: (delta?: number) => void
   spendCoins: (delta?: number) => number
+  resetGameData: () => void
 }
 
 const loadMana = () => {
@@ -96,6 +98,7 @@ const saveMana = (mana: number, manaUpdatedAt: number | null) => {
 }
 
 const GAME_STATE_STORAGE_KEY = 'spiria.game-state.v1'
+const INITIAL_LEVEL = 1
 const INITIAL_COINS = 1250
 
 const loadGameState = (): PersistedGameState | null => {
@@ -105,7 +108,7 @@ const loadGameState = (): PersistedGameState | null => {
     const parsed = JSON.parse(raw) as Partial<PersistedGameState>
     if (!parsed || typeof parsed !== 'object') return null
     return {
-      level: Math.max(1, Math.floor(parsed.level ?? 12)),
+      level: Math.max(1, Math.floor(parsed.level ?? INITIAL_LEVEL)),
       expInLevel: Math.max(0, Math.floor(parsed.expInLevel ?? 0)),
       coins: Math.max(0, Math.floor(parsed.coins ?? INITIAL_COINS)),
       inventory: parsed.inventory ?? {},
@@ -145,6 +148,15 @@ const createInitialInventory = () => {
   return base
 }
 
+const createFreshGameState = (): PersistedGameState => ({
+  level: INITIAL_LEVEL,
+  expInLevel: 0,
+  coins: INITIAL_COINS,
+  inventory: Object.fromEntries(ITEMS.map((it) => [it.id, 0])) as Record<string, number>,
+  mana: INITIAL_MANA,
+  manaUpdatedAt: null,
+})
+
 const persistedGameState = loadGameState()
 const persistedInventory = persistedGameState?.inventory ?? {}
 const initialInventory = createInitialInventory()
@@ -161,7 +173,33 @@ const useAppStore = create<AppState>((set, get) => ({
   pendingLevelUp: null,
   showLevelUpPopup: false,
   dismissLevelUpPopup: () => set({ pendingLevelUp: null, showLevelUpPopup: false }),
-  level: persistedGameState?.level ?? 12,
+  claimPendingLevelUpRewards: () => {
+    const pending = get().pendingLevelUp
+    if (!pending) return
+
+    set((state) => {
+      const nextCoins = state.coins + pending.rewards.gold
+      const nextMana = Math.min(MAX_MANA, state.mana + pending.rewards.mana)
+      const nextManaUpdatedAt = nextMana >= MAX_MANA ? null : state.manaUpdatedAt
+      saveMana(nextMana, nextManaUpdatedAt)
+      saveGameState({
+        level: state.level,
+        expInLevel: state.expInLevel,
+        coins: nextCoins,
+        inventory: state.inventory,
+        mana: nextMana,
+        manaUpdatedAt: nextManaUpdatedAt,
+      })
+      return {
+        coins: nextCoins,
+        mana: nextMana,
+        manaUpdatedAt: nextManaUpdatedAt,
+        pendingLevelUp: null,
+        showLevelUpPopup: false,
+      }
+    })
+  },
+  level: persistedGameState?.level ?? INITIAL_LEVEL,
   setLevel: (n) => {
     const nextLevel = Math.max(1, Math.floor(n))
     set((state) => ({
@@ -253,24 +291,18 @@ const useAppStore = create<AppState>((set, get) => ({
         popupKey: `${nextLevel}-${currentLevel}-${Date.now()}`,
       }
 
-      const nextMana = Math.min(MAX_MANA, state.mana + rewardMana)
-      const nextManaUpdatedAt = nextMana >= MAX_MANA ? null : state.manaUpdatedAt
-      const nextCoins = state.coins + rewardGold
       const nextState = {
         level: currentLevel,
         expInLevel: currentLevel >= 99 ? 0 : currentExp,
-        coins: nextCoins,
-        mana: nextMana,
-        manaUpdatedAt: nextManaUpdatedAt,
         pendingLevelUp: levelUpInfo,
       }
       saveGameState({
         level: nextState.level,
         expInLevel: nextState.expInLevel,
-        coins: nextState.coins,
+        coins: state.coins,
         inventory: state.inventory,
-        mana: nextState.mana,
-        manaUpdatedAt: nextState.manaUpdatedAt,
+        mana: state.mana,
+        manaUpdatedAt: state.manaUpdatedAt,
       })
       return nextState
     })
@@ -352,6 +384,36 @@ const useAppStore = create<AppState>((set, get) => ({
       manaUpdatedAt: get().manaUpdatedAt,
     })
     return spent
+  },
+  resetGameData: () => {
+    const fresh = createFreshGameState()
+    try {
+      localStorage.removeItem(GAME_STATE_STORAGE_KEY)
+      localStorage.removeItem(MANA_STORAGE_KEY)
+      localStorage.removeItem(LEGACY_ENERGY_STORAGE_KEY)
+    } catch {
+      // ignore storage errors
+    }
+    saveMana(fresh.mana, fresh.manaUpdatedAt)
+    saveGameState(fresh)
+    set({
+      progress: 0,
+      screen: 'loading',
+      pendingLevelUp: null,
+      showLevelUpPopup: false,
+      level: fresh.level,
+      expInLevel: fresh.expInLevel,
+      coins: fresh.coins,
+      inventory: fresh.inventory,
+      mana: fresh.mana,
+      manaUpdatedAt: fresh.manaUpdatedAt,
+      explorationProgress: {
+        materialDiscovered: 0,
+        spiritDiscovered: 0,
+        regionalEventDiscovered: 0,
+        treasureDiscovered: 0,
+      },
+    })
   },
   inventory: initialInventoryWithPersisted,
   setItemCount: (id, count) => {

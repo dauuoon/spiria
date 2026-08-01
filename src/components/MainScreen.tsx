@@ -14,6 +14,7 @@ export default function MainScreen() {
   const coins = useAppStore(s => s.coins)
   const mana = useAppStore(s => s.mana)
   const recomputeMana = useAppStore(s => s.recomputeMana)
+  const resetGameData = useAppStore(s => s.resetGameData)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [storeModalOpen, setStoreModalOpen] = useState(false)
@@ -70,15 +71,45 @@ export default function MainScreen() {
                 type="button"
                 onClick={() => {
                   setMenuOpen(false)
+                  setScreen('license')
+                }}
+                className="w-full text-center px-3 py-2 text-[14px] text-[#cfd3db] hover:bg-white/10"
+              >
+                라이선스
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
                   setProgress(0)
                   setScreen('loading')
                 }}
-                className="w-full text-center px-3 py-2 text-[14px] text-white/90 hover:bg-white/10"
+                className="w-full text-center px-3 py-2 text-[14px] text-[#cfd3db] hover:bg-white/10"
               >
                 재시작
               </button>
-              <button type="button" className="w-full text-center px-3 py-2 text-[14px] text-white/70 hover:bg-white/10">로그아웃</button>
-              <button type="button" className="w-full text-center px-3 py-2 text-[14px] text-red-400 hover:bg-white/10">게임 종료</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  window.close()
+                }}
+                className="w-full text-center px-3 py-2 text-[14px] text-red-400 hover:bg-white/10"
+              >
+                게임종료
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  const confirmed = window.confirm('데이터를 초기화하고 처음부터 다시 시작할까요?')
+                  if (!confirmed) return
+                  resetGameData()
+                }}
+                className="w-full text-center px-3 py-2 text-[14px] text-[#cfd3db] hover:bg-white/10"
+              >
+                데이터초기화
+              </button>
             </div>
           )}
         </div>

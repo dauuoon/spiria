@@ -160,12 +160,13 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="3단계"
           className="absolute left-[6%] top-[56%] w-[56%] max-w-none cursor-pointer"
+          style={{ x: 200, y: -95 }}
           data-suppress-tap-sfx="true"
           onClick={() => {
             requestEnter(3, 'map3')
           }}
         >
-          <motion.div className="relative w-full h-full" style={{ x: 200, y: -95 }} whileTap={{ scale: 1.06 }}>
+          <motion.div className="relative w-full h-full" whileTap={{ scale: 1.06 }}>
             <img
               src={a('assets/particle/map3.png')}
               alt="3단계"

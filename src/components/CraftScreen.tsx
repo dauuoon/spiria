@@ -4,7 +4,7 @@ import useAppStore from '../lib/store'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
-import { getSpiritCraftCostByLevel } from '../data/economy'
+import { getSpiritCraftCostByLevel, QUEST_REJECT_PENALTY_GOLD } from '../data/economy'
 import { QUEST_REWARDS } from '../data/quests'
 import { buildOrderedRecipe } from '../lib/crafting'
 
@@ -60,7 +60,7 @@ export default function CraftScreen() {
     { id: 'light', name: '태양' },
     { id: 'magic', name: '마법' },
     { id: 'ether', name: '에테르' },
-    { id: 'gem', name: '젬' },
+    { id: 'gem', name: '보석' },
   ] as const
 
   const matItems = craftMaterials
@@ -194,7 +194,7 @@ export default function CraftScreen() {
     if (acceptedQuestId === rejected.id) {
       setAcceptedQuestId(null)
     }
-    const spent = spendCoins(200)
+    const spent = spendCoins(QUEST_REJECT_PENALTY_GOLD)
     try {
       const audio = new Audio(a(COIN_PENALTY_SFX_PATH))
       audio.volume = 0.86
@@ -332,7 +332,7 @@ export default function CraftScreen() {
               <div className="relative">
                 <div className="absolute z-[30] left-1/2 -translate-x-1/2 -top-[12px] h-[18px] px-2 rounded-md border border-red-300/40 bg-[rgb(90,22,28)] text-[11px] font-semibold text-[#ffd6d9] inline-flex items-center justify-center gap-1 whitespace-nowrap">
                   <img src={a('assets/particle/money.png')} alt="coin" className="w-3.5 h-3.5 object-contain" draggable={false} />
-                  -200
+                  -{QUEST_REJECT_PENALTY_GOLD}
                 </div>
                 <button
                   type="button"

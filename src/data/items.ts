@@ -1,18 +1,18 @@
 import type { CraftingMaterial, ItemDef } from '../types/game'
 
 export const CRAFTING_MATERIALS: readonly CraftingMaterial[] = [
-	{ id: 'flower', name: '꽃', englishName: 'Flower', category: '재료', materialCategory: 'nature' },
-	{ id: 'leaf', name: '잎', englishName: 'Leaf', category: '재료', materialCategory: 'nature' },
-	{ id: 'soil', name: '흙', englishName: 'Soil', category: '재료', materialCategory: 'nature' },
-	{ id: 'water', name: '물', englishName: 'Water', category: '재료', materialCategory: 'element' },
-	{ id: 'fire', name: '불', englishName: 'Fire', category: '재료', materialCategory: 'element' },
-	{ id: 'wind', name: '바람', englishName: 'Wind', category: '재료', materialCategory: 'element' },
-	{ id: 'star', name: '별', englishName: 'Star', category: '재료', materialCategory: 'sky' },
-	{ id: 'moon', name: '달', englishName: 'Moon', category: '재료', materialCategory: 'sky' },
-	{ id: 'light', name: '태양', englishName: 'Sun', category: '재료', materialCategory: 'sky' },
-	{ id: 'magic', name: '마법', englishName: 'Magic', category: '재료', materialCategory: 'mystic' },
-	{ id: 'ether', name: '에테르', englishName: 'Aether', category: '재료', materialCategory: 'mystic' },
-	{ id: 'gem', name: '보석', englishName: 'Gem', category: '재료', materialCategory: 'mystic' },
+	{ id: 'flower', name: '꽃', category: '재료', englishName: 'Flower', materialCategory: 'nature' },
+	{ id: 'leaf', name: '잎', category: '재료', englishName: 'Leaf', materialCategory: 'nature' },
+	{ id: 'soil', name: '흙', category: '재료', englishName: 'Soil', materialCategory: 'nature' },
+	{ id: 'water', name: '물', category: '재료', englishName: 'Water', materialCategory: 'element' },
+	{ id: 'fire', name: '불', category: '재료', englishName: 'Fire', materialCategory: 'element' },
+	{ id: 'wind', name: '바람', category: '재료', englishName: 'Wind', materialCategory: 'element' },
+	{ id: 'star', name: '별', category: '재료', englishName: 'Star', materialCategory: 'sky' },
+	{ id: 'moon', name: '달', category: '재료', englishName: 'Moon', materialCategory: 'sky' },
+	{ id: 'light', name: '태양', category: '재료', englishName: 'Sun', materialCategory: 'sky' },
+	{ id: 'magic', name: '마법', category: '재료', englishName: 'Magic', materialCategory: 'mystic' },
+	{ id: 'ether', name: '에테르', category: '재료', englishName: 'Aether', materialCategory: 'mystic' },
+	{ id: 'gem', name: '보석', category: '재료', englishName: 'Gem', materialCategory: 'mystic' },
 ] as const
 
 export const ETC_ITEMS: readonly ItemDef[] = [

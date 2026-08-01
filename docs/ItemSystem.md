@@ -14,12 +14,12 @@
 - Nature: 꽃(`flower`), 잎(`leaf`), 흙(`soil`)
 - Element: 물(`water`), 불(`fire`), 바람(`wind`)
 - Sky: 별(`star`), 달(`moon`), 태양(`light`)
-- Mystic: 마법(`magic`), 에테르(`ether`), 젬(`gem`)
+- Mystic: 마법(`magic`), 에테르(`ether`), 보석(`gem`)
 
 규칙:
 
 - 카테고리는 데이터 관리/확장용이며 현재 UI에는 카테고리명을 노출하지 않는다.
-- 제작 재료 보석은 `Gem / 젬 / gem`으로 통일한다.
+- 제작 재료 보석은 `Gem / 보석 / gem`으로 통일한다.
 
 ## 3. Currency and Progression
 
@@ -64,3 +64,15 @@ Gem과 Mana 구분:
 - Legendary: main `#F6E7A8`, border `#E7C55B`
 
 해당 토큰은 인벤토리/결과/정령 관련 UI에서 공통으로 사용한다.
+
+## 7. 아이템 희귀도 규칙
+
+런타임 데이터: `src/data/rarity.ts`의 `getRarityByItemId`
+
+- 모든 재료 아이템은 Common(일반)이다.
+- 정령 조각 아이템(`fragment_spirit_*`)은 Legendary(전설)이다.
+- 숲의 잔향(`forest_trace`), 바람의 메아리(`wind_trace`)는 Rare(레어)다.
+- 설원의 기억(`lake_trace`), 화염의 잔재(`ruins_trace`)는 Epic(에픽)이다.
+- 어둠의 흔적(`final_trace`)은 Legendary(전설)다.
+
+이 규칙은 인벤토리, 탐험 결과, 아이템 상세와 같은 기타 아이템 표시에 동일하게 적용한다.

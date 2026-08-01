@@ -31,7 +31,7 @@ export const DUNGEONS: DungeonDef[] = [
     rareMaterialChance: 0.05,
   },
   {
-    id: 'lake_tbd',
+    id: 'frozen_lake',
     name: '얼어붙은 설원',
     unlockLv: 25,
     recommendedLv: 25,
@@ -42,7 +42,7 @@ export const DUNGEONS: DungeonDef[] = [
     rareMaterialChance: 0.07,
   },
   {
-    id: 'ruins_tbd',
+    id: 'flame_ruins',
     name: '화염의 산맥',
     unlockLv: 50,
     recommendedLv: 50,
@@ -53,7 +53,7 @@ export const DUNGEONS: DungeonDef[] = [
     rareMaterialChance: 0.09,
   },
   {
-    id: 'final_tbd',
+    id: 'dark_swamp',
     name: '어둠의 습지',
     unlockLv: 80,
     recommendedLv: 80,

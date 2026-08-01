@@ -4,9 +4,10 @@ import useAppStore from '../lib/store'
 type Props = {
   onBack?: () => void
   title?: string
+  hideResources?: boolean
 }
 
-export default function TopBar({ onBack, title }: Props) {
+export default function TopBar({ onBack, title, hideResources = false }: Props) {
   const setScreen = useAppStore((s) => s.setScreen)
   const mana = useAppStore((s) => s.mana)
   const coins = useAppStore((s) => s.coins)
@@ -33,7 +34,7 @@ export default function TopBar({ onBack, title }: Props) {
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      {!hideResources && <div className="flex items-center gap-2">
         <motion.button
           type="button"
           whileTap={{ scale: 0.96 }}
@@ -59,7 +60,7 @@ export default function TopBar({ onBack, title }: Props) {
           </span>
           <span className="text-white/90 text-[14px] font-semibold tabular-nums">{mana}</span>
         </motion.button>
-      </div>
+      </div>}
     </div>
   )
 }

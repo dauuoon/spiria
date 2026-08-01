@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:balance": "python3 scripts/sync_balance_from_xlsx.py"
   },
   "dependencies": {
     "framer-motion": "^11.0.0",

@@ -4,6 +4,7 @@ import useAppStore from '../lib/store'
 import TopBar from './TopBar'
 import { formatLevelNumber, getLevelTitle } from '../data/levelTitles'
 import { EXP_TO_NEXT, LEVEL_COLORS } from '../data/levels'
+import { clampNicknameInput, DEFAULT_NICKNAME, loadStoredNickname, saveStoredNickname } from '../lib/profile'
 
 type ProfileBurstParticle = {
   id: number
@@ -14,8 +15,6 @@ type ProfileBurstParticle = {
   delay: number
 }
 
-const PROFILE_NICKNAME_STORAGE_KEY = 'spiria.profile.nickname' as const
-const DEFAULT_NICKNAME = '오늘도 가보자'
 const TWINKLE_SFX_SRC = 'assets/sound/twinkle.mp3'
 
 function getProfileIllustrationSrc(level: number): string {
@@ -40,16 +39,7 @@ export default function ProfileScreen() {
   const expInLevel = useAppStore(s => s.expInLevel)
   const inventory = useAppStore(s => s.inventory)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
-  const [nickname, setNickname] = useState(() => {
-    try {
-      const raw = localStorage.getItem(PROFILE_NICKNAME_STORAGE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      const saved = typeof parsed === 'string' ? parsed.trim() : ''
-      return saved || DEFAULT_NICKNAME
-    } catch {
-      return DEFAULT_NICKNAME
-    }
-  })
+  const [nickname, setNickname] = useState(() => loadStoredNickname())
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false)
   const [nicknameDraft, setNicknameDraft] = useState(nickname)
   const [glowPulseKey, setGlowPulseKey] = useState(0)
@@ -71,13 +61,8 @@ export default function ProfileScreen() {
   }
 
   const saveNickname = () => {
-    const next = nicknameDraft.trim().slice(0, 14) || DEFAULT_NICKNAME
+    const next = saveStoredNickname(nicknameDraft)
     setNickname(next)
-    try {
-      localStorage.setItem(PROFILE_NICKNAME_STORAGE_KEY, JSON.stringify(next))
-    } catch {
-      // ignore storage errors
-    }
     setIsNicknameModalOpen(false)
   }
 
@@ -127,7 +112,7 @@ export default function ProfileScreen() {
             className="flex items-center justify-center gap-2 -translate-y-[10px]"
           >
             <div
-              className="text-[25px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)] translate-y-[-10px]"
+              className="text-[27px] font-bold tracking-[0.02em] drop-shadow-[0_4px_14px_rgba(0,0,0,0.34)] translate-y-[-10px]"
               style={{ color: levelColor }}
             >
               {nickname}
@@ -135,7 +120,7 @@ export default function ProfileScreen() {
             <button
               type="button"
               onClick={openNicknameModal}
-              className="h-7 w-7 translate-y-[-10px] inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
+              className="h-7 w-7 translate-y-[-7px] inline-flex items-center justify-center rounded-full border border-white/20 bg-[rgba(8,10,24,0.5)] text-white/90 active:scale-95"
               aria-label="닉네임 수정"
               title="닉네임 수정"
             >
@@ -301,13 +286,13 @@ export default function ProfileScreen() {
           <div className="w-full max-w-[360px] rounded-2xl border border-white/15 bg-[rgba(12,14,34,0.96)] p-5 shadow-[0_18px_46px_rgba(0,0,0,0.48)] flex flex-col items-center text-center">
             <div className="text-[18px] font-extrabold text-[#efd8ab]">닉네임 수정</div>
             <div className="mt-2 text-[12px] leading-5 text-[#d7c7a8]/80">
-              닉네임은 최대 3번만 수정할 수 있어요.
+              닉네임은 한글 6자, 영문 10자 이내로 입력할 수 있어요.
             </div>
             <input
               autoFocus
               value={nicknameDraft}
-              maxLength={14}
-              onChange={(e) => setNicknameDraft(e.target.value)}
+              maxLength={10}
+              onChange={(e) => setNicknameDraft(clampNicknameInput(e.target.value))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') saveNickname()
               }}

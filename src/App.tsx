@@ -7,6 +7,7 @@ import CraftScreen from './components/CraftScreen'
 import BookScreen from './components/BookScreen'
 import InventoryScreen from './components/InventoryScreen'
 import ProfileScreen from './components/ProfileScreen'
+import LicenseScreen from './components/LicenseScreen'
 import Map1Screen from './components/Map1Screen'
 import Map2Screen from './components/Map2Screen'
 import Map3Screen from './components/Map3Screen'
@@ -39,7 +40,7 @@ export default function App() {
   const setScreen = useAppStore(s => s.setScreen)
   const pendingLevelUp = useAppStore(s => s.pendingLevelUp)
   const showLevelUpPopup = useAppStore(s => s.showLevelUpPopup)
-  const dismissLevelUpPopup = useAppStore(s => s.dismissLevelUpPopup)
+  const claimPendingLevelUpRewards = useAppStore(s => s.claimPendingLevelUpRewards)
 
   // Fake loading progress for now
   useEffect(() => {
@@ -76,6 +77,8 @@ export default function App() {
               <InventoryScreen />
             ) : screen === 'profile' ? (
               <ProfileScreen />
+            ) : screen === 'license' ? (
+              <LicenseScreen />
             ) : screen === 'map1' ? (
               <Map1Screen />
             ) : screen === 'map2' ? (
@@ -103,7 +106,7 @@ export default function App() {
       <TapSfx />
 
       {showLevelUpPopup && pendingLevelUp && (
-        <LevelUpPopup levelUp={pendingLevelUp} onClose={dismissLevelUpPopup} />
+        <LevelUpPopup levelUp={pendingLevelUp} onClose={claimPendingLevelUpRewards} />
       )}
 
       {/* Resolution guard overlay (height <= 874px) */}
@@ -191,7 +194,7 @@ function LevelUpPopup({
           />
 
           <div className="absolute inset-0 px-5 pb-6 pt-[82px] flex flex-col items-center justify-start">
-            <div className="text-[32px] font-black tracking-[0.12em]" style={{ color: newLevelColor }}>LEVEL UP</div>
+            <div className="text-[32px] font-black tracking-[0.12em]" style={{ color: newLevelColor }}>·LEVEL UP·</div>
 
             <div
               className="mt-3 inline-flex min-h-[20px] items-center justify-center rounded-[999px] px-4 py-1 text-[13px] font-bold text-black"
@@ -221,7 +224,12 @@ function LevelUpPopup({
             <button
               type="button"
               onClick={handleClose}
-              className="mt-6 h-11 w-full max-w-[328px] rounded-xl border border-[#bda671]/70 bg-[rgba(119,98,60,0.45)] px-3 text-[15px] font-extrabold text-[#f7e7b3] shadow-[inset_0_0_0_1px_rgba(255,240,194,0.08)]"
+              className="mt-6 h-11 w-full max-w-[328px] rounded-xl px-3 text-[15px] font-extrabold text-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]"
+              style={{
+                border: `1px solid ${newLevelColor}`,
+                backgroundColor: `${newLevelColor}99`,
+                boxShadow: `0 10px 28px ${newLevelColor}33, inset 0 0 0 1px rgba(255,255,255,0.12)`,
+              }}
             >
               보상받기
             </button>

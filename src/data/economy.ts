@@ -6,6 +6,7 @@ export const ECONOMY: EconomySettings = {
 }
 
 export const TOTAL_EXP_REQUIRED = TOTAL_EXP_TO_MAX
+export const QUEST_REJECT_PENALTY_GOLD = 200 as const
 
 export const CRAFTING_COST_TIERS: readonly CraftingCostTier[] = [
   { minLevel: 1, maxLevel: 19, requiredPerMaterial: 2, selectedMaterialKinds: 3 },

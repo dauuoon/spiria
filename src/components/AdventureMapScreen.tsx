@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { motion, useAnimation } from 'framer-motion'
+import { AnimatePresence, motion, useAnimation } from 'framer-motion'
 import useAppStore from '../lib/store'
 import TopBar from './TopBar'
 import { DUNGEONS } from '../data/dungeons'
@@ -39,12 +39,68 @@ type ActiveEventState = {
   rewardText: string
 }
 
+type FloatingRewardToast = {
+  id: string
+  text: string
+  iconSrc?: string
+  textColor: string
+  borderColor: string
+  bgColor?: string
+}
+
+type FloatingToastColors = {
+  textColor: string
+  borderColor: string
+  bgColor?: string
+}
+
 const TOTAL_EXPLORES = EXPEDITION_REWARD_DRAFT.exploreSteps
 
 const TAP_SFX_PATH = 'assets/sound/tap.mp3'
 const RESULT_POP_SFX_PATH = 'assets/sound/ex_resgult.mp3'
 const RESULT_COUNT_SFX_PATH = 'assets/sound/num_coin.mp3'
+const REWARD_TOAST_SFX_PATH = 'assets/sound/reward_toast.mp3'
+const TREASURE_SPAWN_SFX_PATH = 'assets/sound/thud.mp3'
+const TREASURE_CLOSE_SFX_PATH = 'assets/sound/chest1.mp3'
+const TREASURE_OPEN_SFX_PATH = 'assets/sound/chest2.mp3'
+const EXPLORE_TAP_COOLDOWN_MS = 500
+const FLOATING_TOAST_LIFETIME_MS = 1050
+const FLOATING_TOAST_GAP_MS = 140
 
+const FLOATING_TOAST_COLORS = {
+  default: {
+    textColor: '#F4E1B4',
+    borderColor: '#FFFFFF33',
+    bgColor: 'rgba(8,10,24,0.75)',
+  },
+  none: {
+    textColor: '#C5CBD6',
+    borderColor: '#A6AFBF88',
+    bgColor: 'rgba(8,10,24,0.72)',
+  },
+  exp: {
+    textColor: '#87D5FF',
+    borderColor: '#6FC2FF88',
+    bgColor: 'rgba(8,10,24,0.75)',
+  },
+  gold: {
+    textColor: '#F3D274',
+    borderColor: '#E8C157AA',
+    bgColor: 'rgba(8,10,24,0.75)',
+  },
+  mana: {
+    textColor: '#C7A6FF',
+    borderColor: '#A780F6AA',
+    bgColor: 'rgba(8,10,24,0.75)',
+  },
+} as const
+
+type FloatingRewardToastEntry = {
+  text: string
+  iconPath?: string
+  iconSrc?: string
+  colors?: FloatingToastColors
+}
 
 function playSfx(path: string, volume = 0.75) {
   try {
@@ -77,7 +133,15 @@ export default function AdventureMapScreen({
   const [result, setResult] = useState<ExploreResult | null>(null)
   const [activeEvent, setActiveEvent] = useState<ActiveEventState | null>(null)
   const [showLevelUpBadge, setShowLevelUpBadge] = useState(false)
+  const [floatingRewardToasts, setFloatingRewardToasts] = useState<FloatingRewardToast[]>([])
+  const [treasureChestOpened, setTreasureChestOpened] = useState(false)
   const resultTimerRef = useRef<number | null>(null)
+  const floatingToastQueueRef = useRef<FloatingRewardToast[]>([])
+  const floatingToastTimerRef = useRef<number | null>(null)
+  const floatingToastGapTimerRef = useRef<number | null>(null)
+  const floatingToastRunningRef = useRef(false)
+  const treasureChestEventIdRef = useRef<string | null>(null)
+  const exploreTapCooldownUntilRef = useRef(0)
   const pendingFinalResultRef = useRef(false)
 
   const remaining = Math.max(0, TOTAL_EXPLORES - used)
@@ -100,36 +164,114 @@ export default function AdventureMapScreen({
   const mapTitle = dungeon?.name ?? region?.name ?? `Map${stage}`
   const getItemDef = useCallback((id: string) => ITEMS.find((it) => it.id === id), [])
 
+  const getRarityToastColors = useCallback((rarity: SpiritRarity): FloatingToastColors => {
+    const token = SPIRIT_RARITY_TOKENS[rarity]
+    return {
+      textColor: token.mainColor,
+      borderColor: `${token.borderColor}AA`,
+      bgColor: 'rgba(8,10,24,0.75)',
+    }
+  }, [])
+
+  const showNextFloatingRewardToast = useCallback(() => {
+    const next = floatingToastQueueRef.current.shift()
+    if (!next) {
+      floatingToastRunningRef.current = false
+      setFloatingRewardToasts([])
+      return
+    }
+
+    floatingToastRunningRef.current = true
+    setFloatingRewardToasts([next])
+    playSfx(REWARD_TOAST_SFX_PATH, 0.82)
+
+    if (floatingToastTimerRef.current !== null) {
+      window.clearTimeout(floatingToastTimerRef.current)
+      floatingToastTimerRef.current = null
+    }
+    if (floatingToastGapTimerRef.current !== null) {
+      window.clearTimeout(floatingToastGapTimerRef.current)
+      floatingToastGapTimerRef.current = null
+    }
+
+    floatingToastTimerRef.current = window.setTimeout(() => {
+      setFloatingRewardToasts([])
+      floatingToastTimerRef.current = null
+
+      floatingToastGapTimerRef.current = window.setTimeout(() => {
+        floatingToastGapTimerRef.current = null
+        showNextFloatingRewardToast()
+      }, FLOATING_TOAST_GAP_MS)
+    }, FLOATING_TOAST_LIFETIME_MS)
+  }, [])
+
+  const showFloatingRewardToasts = useCallback((entries: FloatingRewardToastEntry[]) => {
+    if (entries.length === 0) return
+
+    const prepared = entries.map((entry, idx) => ({
+      id: `${Date.now()}-${Math.random()}-${idx}`,
+      text: entry.text,
+      iconSrc: entry.iconSrc ?? (entry.iconPath ? a(entry.iconPath) : undefined),
+      textColor: entry.colors?.textColor ?? FLOATING_TOAST_COLORS.default.textColor,
+      borderColor: entry.colors?.borderColor ?? FLOATING_TOAST_COLORS.default.borderColor,
+      bgColor: entry.colors?.bgColor ?? FLOATING_TOAST_COLORS.default.bgColor ?? 'rgba(8,10,24,0.9)',
+    }))
+
+    floatingToastQueueRef.current.push(...prepared)
+    if (!floatingToastRunningRef.current) {
+      showNextFloatingRewardToast()
+    }
+  }, [a, showNextFloatingRewardToast])
+
+  useEffect(() => {
+    if (activeEvent?.kind === 'treasure') {
+      if (treasureChestEventIdRef.current !== activeEvent.id) {
+        treasureChestEventIdRef.current = activeEvent.id
+        setTreasureChestOpened(false)
+        playSfx(TREASURE_SPAWN_SFX_PATH, 0.8)
+      }
+      return
+    }
+
+    treasureChestEventIdRef.current = null
+    setTreasureChestOpened(false)
+  }, [activeEvent])
+
+  const buildEmptyEventState = useCallback((): ActiveEventState => {
+    const emptyTexts = region?.emptyEventTexts ?? []
+    return {
+      id: 'empty',
+      kind: 'empty',
+      title: '아무 일도 없었다.',
+      description: emptyTexts[Math.floor(Math.random() * (emptyTexts.length || 1))] ?? '아무 일도 일어나지 않았습니다.',
+      clickCount: 0,
+      targetClicks: 0,
+      resolved: true,
+      rewardText: '',
+    }
+  }, [region])
+
+  const pickEventTemplate = useCallback(() => {
+    const templates = region?.eventTemplates ?? []
+    if (templates.length === 0) return null
+
+    const noneChance = EXPEDITION_REWARD_DRAFT.eventProbabilities.none
+    if (Math.random() < noneChance) return null
+
+    return templates[Math.floor(Math.random() * templates.length)] ?? null
+  }, [region])
+
   const buildEventState = useCallback((): ActiveEventState => {
     if (!region) {
-      return {
-        id: 'empty',
-        kind: 'empty',
-        title: '조용한 숲길',
-        description: '바람만 잔잔히 스쳐 지나갔다.',
-        clickCount: 0,
-        targetClicks: 0,
-        resolved: true,
-        rewardText: '아무 일도 일어나지 않았습니다.',
-      }
+      return buildEmptyEventState()
     }
 
-    const templates = region.eventTemplates ?? []
-    const template = templates[Math.floor(Math.random() * templates.length)]
+    const template = pickEventTemplate()
     if (!template) {
-      return {
-        id: 'empty',
-        kind: 'empty',
-        title: '조용한 숲길',
-        description: region.emptyEventTexts?.[Math.floor(Math.random() * (region.emptyEventTexts?.length ?? 1))] ?? '바람만 잔잔히 스쳐 지나갔다.',
-        clickCount: 0,
-        targetClicks: 0,
-        resolved: true,
-        rewardText: '아무 일도 일어나지 않았습니다.',
-      }
+      return buildEmptyEventState()
     }
 
-    const targetClicks = template.kind === 'treasure' ? 3 : template.kind === 'regional' && template.description.includes('3회') ? 3 : 1
+    const targetClicks = template.kind === 'treasure' ? 2 : template.kind === 'regional' && template.description.includes('3회') ? 3 : 1
 
     return {
       id: template.id,
@@ -139,9 +281,9 @@ export default function AdventureMapScreen({
       clickCount: 0,
       targetClicks,
       resolved: false,
-      rewardText: template.kind === 'spirit' ? '정령을 도와주면 보상을 받습니다.' : template.kind === 'treasure' ? '상자를 3회 클릭해 열어보세요.' : '지역의 기운을 모아보세요.',
+      rewardText: template.kind === 'spirit' ? '정령을 도와주면 보상을 받습니다.' : template.kind === 'treasure' ? '상자를 2회 클릭해 열어보세요.' : '지역의 기운을 모아보세요.',
     }
-  }, [region])
+  }, [buildEmptyEventState, pickEventTemplate, region])
 
   const buildResult = useCallback((): ExploreResult => {
     const baseExp = dungeon?.baseExp ?? 25
@@ -223,6 +365,13 @@ export default function AdventureMapScreen({
     pendingFinalResultRef.current = false
     const nextResult = buildResult()
     nextResult.itemRewards.forEach((reward) => addItem(reward.id, reward.count))
+    if (nextResult.itemRewards.length > 0) {
+      showFloatingRewardToasts(nextResult.itemRewards.map((reward) => ({
+        text: `${reward.name} +${reward.count}`,
+        iconSrc: reward.iconSrc,
+        colors: getRarityToastColors(reward.rarity),
+      })))
+    }
     if (nextResult.itemRewards.some((reward) => reward.category === '재료')) markExplorationDiscovery('material')
     if (nextResult.etcRewards.some((reward) => reward.id.includes('fragment_'))) markExplorationDiscovery('spirit')
     if (nextResult.etcRewards.some((reward) => reward.id.includes('trace'))) markExplorationDiscovery('regional')
@@ -240,63 +389,100 @@ export default function AdventureMapScreen({
       setShowResult(true)
       resultTimerRef.current = null
     }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
-  }, [addItem, buildResult, gainExp, markExplorationDiscovery])
+  }, [addItem, buildResult, gainExp, getRarityToastColors, markExplorationDiscovery, showFloatingRewardToasts])
 
   const handleEventInteraction = useCallback((action: 'help' | 'pass' | 'click') => {
-    setActiveEvent((current) => {
-      if (!current) return current
-      let nextState = current
-      if (current.kind === 'spirit') {
-        if (action === 'help') {
-          gainExp(5)
-          addCoins(8)
-          markExplorationDiscovery('spirit')
-          nextState = { ...current, resolved: true, rewardText: '정령을 돕고 보상을 받았습니다.' }
-        } else {
-          nextState = { ...current, resolved: true, rewardText: '정령은 지나가게 두었습니다.' }
-        }
-      }
+    if (!activeEvent) return
 
-      if (current.kind === 'regional') {
-        const nextCount = current.clickCount + 1
-        if (nextCount >= current.targetClicks) {
-          gainExp(4)
-          addCoins(6)
-          markExplorationDiscovery('regional')
-          nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '지역 이벤트를 해결했습니다.' }
-        } else {
-          nextState = { ...current, clickCount: nextCount }
-        }
-      }
+    const current = activeEvent
+    let nextState = current
 
-      if (current.kind === 'treasure') {
-        const nextCount = current.clickCount + 1
-        if (nextCount >= current.targetClicks) {
-          gainExp(8)
-          addCoins(15)
-          addItem('gem', 1)
-          markExplorationDiscovery('treasure')
-          nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '상자를 열고 보물을 얻었습니다.' }
-        } else {
-          nextState = { ...current, clickCount: nextCount }
-        }
+    if (current.kind === 'spirit') {
+      if (action === 'help') {
+        gainExp(5)
+        addCoins(8)
+        showFloatingRewardToasts([
+          { text: '경험치 +5', iconPath: 'assets/particle/exp.png', colors: FLOATING_TOAST_COLORS.exp },
+          { text: '골드 +8', iconPath: 'assets/particle/money.png', colors: FLOATING_TOAST_COLORS.gold },
+        ])
+        markExplorationDiscovery('spirit')
+        nextState = { ...current, resolved: true, rewardText: '정령을 돕고 보상을 받았습니다.' }
+      } else {
+        showFloatingRewardToasts([{ text: '획득 없음', colors: FLOATING_TOAST_COLORS.none }])
+        nextState = { ...current, resolved: true, rewardText: '정령은 지나가게 두었습니다.' }
       }
+    }
 
-      if (nextState.resolved && pendingFinalResultRef.current) {
-        pendingFinalResultRef.current = false
-        finalizeExploreResult()
+    if (current.kind === 'regional') {
+      const nextCount = current.clickCount + 1
+      if (nextCount >= current.targetClicks) {
+        gainExp(4)
+        addCoins(6)
+        showFloatingRewardToasts([
+          { text: '경험치 +4', iconPath: 'assets/particle/exp.png', colors: FLOATING_TOAST_COLORS.exp },
+          { text: '골드 +6', iconPath: 'assets/particle/money.png', colors: FLOATING_TOAST_COLORS.gold },
+        ])
+        markExplorationDiscovery('regional')
+        nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '지역 이벤트를 해결했습니다.' }
+      } else {
+        nextState = { ...current, clickCount: nextCount }
       }
+    }
 
-      return nextState
-    })
-  }, [addCoins, addItem, finalizeExploreResult, gainExp, markExplorationDiscovery])
+    if (current.kind === 'treasure') {
+      const nextCount = current.clickCount + 1
+      if (nextCount >= current.targetClicks) {
+        gainExp(8)
+        addCoins(15)
+        addItem('gem', 1)
+        const gemName = getItemDef('gem')?.name ?? '보석'
+        const gemRarity = getRarityByItemId('gem', '재료')
+        showFloatingRewardToasts([
+          { text: '경험치 +8', iconPath: 'assets/particle/exp.png', colors: FLOATING_TOAST_COLORS.exp },
+          { text: '골드 +15', iconPath: 'assets/particle/money.png', colors: FLOATING_TOAST_COLORS.gold },
+          { text: `${gemName} +1`, iconPath: 'assets/item/it/it_gem.png', colors: getRarityToastColors(gemRarity) },
+        ])
+        markExplorationDiscovery('treasure')
+        nextState = { ...current, clickCount: nextCount, resolved: true, rewardText: '상자를 열고 보물을 얻었습니다.' }
+      } else {
+        nextState = { ...current, clickCount: nextCount }
+      }
+    }
+
+    if (nextState.resolved && nextState.kind !== 'empty') {
+      setActiveEvent(null)
+    } else {
+      setActiveEvent(nextState)
+    }
+
+    if (nextState.resolved && pendingFinalResultRef.current) {
+      pendingFinalResultRef.current = false
+      finalizeExploreResult()
+    }
+  }, [activeEvent, addCoins, addItem, finalizeExploreResult, gainExp, getItemDef, getRarityToastColors, markExplorationDiscovery, showFloatingRewardToasts])
 
   const onExploreTap = useCallback(() => {
-    if (remaining <= 0 || showExitConfirm || showResult) return
+    if (showExitConfirm || showResult) return
 
     if (activeEvent && !activeEvent.resolved) {
+      if (activeEvent.kind === 'regional') {
+        const now = Date.now()
+        if (now < exploreTapCooldownUntilRef.current) {
+          return
+        }
+        exploreTapCooldownUntilRef.current = now + EXPLORE_TAP_COOLDOWN_MS
+        handleEventInteraction('click')
+      }
       return
     }
+
+    if (remaining <= 0) return
+
+    const now = Date.now()
+    if (now < exploreTapCooldownUntilRef.current) {
+      return
+    }
+    exploreTapCooldownUntilRef.current = now + EXPLORE_TAP_COOLDOWN_MS
 
     try {
       const audio = new Audio(a(footstepSrc))
@@ -319,32 +505,25 @@ export default function AdventureMapScreen({
 
     const nextEvent = activeEvent && !activeEvent.resolved ? activeEvent : buildEventState()
     setActiveEvent(nextEvent)
+    if (nextEvent.kind === 'empty') {
+      showFloatingRewardToasts([{ text: '획득 없음', colors: FLOATING_TOAST_COLORS.none }])
+    }
 
-    setUsed((prev) => {
-      const next = Math.min(TOTAL_EXPLORES, prev + 1)
-      if (next >= TOTAL_EXPLORES && prev < TOTAL_EXPLORES) {
-        pendingFinalResultRef.current = true
-        if (nextEvent.resolved) {
-          finalizeExploreResult()
-        }
+    const nextUsed = Math.min(TOTAL_EXPLORES, used + 1)
+    setUsed(nextUsed)
+    if (nextUsed >= TOTAL_EXPLORES && used < TOTAL_EXPLORES) {
+      pendingFinalResultRef.current = true
+      if (nextEvent.resolved) {
+        pendingFinalResultRef.current = false
+        finalizeExploreResult()
       }
-      return next
-    })
-  }, [activeEvent, remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildEventState, finalizeExploreResult])
+    }
+  }, [activeEvent, remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildEventState, finalizeExploreResult, handleEventInteraction, showFloatingRewardToasts, used])
 
   const progressTokens = useMemo(
     () => Array.from({ length: TOTAL_EXPLORES }, (_, i) => i < remaining),
     [remaining],
   )
-
-  useEffect(() => {
-    return () => {
-      if (resultTimerRef.current !== null) {
-        window.clearTimeout(resultTimerRef.current)
-        resultTimerRef.current = null
-      }
-    }
-  }, [])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -382,7 +561,7 @@ export default function AdventureMapScreen({
       <div className="absolute inset-0 z-[7] flex items-center justify-center pointer-events-none">
         <div className="flex flex-col items-center text-center">
           <motion.div
-            className="text-white/85 text-[14px] tracking-wide"
+            className="mt-5 text-white/85 text-[14px] tracking-wide"
             animate={{ opacity: [0.35, 1, 0.35] }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
           >
@@ -475,30 +654,96 @@ export default function AdventureMapScreen({
             </div>
           </div>
         </div>
+
+        <div className="mt-[10px] w-full pointer-events-none">
+          <AnimatePresence mode="wait">
+            {floatingRewardToasts.map((toast) => (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, y: 12, scale: 0.98, filter: 'blur(4px)' }}
+                animate={{ opacity: 0.8, y: 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -12, scale: 0.98, filter: 'blur(4px)' }}
+                transition={{ duration: 0.28, ease: [0.25, 0.7, 0.2, 1] }}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-[12px] font-semibold shadow-[0_8px_22px_rgba(0,0,0,0.35)]"
+                style={{
+                  color: toast.textColor,
+                  borderColor: toast.borderColor,
+                  backgroundColor: toast.bgColor ?? 'rgba(8,10,24,0.75)',
+                }}
+              >
+                {toast.iconSrc && <img src={toast.iconSrc} alt="" className="w-3.5 h-3.5 object-contain" draggable={false} />}
+                <span className="truncate">{toast.text}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {activeEvent && (
-        <div className="absolute inset-x-0 bottom-[140px] z-[9] px-3 pointer-events-none">
-          <div
-            className="mx-auto w-full max-w-[360px] rounded-[20px] border border-white/20 bg-[rgba(6,8,18,0.82)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.35)] pointer-events-auto"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between text-[12px] font-semibold text-[#f2d68f]">
-              <span>{activeEvent.title}</span>
-              {activeEvent.kind !== 'empty' && !activeEvent.resolved && (
-                <span className="text-[11px] text-white/70">{activeEvent.clickCount}/{activeEvent.targetClicks}</span>
+      {activeEvent && activeEvent.kind === 'treasure' && !activeEvent.resolved ? (
+        <div className="absolute inset-0 z-[9] pointer-events-none flex items-center justify-center">
+          <div className="flex flex-col items-center translate-y-[34px]">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.92, y: 3 }}
+              animate={{ y: [0, -7, 0, -4, 0], scale: [1, 1.02, 1, 1.01, 1] }}
+              transition={{ duration: 1.35, repeat: Infinity, ease: 'easeInOut' }}
+              onClick={() => {
+                if (!treasureChestOpened) {
+                  playSfx(TREASURE_CLOSE_SFX_PATH, 0.86)
+                  setTreasureChestOpened(true)
+                } else {
+                  playSfx(TREASURE_OPEN_SFX_PATH, 0.86)
+                }
+                handleEventInteraction('click')
+              }}
+              className="pointer-events-auto relative flex items-center justify-center"
+              aria-label={treasureChestOpened ? '열린 보물 상자' : '닫힌 보물 상자'}
+            >
+              <img
+                src={a(treasureChestOpened ? 'assets/particle/chest_open.png' : 'assets/particle/chest_close.png')}
+                alt="보물 상자"
+                className="w-[294px] h-[294px] object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]"
+                draggable={false}
+              />
+            </motion.button>
+            <div className="mt-3 w-[max-content] max-w-[92vw] rounded-3xl border border-white/10 bg-black/80 px-5 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.28)] text-center -translate-y-[60px]">
+              {treasureChestOpened ? (
+                <span className="text-[15px] font-semibold text-[#cd9881] tracking-wide">
+                  한 번 더 눌러 보상을 받으세요.
+                </span>
+              ) : (
+                <span className="text-[15px] font-semibold text-[#cd9881] tracking-wide">
+                  ··· 상자를 눌러 열어보세요 ···
+                </span>
               )}
             </div>
-            <div className="mt-1 text-[12px] leading-relaxed text-white/80">{activeEvent.description}</div>
+          </div>
+        </div>
+      ) : activeEvent ? (
+        <motion.div
+          className="absolute inset-x-0 bottom-[190px] z-[9] px-3 pointer-events-none"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 16 }}
+          transition={{ duration: 0.28, ease: 'easeOut' }}
+        >
+          <div
+            className={`mx-auto w-full max-w-[360px] rounded-[20px] bg-[rgba(6,8,18,0.75)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.35)] text-center ${activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            onPointerDown={(e) => {
+              if (activeEvent.kind === 'spirit' && !activeEvent.resolved) {
+                e.stopPropagation()
+              }
+            }}
+          >
+            <div className="flex items-center justify-center text-[12px] font-medium text-white">
+              <span>{activeEvent.title}</span>
+              {activeEvent.kind !== 'empty' && !activeEvent.resolved && (
+                <span className="ml-2 text-[11px] text-white/70">{activeEvent.clickCount}/{activeEvent.targetClicks}</span>
+              )}
+            </div>
+            <div className="mt-1 text-[15px] leading-relaxed font-semibold text-white">{activeEvent.description}</div>
             {activeEvent.kind === 'spirit' && !activeEvent.resolved && (
               <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleEventInteraction('help')}
-                  className="flex-1 rounded-lg border border-[#8fc7a5]/30 bg-[rgba(44,74,61,0.8)] px-2 py-2 text-[12px] font-semibold text-[#ecf9f0]"
-                >
-                  도와주기
-                </button>
                 <button
                   type="button"
                   onClick={() => handleEventInteraction('pass')}
@@ -506,23 +751,26 @@ export default function AdventureMapScreen({
                 >
                   지나간다
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleEventInteraction('help')}
+                  className="flex-1 rounded-lg border border-[#8fc7a5]/30 bg-[rgba(44,74,61,0.8)] px-2 py-2 text-[12px] font-semibold text-[#ecf9f0]"
+                >
+                  도와주기
+                </button>
               </div>
             )}
             {(activeEvent.kind === 'regional' || activeEvent.kind === 'treasure') && !activeEvent.resolved && (
-              <button
-                type="button"
-                onClick={() => handleEventInteraction('click')}
-                className="mt-3 w-full rounded-lg border border-[#e3c88f]/35 bg-[rgba(118,87,34,0.75)] px-2 py-2 text-[12px] font-semibold text-[#fff3cf]"
-              >
-                {activeEvent.kind === 'treasure' ? '상자 열기' : '지역 기운 모으기'}
-              </button>
+              <div className="mt-3 text-center text-[15px] font-semibold text-white">
+                화면 아무 곳이나 탭해 {activeEvent.kind === 'treasure' ? '상자를 열어보세요.' : '지역 기운을 모아보세요.'}
+              </div>
             )}
-            {activeEvent.resolved && (
-              <div className="mt-2 text-[11px] font-medium text-[#f2d68f]">{activeEvent.rewardText}</div>
+            {activeEvent.resolved && activeEvent.kind === 'empty' && (
+              <div className="mt-2 text-[15px] font-semibold text-white">{activeEvent.rewardText}</div>
             )}
           </div>
-        </div>
-      )}
+        </motion.div>
+      ) : null}
 
       {showLevelUpBadge && (
         <motion.div

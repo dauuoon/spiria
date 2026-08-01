@@ -1,7 +1,7 @@
 import useAppStore from '../lib/store'
 import { EXP_TO_NEXT } from '../data/levels'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
 type Props = {
   screen: Screen

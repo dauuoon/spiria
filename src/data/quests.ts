@@ -8,8 +8,8 @@ export const QUEST_REWARDS: readonly QuestTierReward[] = [
 ] as const
 
 export const QUEST_TIER_WEIGHTS: Readonly<Record<QuestTier, number>> = Object.freeze({
-  Easy: 45,
-  Normal: 35,
-  Hard: 15,
-  Special: 5,
+  'Easy': 45,
+  'Normal': 35,
+  'Hard': 15,
+  'Special': 5,
 })

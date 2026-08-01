@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import useAppStore from '../lib/store'
-import { formatLevelNumber, getLevelTitle } from '../data/levelTitles'
+import { formatLevelNumber } from '../data/levelTitles'
 import { EXP_TO_NEXT, LEVEL_COLORS } from '../data/levels'
+import { loadStoredNickname } from '../lib/profile'
 
 export type UserProfileProps = {
   name?: string
@@ -12,7 +13,7 @@ export type UserProfileProps = {
 }
 
 export default function UserProfile({
-  name = '정령 소환사',
+  name,
   level,
   xp,
   maxXp,
@@ -28,6 +29,7 @@ export default function UserProfile({
   const pct = Math.min(100, Math.max(0, Math.round((resolvedXp / resolvedMaxXp) * 100)))
   const levelColor = LEVEL_COLORS[resolvedLevel ?? 1] || '#A894FF'
   const setScreen = useAppStore(s => s.setScreen)
+  const resolvedName = name ?? loadStoredNickname()
 
   return (
     <div className="absolute top-[32px] left-[16px] z-10 pointer-events-auto">
@@ -61,7 +63,7 @@ export default function UserProfile({
         {/* Name + XP */}
         <div className="min-w-[180px] max-w-[64vw]">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-[#ac8a7a] text-[16px] leading-tight font-semibold truncate">{getLevelTitle(resolvedLevel)}</h2>
+            <h2 className="text-[#ac8a7a] text-[16px] leading-tight font-semibold truncate">{resolvedName}</h2>
           </div>
 
           {/* XP level indicator + bar (reduced size, bar overlaps under level) */}
