@@ -10,6 +10,7 @@ export const EXPEDITION_REWARD_DRAFT = {
   spiritFragmentDropChance: 0.72,
   spiritFragmentDropAmountMin: 1,
   spiritFragmentDropAmountMax: 2,
+  manaSingleDropChancePerExpedition: 0.0001,
   manaRewardMin: 0,
   manaRewardMax: 1,
   resultRevealDelayMs: 700,
@@ -24,6 +25,6 @@ export const EXPEDITION_REWARD_DRAFT = {
     regional: 0.14,
     treasure: 0.1,
     trace: 0.04,
-    none: 0.06,
+    none: 0.08,
   },
 } as const

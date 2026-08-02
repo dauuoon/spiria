@@ -282,7 +282,7 @@ function MapEntryModal({
           className="block w-full h-auto"
           draggable={false}
         />
-        <div className="absolute inset-0 p-5">
+        <div className="absolute inset-0 p-5 translate-y-[5px]">
           <div className="text-white text-[21px] font-medium">정말 입장하시겠습니까?</div>
           <p className="mt-0 text-white/75 text-[13px] leading-relaxed">
             <span className="text-[#efdcaf] font-semibold">{mapName}</span> 입장 시 아래 비용이 소요됩니다.

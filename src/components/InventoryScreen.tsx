@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import TopBar from './TopBar'
 import ParticlesCanvas from './ParticlesCanvas'
 import { ITEMS } from '../data/items'
@@ -27,15 +27,40 @@ export default function InventoryScreen() {
   const filters = ['전체','재료','기타'] as const
   const [tab, setTab] = useState<(typeof filters)[number]>('전체')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const detailSheetRef = useRef<HTMLDivElement | null>(null)
   const getCategory = (id: string): '재료' | '기타' => ITEMS.find((it) => it.id === id)?.category ?? '재료'
   const getRarity = (id: string): SpiritRarity => getRarityByItemId(id, getCategory(id))
   const getDescription = (id: string): string => {
     const fixed = ITEM_DESCRIPTION_BY_ID[id]
-    if (fixed) return fixed
+    if (fixed) {
+      if (id.startsWith('fragment_spirit_')) {
+        return `${fixed}\n100개가 모이면 잠든 정령이 깨어납니다.`
+      }
+      if (id.endsWith('_trace')) {
+        return `${fixed}\n20개가 모이면 숨겨진 흔적이 이어집니다.`
+      }
+      return fixed
+    }
     return getCategory(id) === '재료'
       ? '정령 제작에 사용하는 기본 재료입니다.'
       : '탐험을 통해 얻을 수 있는 특별한 아이템입니다.'
   }
+
+  useEffect(() => {
+    if (!selectedItemId) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (detailSheetRef.current?.contains(target)) return
+      setSelectedItemId(null)
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown, true)
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true)
+    }
+  }, [selectedItemId])
 
   const selectedItem = useMemo(
     () => ITEMS.find((it) => it.id === selectedItemId) ?? null,
@@ -144,9 +169,7 @@ export default function InventoryScreen() {
                   key={it.id}
                   layout
                   type="button"
-                  onClick={() => {
-                    setSelectedItemId((prev) => (prev === it.id ? null : it.id))
-                  }}
+                  onClick={() => setSelectedItemId(it.id)}
                   initial={{ opacity: 0, y: 10, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -187,19 +210,18 @@ export default function InventoryScreen() {
       <AnimatePresence>
         {selectedItem && selectedCategory && selectedRarity && selectedDescription && (
           <motion.div
-            className="absolute inset-0 z-[40]"
+            className="pointer-events-none absolute inset-0 z-[40]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onPointerDown={() => setSelectedItemId(null)}
           >
             <motion.div
+              ref={detailSheetRef}
               initial={{ y: 220, opacity: 0.96 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 220, opacity: 0.96 }}
               transition={{ duration: 0.24, ease: 'easeOut' }}
-              className="absolute left-0 right-0 bottom-0 h-[150px] rounded-t-[18px] border-t border-white/15 bg-[linear-gradient(180deg,rgb(26_22_42_/_90%)_0%,rgb(9_11_26_/_90%)_100%)] shadow-[0_-14px_36px_rgba(0,0,0,0.45)] px-4 py-4"
-              onPointerDown={(e) => e.stopPropagation()}
+              className="pointer-events-auto absolute left-0 right-0 bottom-0 h-[150px] rounded-t-[18px] border-t border-white/15 bg-[linear-gradient(180deg,rgb(26_22_42_/_90%)_0%,rgb(9_11_26_/_90%)_100%)] shadow-[0_-14px_36px_rgba(0,0,0,0.45)] px-4 py-4"
             >
               <button
                 type="button"
@@ -229,7 +251,7 @@ export default function InventoryScreen() {
                       {SPIRIT_RARITY_TOKENS[selectedRarity].ko}
                     </span>
                   </div>
-                  <p className="mt-3 text-[13px] leading-relaxed text-white/80">
+                  <p className="mt-3 whitespace-pre-line text-[13px] leading-relaxed text-white/80">
                     {selectedDescription}
                   </p>
                 </div>

@@ -31,6 +31,15 @@ type PendingLevelUp = {
   popupKey: string
 }
 
+type ExplorationProgress = {
+  materialDiscovered: number
+  spiritDiscovered: number
+  regionalEventDiscovered: number
+  treasureDiscovered: number
+}
+
+type ExplorationProgressByStage = Record<1 | 2 | 3 | 4 | 5, ExplorationProgress>
+
 type AppState = {
   progress: number
   setProgress: (v: number) => void
@@ -45,17 +54,13 @@ type AppState = {
   expInLevel: number
   setExpInLevel: (n: number) => void
   gainExp: (delta: number) => PendingLevelUp | null
-  explorationProgress: {
-    materialDiscovered: number
-    spiritDiscovered: number
-    regionalEventDiscovered: number
-    treasureDiscovered: number
-  }
-  markExplorationDiscovery: (kind: 'material' | 'spirit' | 'regional' | 'treasure') => void
+  explorationProgressByStage: ExplorationProgressByStage
+  markExplorationDiscovery: (stage: 1 | 2 | 3 | 4 | 5, kind: 'material' | 'spirit' | 'regional' | 'treasure') => void
   mana: number
   maxMana: number
   manaRegenMs: number
   manaUpdatedAt: number | null
+  addMana: (n?: number) => void
   spendMana: (n?: number) => boolean
   recomputeMana: () => void
   inventory: Record<string, number>
@@ -157,6 +162,21 @@ const createFreshGameState = (): PersistedGameState => ({
   manaUpdatedAt: null,
 })
 
+const createEmptyExplorationProgress = (): ExplorationProgress => ({
+  materialDiscovered: 0,
+  spiritDiscovered: 0,
+  regionalEventDiscovered: 0,
+  treasureDiscovered: 0,
+})
+
+const createInitialExplorationProgressByStage = (): ExplorationProgressByStage => ({
+  1: createEmptyExplorationProgress(),
+  2: createEmptyExplorationProgress(),
+  3: createEmptyExplorationProgress(),
+  4: createEmptyExplorationProgress(),
+  5: createEmptyExplorationProgress(),
+})
+
 const persistedGameState = loadGameState()
 const persistedInventory = persistedGameState?.inventory ?? {}
 const initialInventory = createInitialInventory()
@@ -227,18 +247,26 @@ const useAppStore = create<AppState>((set, get) => ({
       manaUpdatedAt: get().manaUpdatedAt,
     })
   },
-  explorationProgress: {
-    materialDiscovered: 0,
-    spiritDiscovered: 0,
-    regionalEventDiscovered: 0,
-    treasureDiscovered: 0,
-  },
-  markExplorationDiscovery: (kind) => set((state) => ({
-    explorationProgress: {
-      ...state.explorationProgress,
-      [kind === 'material' ? 'materialDiscovered' : kind === 'spirit' ? 'spiritDiscovered' : kind === 'regional' ? 'regionalEventDiscovered' : 'treasureDiscovered']: state.explorationProgress[kind === 'material' ? 'materialDiscovered' : kind === 'spirit' ? 'spiritDiscovered' : kind === 'regional' ? 'regionalEventDiscovered' : 'treasureDiscovered'] + 1,
-    },
-  })),
+  explorationProgressByStage: createInitialExplorationProgressByStage(),
+  markExplorationDiscovery: (stage, kind) => set((state) => {
+    const key = kind === 'material'
+      ? 'materialDiscovered'
+      : kind === 'spirit'
+        ? 'spiritDiscovered'
+        : kind === 'regional'
+          ? 'regionalEventDiscovered'
+          : 'treasureDiscovered'
+    const currentStage = state.explorationProgressByStage[stage]
+    return {
+      explorationProgressByStage: {
+        ...state.explorationProgressByStage,
+        [stage]: {
+          ...currentStage,
+          [key]: currentStage[key] + 1,
+        },
+      },
+    }
+  }),
   gainExp: (delta) => {
     const amount = Math.max(0, Math.floor(delta))
     if (amount <= 0) return null
@@ -276,6 +304,7 @@ const useAppStore = create<AppState>((set, get) => ({
         ...DUNGEONS.filter((dungeon) => nextLevel < dungeon.unlockLv && currentLevel >= dungeon.unlockLv).map((dungeon) => dungeon.name),
         ...REGIONS.filter((region) => nextLevel < region.unlockLevel && currentLevel >= region.unlockLevel).map((region) => region.name),
       ]
+      const uniqueUnlockedRegions = Array.from(new Set(unlockedRegions))
       const newTitle = titleChanged ? getLevelTitle(currentLevel) : undefined
       levelUpInfo = {
         previousLevel: nextLevel,
@@ -286,7 +315,7 @@ const useAppStore = create<AppState>((set, get) => ({
           gold: rewardGold,
           mana: rewardMana,
           newTitle,
-          unlockedRegions,
+          unlockedRegions: uniqueUnlockedRegions,
         },
         popupKey: `${nextLevel}-${currentLevel}-${Date.now()}`,
       }
@@ -318,6 +347,23 @@ const useAppStore = create<AppState>((set, get) => ({
     const loaded = loadMana()
     return loaded?.manaUpdatedAt ?? (persistedGameState?.manaUpdatedAt ?? null)
   })(),
+  addMana: (n = 0) => {
+    const amount = Math.max(0, Math.floor(n))
+    if (amount <= 0) return
+    const st = get()
+    const nextMana = Math.min(st.maxMana, st.mana + amount)
+    const nextManaUpdatedAt = nextMana >= st.maxMana ? null : st.manaUpdatedAt
+    saveMana(nextMana, nextManaUpdatedAt)
+    set({ mana: nextMana, manaUpdatedAt: nextManaUpdatedAt })
+    saveGameState({
+      level: get().level,
+      expInLevel: get().expInLevel,
+      coins: get().coins,
+      inventory: get().inventory,
+      mana: get().mana,
+      manaUpdatedAt: get().manaUpdatedAt,
+    })
+  },
   spendMana: (n = MANA_PER_EXPLORE) => {
     const st = get()
     if (st.mana < n) return false
@@ -407,12 +453,7 @@ const useAppStore = create<AppState>((set, get) => ({
       inventory: fresh.inventory,
       mana: fresh.mana,
       manaUpdatedAt: fresh.manaUpdatedAt,
-      explorationProgress: {
-        materialDiscovered: 0,
-        spiritDiscovered: 0,
-        regionalEventDiscovered: 0,
-        treasureDiscovered: 0,
-      },
+      explorationProgressByStage: createInitialExplorationProgressByStage(),
     })
   },
   inventory: initialInventoryWithPersisted,

@@ -386,8 +386,8 @@ export const REGIONS: readonly RegionDef[] = [
       {
         id: 'regional_sun_crystal',
         kind: 'regional',
-        title: '태양 수정',
-        description: '수정 3회 클릭',
+        title: '불의 보석',
+        description: '보석 3회 클릭',
         reward: { itemChoices: ['light', 'magic'], expMin: 5, expMax: 8 },
       },
       {

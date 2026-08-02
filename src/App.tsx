@@ -219,6 +219,22 @@ function LevelUpPopup({
                 <span className="flex items-center gap-1.5"><img src={a('assets/particle/money.png')} alt="gold" className="h-5 w-5 object-contain" draggable={false} />골드 +<CountUpNumber value={levelUp.rewards.gold} durationMs={920} /></span>
                 <span className="flex items-center gap-1.5"><img src={a('assets/particle/gem.png')} alt="mana" className="h-5 w-5 object-contain" draggable={false} />마나 +<CountUpNumber value={levelUp.rewards.mana} durationMs={720} /></span>
               </div>
+              {(levelUp.rewards.newTitle || levelUp.rewards.unlockedRegions.length > 0) && (
+                <div className="mt-3 rounded-[10px] border border-white/10 bg-[rgba(0,0,0,0.2)] px-3 py-2 text-center text-[12px] leading-relaxed text-white/92">
+                  <motion.div
+                    className="space-y-1.5"
+                    animate={{ opacity: [1, 0.55, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                  >
+                    {levelUp.rewards.newTitle && (
+                      <div>새로운 칭호를 획득! [<span className="font-bold text-white">{levelUp.rewards.newTitle}</span>]</div>
+                    )}
+                    {levelUp.rewards.unlockedRegions.map((regionName) => (
+                      <div key={regionName}>새로운 맵 잠금 해제! [<span className="font-bold text-white">{regionName}</span>]</div>
+                    ))}
+                  </motion.div>
+                </div>
+              )}
             </div>
 
             <button
