@@ -288,6 +288,7 @@ def build_recipes(recipe_rows: list[dict[str, Any]]) -> str:
 
 def build_drops(exploration_rows: list[dict[str, Any]], drop_rows: list[dict[str, Any]]) -> str:
     draft_lookup = {row['키']: row['value'] for row in exploration_rows if row['카테고리'] == '공통'}
+    mana_single_drop = draft_lookup.get('mana_single_drop_chance_per_expedition', 0.0001)
     return '\n'.join([
         "import type { DropDef } from '../types/game'",
         '',
@@ -301,6 +302,7 @@ def build_drops(exploration_rows: list[dict[str, Any]], drop_rows: list[dict[str
         f"  spiritFragmentDropChance: 0.72,",
         f"  spiritFragmentDropAmountMin: 1,",
         f"  spiritFragmentDropAmountMax: 2,",
+        f"  manaSingleDropChancePerExpedition: {ts_string(mana_single_drop)},",
         f"  manaRewardMin: 0,",
         f"  manaRewardMax: 1,",
         f"  resultRevealDelayMs: {int(float(draft_lookup['result_reveal_delay_ms']))},",
