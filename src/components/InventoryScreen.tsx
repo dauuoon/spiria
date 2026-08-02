@@ -158,7 +158,7 @@ export default function InventoryScreen() {
 
       {/* content */}
       <div className="absolute inset-0 z-[6] pt-[260px] pb-6 px-5 overflow-y-auto book-scroll">
-        <motion.div layout className="grid grid-cols-4 gap-x-3 gap-y-4">
+        <motion.div layout className="grid grid-cols-4 gap-x-3 gap-y-2">
           <AnimatePresence initial={false} mode="popLayout">
             {visibleItems.map((it) => {
               const count = inventory[it.id] ?? 0
@@ -174,7 +174,7 @@ export default function InventoryScreen() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="select-none bg-transparent border-0 p-0 text-left"
+                  className="select-none bg-transparent border-0 p-0 text-left min-h-[114px]"
                 >
                   <div
                     className="relative w-full h-[86px] overflow-visible bg-center bg-cover bg-no-repeat flex items-center justify-center"
@@ -194,8 +194,10 @@ export default function InventoryScreen() {
                       {count}
                     </span>
                   </div>
-                  <div className="mt-[4px] text-center">
-                    <span className="text-[14px] font-semibold text-[#ebc8ab] drop-shadow-[0_2px_5px_rgba(0,0,0,0.7)] leading-tight">{it.name}</span>
+                  <div className="mt-[8px] h-[32px] text-center flex items-start justify-center px-[2px]">
+                    <span className="block text-[14px] font-semibold text-[#ebc8ab] drop-shadow-[0_2px_5px_rgba(0,0,0,0.7)] leading-[1.05] break-words [word-break:keep-all] overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                      {it.name}
+                    </span>
                   </div>
                 </motion.button>
               )

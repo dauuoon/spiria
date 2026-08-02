@@ -73,6 +73,7 @@ const REWARD_TOAST_SFX_PATH = 'assets/sound/reward_toast.mp3'
 const TREASURE_SPAWN_SFX_PATH = 'assets/sound/thud.mp3'
 const TREASURE_CLOSE_SFX_PATH = 'assets/sound/chest1.mp3'
 const TREASURE_OPEN_SFX_PATH = 'assets/sound/chest2.mp3'
+const SOUL_EVENT_SFX_PATH = 'assets/sound/soul_event.mp3'
 const REGIONAL_PICK_SFX_PATH = 'assets/sound/regions_pick.mp3'
 const ALL_MAPS_100_SFX_PATH = 'assets/sound/percent.mp3'
 const EXPLORE_TAP_COOLDOWN_MS = 400
@@ -142,6 +143,179 @@ const REGIONAL_EVENT_ASSET_BY_ID: Record<string, { imagePath: string; label: str
   regional_forgotten_altar: { imagePath: 'assets/map/dark_wreath4.png', label: '잊혀진 제단' },
 }
 
+const SPIRIT_MINI_GAMES: Record<string, SpiritMiniGameSpec> = {
+  spirit_withered_starflower: {
+    eventId: 'spirit_withered_starflower',
+    mode: 'timing',
+    title: '시든 별꽃 곁의 정령',
+    description: '별꽃이 시들어 정령이 힘을 잃고 있습니다.\n빛이 하나로 모이는 순간 별꽃을 깨워주세요',
+    imagePath: 'assets/map/forest_wreath2.png',
+    actionLabel: '빛 깨우기',
+    successText: '별빛이 모였어요!',
+    failText: '빛이 흩어졌어요.',
+    clearText: '시든 별꽃이 다시 빛나기 시작했습니다.',
+  },
+  spirit_leaf_hidden: {
+    eventId: 'spirit_leaf_hidden',
+    mode: 'matching',
+    title: '낙엽 아래 숨은 정령',
+    description: '낙엽 사이에 흩어진 같은 문양을 찾아\n정령이 숨은 곳을 밝혀 주세요.',
+    imagePath: 'assets/map/forest_wreath3.png',
+    actionLabel: '카드 맞추기',
+    successText: '같은 문양을 찾았어요!',
+    failText: '문양이 달라 빛이 흩어졌어요.',
+    clearText: '낙엽 아래 숨어 있던 정령을 발견했습니다.',
+  },
+  spirit_sleeping_forest: {
+    eventId: 'spirit_sleeping_forest',
+    mode: 'fortune',
+    title: '잠든 숲의 정령',
+    description: '잠든 정령이 자신을 깨울 빛을 기다리고 있습니다.',
+    imagePath: 'assets/map/forest_wreath4.png',
+    actionLabel: '빛 선택하기',
+    choiceLabels: ['달빛', '햇빛', '별빛'],
+    successText: '정령이 당신의 빛에 응답했습니다.',
+    failText: '빛이 닿지 않았습니다.',
+    clearText: '잠든 숲의 정령이 천천히 눈을 떴습니다.',
+  },
+  spirit_lost_vortex: {
+    eventId: 'spirit_lost_vortex',
+    mode: 'fortune',
+    title: '길을 잃은 바람의 정령',
+    description: '작은 회오리가 길을 잃었습니다.\n바람이 불어갈 방향을 선택해 주세요.',
+    imagePath: 'assets/map/wind_wreath1.png',
+    actionLabel: '방향 선택하기',
+    choiceLabels: ['←', '↑', '→'],
+    successText: '바람의 길을 찾았어요!',
+    failText: '바람이 흩어졌어요.',
+    clearText: '길을 잃은 바람의 정령이 흐름을 되찾았습니다.',
+  },
+  spirit_broken_windmill: {
+    eventId: 'spirit_broken_windmill',
+    mode: 'timing',
+    title: '멈춘 바람 풍차',
+    description: '멈춘 풍차에 다시 바람을 불어넣어 주세요.\n가장 강한 바람의 순간을 맞춰 보세요.',
+    imagePath: 'assets/map/wind_wreath3.png',
+    actionLabel: '바람 불어넣기',
+    successText: '강한 바람이 불어왔어요!',
+    failText: '바람이 약해졌어요.',
+    clearText: '풍차가 다시 힘차게 돌기 시작했습니다.',
+  },
+  spirit_cloud_above: {
+    eventId: 'spirit_cloud_above',
+    mode: 'matching',
+    title: '구름 위의 정령',
+    description: '흩어진 구름 조각을 찾아\n정령의 쉼터를 완성해 주세요.',
+    imagePath: 'assets/map/wind_wreath2.png',
+    actionLabel: '조각 맞추기',
+    successText: '구름 조각을 찾았어요!',
+    failText: '구름 조각이 흩어졌어요.',
+    clearText: '정령의 쉼터가 다시 완성되었습니다.',
+  },
+  spirit_lost_snowflower: {
+    eventId: 'spirit_lost_snowflower',
+    mode: 'fortune',
+    title: '길 잃은 눈꽃 정령',
+    description: '눈보라가 정령의 발자국을 지웠습니다.\n눈보라가 잠잠해질 방향을 선택해 주세요.',
+    imagePath: 'assets/map/snow_wreath2.png',
+    actionLabel: '바람 선택하기',
+    choiceLabels: ['북풍', '서풍', '남풍'],
+    successText: '눈보라가 잠잠해졌어요!',
+    failText: '눈보라가 더 거세졌어요.',
+    clearText: '길 잃은 눈꽃 정령이 발자국을 되찾았습니다.',
+  },
+  spirit_frozen_moon: {
+    eventId: 'spirit_frozen_moon',
+    mode: 'timing',
+    title: '얼어붙은 달의 정령',
+    description: '차가운 눈보라가 정령의 빛을 얼리고 있습니다.\n가장 따뜻한 순간에 달빛을 비춰 주세요.',
+    imagePath: 'assets/map/snow_wreath1.png',
+    actionLabel: '달빛 비추기',
+    successText: '따뜻한 빛이 닿았어요!',
+    failText: '한기가 더 짙어졌어요.',
+    clearText: '얼어붙은 달의 정령이 다시 빛나기 시작했습니다.',
+  },
+  spirit_sleeping_lake: {
+    eventId: 'spirit_sleeping_lake',
+    mode: 'matching',
+    title: '잠든 설원의 정령',
+    description: '흩어진 얼음 조각을 찾아\n잠든 정령의 호수를 완성해 주세요.',
+    imagePath: 'assets/map/snow_wreath3.png',
+    actionLabel: '조각 맞추기',
+    successText: '얼음 조각을 찾았어요!',
+    failText: '얼음 조각이 갈라졌어요.',
+    clearText: '잠든 설원의 정령이 눈을 떴습니다.',
+  },
+  spirit_sun_core: {
+    eventId: 'spirit_sun_core',
+    mode: 'fortune',
+    title: '태양의 정령',
+    description: '태양의 힘이 세 갈래로 흩어졌습니다.\n정령에게 가장 강한 태양의 빛을 전해 주세요.',
+    imagePath: 'assets/map/fire_wreath2.png',
+    actionLabel: '빛 선택하기',
+    choiceLabels: ['새벽의 빛', '한낮의 빛', '황혼의 빛'],
+    successText: '강한 태양빛이 모였어요!',
+    failText: '빛이 약해졌어요.',
+    clearText: '태양의 정령이 다시 강렬해졌습니다.',
+  },
+  spirit_fading_flame: {
+    eventId: 'spirit_fading_flame',
+    mode: 'timing',
+    title: '꺼져가는 불꽃 정령',
+    description: '작은 불꽃이 점점 꺼져가고 있습니다.\n가장 뜨거운 순간에 불꽃을 되살려 주세요.',
+    imagePath: 'assets/map/fire_wreath1.png',
+    actionLabel: '불꽃 되살리기',
+    successText: '불꽃이 다시 타올랐어요!',
+    failText: '불꽃이 더 약해졌어요.',
+    clearText: '꺼져가던 불꽃 정령이 힘을 되찾았습니다.',
+  },
+  spirit_lava_trapped: {
+    eventId: 'spirit_lava_trapped',
+    mode: 'matching',
+    title: '용암에 갇힌 정령',
+    description: '흩어진 용암 조각을 찾아\n정령이 갇힌 틈을 열어 주세요.',
+    imagePath: 'assets/map/fire_wreath3.png',
+    actionLabel: '조각 맞추기',
+    successText: '용암 조각을 찾았어요!',
+    failText: '용암 조각이 어긋났어요.',
+    clearText: '정령이 갇힌 틈이 열렸습니다.',
+  },
+  spirit_lost_shadow: {
+    eventId: 'spirit_lost_shadow',
+    mode: 'fortune',
+    title: '길 잃은 그림자 정령',
+    description: '짙은 안개가 정령의 감각을 가리고 있습니다.\n정령을 이끌 신호를 선택해 주세요.',
+    imagePath: 'assets/map/dark_wreath2.png',
+    actionLabel: '신호 선택하기',
+    choiceLabels: ['달의 그림자', '고대의 속삭임', '푸른 불빛'],
+    successText: '신호가 정령에게 닿았어요!',
+    failText: '신호가 안개에 가려졌어요.',
+    clearText: '길 잃은 그림자 정령이 길을 찾았습니다.',
+  },
+  spirit_sleeping_ancient: {
+    eventId: 'spirit_sleeping_ancient',
+    mode: 'timing',
+    title: '잠든 고대 정령',
+    description: '오랜 잠에 빠진 고대 정령의 빛이 희미하게 깜박이고 있습니다.\n빛이 가장 강해지는 순간 정령을 깨워 주세요.',
+    imagePath: 'assets/map/dark_wreath1.png',
+    actionLabel: '정령 깨우기',
+    successText: '고대의 빛이 깨어났어요!',
+    failText: '빛이 다시 잠들었어요.',
+    clearText: '잠든 고대 정령이 천천히 깨어났습니다.',
+  },
+  spirit_fading_memory: {
+    eventId: 'spirit_fading_memory',
+    mode: 'matching',
+    title: '사라지는 기억의 정령',
+    description: '흩어진 기억 조각의 짝을 찾아\n정령의 기억을 되돌려 주세요.',
+    imagePath: 'assets/map/dark_wreath3.png',
+    actionLabel: '기억 맞추기',
+    successText: '기억 조각이 이어졌어요!',
+    failText: '기억이 더 흐려졌어요.',
+    clearText: '사라지던 기억이 다시 이어졌습니다.',
+  },
+}
+
 type FloatingRewardToastEntry = {
   text: string
   iconPath?: string
@@ -153,6 +327,26 @@ type FloatingRewardToastEntry = {
 type FloatingToastTimingOptions = {
   durationMs?: number
   gapMs?: number
+}
+
+type SpiritMiniGameMode = 'timing' | 'matching' | 'fortune'
+
+type SpiritMiniGameSpec = {
+  eventId: string
+  mode: SpiritMiniGameMode
+  title: string
+  description: string
+  imagePath: string
+  actionLabel: string
+  choiceLabels?: [string, string, string]
+  successText: string
+  failText: string
+  clearText: string
+}
+
+type ExplorationSpiritPlan = {
+  spiritCount: number
+  spiritStepTemplateByIndex: Record<number, { templateId: string; gameKey: string }>
 }
 
 type ExplorationRewardPlanItem = ExploreResult['itemRewards'][number] & {
@@ -203,6 +397,7 @@ export default function AdventureMapScreen({
   const [floatingRewardToasts, setFloatingRewardToasts] = useState<FloatingRewardToast[]>([])
   const [treasureChestOpened, setTreasureChestOpened] = useState(false)
   const [isRegionalPressing, setIsRegionalPressing] = useState(false)
+  const [activeSpiritMiniGameId, setActiveSpiritMiniGameId] = useState<string | null>(null)
   const resultTimerRef = useRef<number | null>(null)
   const emptyEventDismissTimerRef = useRef<number | null>(null)
   const floatingToastQueueRef = useRef<FloatingRewardToast[]>([])
@@ -211,6 +406,7 @@ export default function AdventureMapScreen({
   const floatingToastRunningRef = useRef(false)
   const showResultRef = useRef(false)
   const treasureChestEventIdRef = useRef<string | null>(null)
+  const spiritEventIdRef = useRef<string | null>(null)
   const explorationRewardPlanRef = useRef<ExplorationRewardPlan | null>(null)
   const pendingSpiritRewardStepRef = useRef<number | null>(null)
   const pendingRegionalRewardStepRef = useRef<number | null>(null)
@@ -219,6 +415,9 @@ export default function AdventureMapScreen({
   const pendingFinalResultRef = useRef(false)
   const allMapsCompleteRef = useRef<boolean | null>(null)
   const regionalPressTimerRef = useRef<number | null>(null)
+  const spiritMiniGameSuccessTimerRef = useRef<number | null>(null)
+  const spiritPlanRef = useRef<ExplorationSpiritPlan | null>(null)
+  const eventKindHistoryRef = useRef<ActiveEventState['kind'][]>([])
 
   const remaining = Math.max(0, TOTAL_EXPLORES - used)
   const bgControls = useAnimation()
@@ -382,6 +581,18 @@ export default function AdventureMapScreen({
   }, [activeEvent])
 
   useEffect(() => {
+    if (activeEvent?.kind === 'spirit' && !activeEvent.resolved) {
+      if (spiritEventIdRef.current !== activeEvent.id) {
+        spiritEventIdRef.current = activeEvent.id
+        playSfx(SOUL_EVENT_SFX_PATH, 0.82)
+      }
+      return
+    }
+
+    spiritEventIdRef.current = null
+  }, [activeEvent])
+
+  useEffect(() => {
     if (emptyEventDismissTimerRef.current !== null) {
       window.clearTimeout(emptyEventDismissTimerRef.current)
       emptyEventDismissTimerRef.current = null
@@ -418,8 +629,117 @@ export default function AdventureMapScreen({
     }
   }, [region])
 
-  const pickEventTemplate = useCallback(() => {
-    const templates = region?.eventTemplates ?? []
+  const buildExplorationSpiritPlan = useCallback((): ExplorationSpiritPlan => {
+    const spiritTemplates = (region?.eventTemplates ?? []).filter((template) => template.kind === 'spirit')
+    if (spiritTemplates.length === 0) {
+      return {
+        spiritCount: 0,
+        spiritStepTemplateByIndex: {},
+      }
+    }
+
+    const roll = Math.random()
+    let requestedSpiritCount = 0
+    if (roll < 0.02) requestedSpiritCount = 0
+    else if (roll < 0.22) requestedSpiritCount = 1
+    else if (roll < 0.66) requestedSpiritCount = 2
+    else requestedSpiritCount = 3
+
+    const groupedByGameKey = new Map<string, typeof spiritTemplates>()
+    for (const template of spiritTemplates) {
+      const gameKey = template.gameType ?? template.id
+      const bucket = groupedByGameKey.get(gameKey)
+      if (bucket) {
+        bucket.push(template)
+      } else {
+        groupedByGameKey.set(gameKey, [template])
+      }
+    }
+
+    const availableGameKeys = Array.from(groupedByGameKey.keys())
+    const targetSpiritCount = Math.min(requestedSpiritCount, availableGameKeys.length)
+    if (targetSpiritCount <= 0) {
+      return {
+        spiritCount: 0,
+        spiritStepTemplateByIndex: {},
+      }
+    }
+
+    const shuffledGameKeys = [...availableGameKeys]
+    for (let i = shuffledGameKeys.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const temp = shuffledGameKeys[i]
+      shuffledGameKeys[i] = shuffledGameKeys[j]
+      shuffledGameKeys[j] = temp
+    }
+    const selectedGameKeys = shuffledGameKeys.slice(0, targetSpiritCount)
+
+    const selectedTemplates = selectedGameKeys.map((gameKey) => {
+      const candidates = groupedByGameKey.get(gameKey) ?? []
+      return candidates[Math.floor(Math.random() * candidates.length)]
+    }).filter((template): template is NonNullable<typeof template> => !!template)
+
+    const selectedCount = selectedTemplates.length
+    if (selectedCount <= 0) {
+      return {
+        spiritCount: 0,
+        spiritStepTemplateByIndex: {},
+      }
+    }
+
+    const allStepIndices = Array.from({ length: TOTAL_EXPLORES }, (_, idx) => idx)
+    let selectedStepIndices: number[] = []
+
+    if (selectedCount === 1) {
+      const picked = allStepIndices[Math.floor(Math.random() * allStepIndices.length)]
+      selectedStepIndices = [picked]
+    } else {
+      const shuffledSteps = [...allStepIndices]
+      for (let i = shuffledSteps.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const temp = shuffledSteps[i]
+        shuffledSteps[i] = shuffledSteps[j]
+        shuffledSteps[j] = temp
+      }
+      selectedStepIndices = shuffledSteps.slice(0, selectedCount)
+    }
+
+    const selectedTemplatesShuffled = [...selectedTemplates]
+    for (let i = selectedTemplatesShuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const temp = selectedTemplatesShuffled[i]
+      selectedTemplatesShuffled[i] = selectedTemplatesShuffled[j]
+      selectedTemplatesShuffled[j] = temp
+    }
+
+    const spiritStepTemplateByIndex: ExplorationSpiritPlan['spiritStepTemplateByIndex'] = {}
+    selectedStepIndices.forEach((stepIndex, idx) => {
+      const template = selectedTemplatesShuffled[idx]
+      if (!template) return
+      spiritStepTemplateByIndex[stepIndex] = {
+        templateId: template.id,
+        gameKey: template.gameType ?? template.id,
+      }
+    })
+
+    return {
+      spiritCount: Object.keys(spiritStepTemplateByIndex).length,
+      spiritStepTemplateByIndex,
+    }
+  }, [region])
+
+  const ensureSpiritPlan = useCallback(() => {
+    if (spiritPlanRef.current) return spiritPlanRef.current
+    const plan = buildExplorationSpiritPlan()
+    spiritPlanRef.current = plan
+    return plan
+  }, [buildExplorationSpiritPlan])
+
+  const pickNonSpiritEventTemplate = useCallback((blockedKinds?: Array<'regional' | 'treasure'>) => {
+    const blocked = new Set(blockedKinds ?? [])
+    const templates = (region?.eventTemplates ?? []).filter((template) => (
+      template.kind !== 'spirit' && !blocked.has(template.kind)
+    ))
     if (templates.length === 0) return null
 
     const noneChance = EXPEDITION_REWARD_DRAFT.eventProbabilities.none
@@ -428,12 +748,28 @@ export default function AdventureMapScreen({
     return templates[Math.floor(Math.random() * templates.length)] ?? null
   }, [region])
 
-  const buildEventState = useCallback((): ActiveEventState => {
+  const buildEventState = useCallback((stepIndex: number): ActiveEventState => {
     if (!region) {
       return buildEmptyEventState()
     }
 
-    const template = pickEventTemplate()
+    const history = eventKindHistoryRef.current
+    const prev1 = history[history.length - 1]
+    const prev2 = history[history.length - 2]
+    const blockSpirit = prev1 === 'spirit' && prev2 === 'spirit'
+    const blockRegional = prev1 === 'regional' && prev2 === 'regional'
+
+    const spiritPlan = ensureSpiritPlan()
+    const plannedSpiritTemplateMeta = spiritPlan.spiritStepTemplateByIndex[stepIndex]
+
+    let template = null
+    if (plannedSpiritTemplateMeta && !blockSpirit) {
+      template = (region.eventTemplates ?? []).find((it) => it.id === plannedSpiritTemplateMeta.templateId) ?? null
+    }
+    if (!template) {
+      template = pickNonSpiritEventTemplate(blockRegional ? ['regional'] : undefined)
+    }
+
     if (!template) {
       return buildEmptyEventState()
     }
@@ -454,7 +790,11 @@ export default function AdventureMapScreen({
           ? '상자를 2회 클릭해 열어보세요.'
           : '오브젝트를 3번 클릭해 지역의 기운을 모아보세요.',
     }
-  }, [buildEmptyEventState, pickEventTemplate, region])
+  }, [buildEmptyEventState, ensureSpiritPlan, pickNonSpiritEventTemplate, region])
+
+  useEffect(() => {
+    spiritPlanRef.current = buildExplorationSpiritPlan()
+  }, [buildExplorationSpiritPlan])
 
   const buildResult = useCallback((): ExploreResult => {
     const baseExp = dungeon?.baseExp ?? 25
@@ -812,6 +1152,17 @@ export default function AdventureMapScreen({
     }
   }, [])
 
+  const handleTreasureTap = useCallback(() => {
+    if (!activeEvent || activeEvent.kind !== 'treasure' || activeEvent.resolved) return
+    if (!treasureChestOpened) {
+      playSfx(TREASURE_CLOSE_SFX_PATH, 0.86)
+      setTreasureChestOpened(true)
+    } else {
+      playSfx(TREASURE_OPEN_SFX_PATH, 0.86)
+    }
+    handleEventInteraction('click')
+  }, [activeEvent, handleEventInteraction, treasureChestOpened])
+
   const onExploreTap = useCallback(() => {
     if (showExitConfirm || showResult) return
 
@@ -825,6 +1176,13 @@ export default function AdventureMapScreen({
         triggerRegionalPressFeedback()
         playSfx(REGIONAL_PICK_SFX_PATH, 0.86)
         handleEventInteraction('click')
+      } else if (activeEvent.kind === 'treasure') {
+        const now = Date.now()
+        if (now < exploreTapCooldownUntilRef.current) {
+          return
+        }
+        exploreTapCooldownUntilRef.current = now + EXPLORE_TAP_COOLDOWN_MS
+        handleTreasureTap()
       }
       return
     }
@@ -856,8 +1214,11 @@ export default function AdventureMapScreen({
       transition: { duration: 0.28, ease: 'easeOut' },
     })
 
-    const nextEvent = activeEvent && !activeEvent.resolved ? activeEvent : buildEventState()
+    ensureSpiritPlan()
+
+    const nextEvent = activeEvent && !activeEvent.resolved ? activeEvent : buildEventState(used)
     setActiveEvent(nextEvent)
+    eventKindHistoryRef.current.push(nextEvent.kind)
     if (nextEvent.kind === 'empty') {
       showFloatingRewardToasts([{ text: '획득 없음', colors: FLOATING_TOAST_COLORS.none }])
     }
@@ -894,7 +1255,7 @@ export default function AdventureMapScreen({
         finalizeExploreResult()
       }
     }
-  }, [activeEvent, remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildEventState, finalizeExploreResult, handleEventInteraction, showFloatingRewardToasts, used, applyExploreStepRewards, stage, triggerRegionalPressFeedback])
+  }, [activeEvent, remaining, showExitConfirm, showResult, a, footstepSrc, bgControls, circleControls, buildEventState, ensureSpiritPlan, finalizeExploreResult, handleEventInteraction, showFloatingRewardToasts, used, applyExploreStepRewards, stage, triggerRegionalPressFeedback, handleTreasureTap])
 
   const progressTokens = useMemo(
     () => Array.from({ length: TOTAL_EXPLORES }, (_, i) => i < remaining),
@@ -905,6 +1266,126 @@ export default function AdventureMapScreen({
     if (!activeEvent || activeEvent.kind !== 'regional' || activeEvent.resolved) return null
     return REGIONAL_EVENT_ASSET_BY_ID[activeEvent.id] ?? null
   }, [activeEvent])
+  const activeSpiritMiniGameSpec = useMemo(() => {
+    if (!activeEvent || activeEvent.kind !== 'spirit' || activeEvent.resolved) return null
+    if (activeSpiritMiniGameId !== activeEvent.id) return null
+    return SPIRIT_MINI_GAMES[activeEvent.id] ?? null
+  }, [activeEvent, activeSpiritMiniGameId])
+  const activeSpiritGuideImagePath = useMemo(() => {
+    if (!activeEvent || activeEvent.kind !== 'spirit' || activeEvent.resolved) return null
+    const spec = SPIRIT_MINI_GAMES[activeEvent.id]
+    if (stage === 1 && spec) {
+      if (spec.mode === 'matching') return 'assets/map/forest_event_illust1.png'
+      if (spec.mode === 'timing') return 'assets/map/forest_event_illust2.png'
+      if (spec.mode === 'fortune') return 'assets/map/forest_event_illust3.png'
+    }
+    if (stage === 2 && spec) {
+      if (spec.mode === 'matching') return 'assets/map/wind_event_illust3.png'
+      if (spec.mode === 'timing') return 'assets/map/wind_event_illust2.png'
+      if (spec.mode === 'fortune') return 'assets/map/wind_event_illust1.png'
+    }
+    if (stage === 3 && spec) {
+      if (spec.mode === 'matching') return 'assets/map/snow_event_illust1.png'
+      if (spec.mode === 'timing') return 'assets/map/snow_event_illust3.png'
+      if (spec.mode === 'fortune') return 'assets/map/snow_event_illust2.png'
+    }
+    if (stage === 4 && spec) {
+      if (spec.mode === 'matching') return 'assets/map/fire_event_illust3.png'
+      if (spec.mode === 'timing') return 'assets/map/fire_event_illust1.png'
+      if (spec.mode === 'fortune') return 'assets/map/fire_event_illust2.png'
+    }
+    if (stage === 5 && spec) {
+      if (spec.mode === 'matching') return 'assets/map/soul_event_illust3.png'
+      if (spec.mode === 'timing') return 'assets/map/soul_event_illust2.png'
+      if (spec.mode === 'fortune') return 'assets/map/soul_event_illust1.png'
+    }
+    return spec?.imagePath ?? circleSrc
+  }, [activeEvent, circleSrc, stage])
+  const spiritPopupTheme = useMemo(() => {
+    if (stage === 2) {
+      return {
+        borderColor: '#634A6E',
+        textColor: '#F2CBF4',
+        bgImagePath: 'assets/background/wind_event_bg.png',
+        helpButtonBgColor: 'rgba(78,68,119,0.5)',
+        helpButtonBorderColor: '#af9eba',
+        helpButtonTextColor: '#F2CBF4',
+        glowMainGradient: 'radial-gradient(circle, rgba(212,154,255,0.5) 0%, rgba(136,82,201,0.3) 46%, rgba(28,20,40,0) 78%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(187,121,246,0.34) 0%, rgba(187,121,246,0.14) 52%, rgba(187,121,246,0) 84%)',
+        particleBaseColor: '#D9A9FF',
+        particleAltColor: '#C77BFF',
+        particleSoftColor: '#ECD2FF',
+        particleMidColor: '#CF97FF',
+        particleLightColor: '#F6E8FF',
+      }
+    }
+    if (stage === 3) {
+      return {
+        borderColor: '#4A4E6E',
+        textColor: '#B4BFEA',
+        bgImagePath: 'assets/background/snow_event_bg.png',
+        helpButtonBgColor: 'rgba(73,88,136,0.5)',
+        helpButtonBorderColor: '#9ea3ba',
+        helpButtonTextColor: '#B4BFEA',
+        glowMainGradient: 'radial-gradient(circle, rgba(175,247,232,0.5) 0%, rgba(92,201,180,0.28) 46%, rgba(20,42,40,0) 78%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(146,235,216,0.34) 0%, rgba(146,235,216,0.14) 52%, rgba(146,235,216,0) 84%)',
+        particleBaseColor: '#B7F6E7',
+        particleAltColor: '#8EEFD9',
+        particleSoftColor: '#D8FFF4',
+        particleMidColor: '#9DECD9',
+        particleLightColor: '#ECFFF9',
+      }
+    }
+    if (stage === 4) {
+      return {
+        borderColor: '#583949',
+        textColor: '#FAB7B8',
+        bgImagePath: 'assets/background/fire_event_bg.png',
+        helpButtonBgColor: 'rgba(136,73,74,0.5)',
+        helpButtonBorderColor: '#BA9EAB',
+        helpButtonTextColor: '#FAB7B8',
+        glowMainGradient: 'radial-gradient(circle, rgba(255,210,154,0.46) 0%, rgba(232,143,95,0.25) 46%, rgba(56,24,18,0) 76%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(255,189,131,0.3) 0%, rgba(255,189,131,0.12) 52%, rgba(255,189,131,0) 82%)',
+        particleBaseColor: '#FFD9A8',
+        particleAltColor: '#FFC48E',
+        particleSoftColor: '#FFE6C5',
+        particleMidColor: '#FFCF9C',
+        particleLightColor: '#FFF1DE',
+      }
+    }
+    if (stage === 5) {
+      return {
+        borderColor: '#503E6D',
+        textColor: '#BAA2E1',
+        bgImagePath: 'assets/background/soul_event_bg.png',
+        helpButtonBgColor: 'rgba(131,73,136,0.5)',
+        helpButtonBorderColor: '#Ba9eb9',
+        helpButtonTextColor: '#BAA2E1',
+        glowMainGradient: 'radial-gradient(circle, rgba(255,196,236,0.46) 0%, rgba(225,132,193,0.24) 46%, rgba(48,20,44,0) 76%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(244,170,220,0.3) 0%, rgba(244,170,220,0.12) 52%, rgba(244,170,220,0) 82%)',
+        particleBaseColor: '#FFD0EC',
+        particleAltColor: '#F7B4DF',
+        particleSoftColor: '#FFE2F4',
+        particleMidColor: '#F9C3E7',
+        particleLightColor: '#FFF0FA',
+      }
+    }
+    return {
+      borderColor: '#426166',
+      textColor: '#CBF4ED',
+      bgImagePath: 'assets/background/forest_event_bg.png',
+      helpButtonBgColor: 'rgba(68,119,102,0.5)',
+      helpButtonBorderColor: '#9ebab5',
+      helpButtonTextColor: '#CBF4ED',
+      glowMainGradient: 'radial-gradient(circle, rgba(255,240,184,0.45) 0%, rgba(232,201,112,0.22) 46%, rgba(44,38,20,0) 76%)',
+      glowSubGradient: 'radial-gradient(circle, rgba(255,226,136,0.28) 0%, rgba(255,226,136,0.1) 52%, rgba(255,226,136,0) 82%)',
+      particleBaseColor: '#FFF0B5',
+      particleAltColor: '#FFE7A0',
+      particleSoftColor: '#FFF6CF',
+      particleMidColor: '#FFEBAE',
+      particleLightColor: '#FFFBE6',
+    }
+  }, [stage])
   const regionalAccentColor = REGIONAL_ACCENT_BY_STAGE[stage]
 
   const isRegionalEventActive = !!(activeEvent && activeEvent.kind === 'regional' && !activeEvent.resolved)
@@ -920,6 +1401,53 @@ export default function AdventureMapScreen({
     playSfx(REGIONAL_PICK_SFX_PATH, 0.86)
     handleEventInteraction('click')
   }, [activeEvent, activeRegionalAsset, handleEventInteraction, triggerRegionalPressFeedback])
+
+  const openSpiritMiniGame = useCallback(() => {
+    if (!activeEvent || activeEvent.kind !== 'spirit' || activeEvent.resolved) return
+    if (SPIRIT_MINI_GAMES[activeEvent.id]) {
+      setActiveSpiritMiniGameId(activeEvent.id)
+      return
+    }
+    handleEventInteraction('help')
+  }, [activeEvent, handleEventInteraction])
+
+  const handleSpiritMiniGameSuccess = useCallback(() => {
+    setActiveSpiritMiniGameId(null)
+    showFloatingRewardToasts([
+      {
+        text: '성공',
+        colors: {
+          textColor: '#B7F6D0',
+          borderColor: '#7ED2A1AA',
+          bgColor: 'rgba(8,10,24,0.82)',
+        },
+        playSound: false,
+      },
+    ], { durationMs: 520, gapMs: 40 })
+
+    if (spiritMiniGameSuccessTimerRef.current !== null) {
+      window.clearTimeout(spiritMiniGameSuccessTimerRef.current)
+    }
+    spiritMiniGameSuccessTimerRef.current = window.setTimeout(() => {
+      handleEventInteraction('help')
+      spiritMiniGameSuccessTimerRef.current = null
+    }, 620)
+  }, [handleEventInteraction, showFloatingRewardToasts])
+
+  useEffect(() => {
+    if (!activeEvent || activeEvent.kind !== 'spirit' || activeEvent.resolved) {
+      setActiveSpiritMiniGameId(null)
+    }
+  }, [activeEvent])
+
+  useEffect(() => {
+    return () => {
+      if (spiritMiniGameSuccessTimerRef.current !== null) {
+        window.clearTimeout(spiritMiniGameSuccessTimerRef.current)
+        spiritMiniGameSuccessTimerRef.current = null
+      }
+    }
+  }, [])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -1076,6 +1604,19 @@ export default function AdventureMapScreen({
       </div>
 
       <AnimatePresence>
+        {activeSpiritMiniGameSpec && (
+          <SpiritMiniGameModal
+            key={`spirit-mini-game-${activeSpiritMiniGameSpec.eventId}`}
+            a={a}
+            spec={activeSpiritMiniGameSpec}
+            onSuccess={handleSpiritMiniGameSuccess}
+            onFail={() => {
+              setActiveSpiritMiniGameId(null)
+              handleEventInteraction('pass')
+            }}
+          />
+        )}
+
         {activeEvent && activeEvent.kind === 'treasure' && !activeEvent.resolved ? (
           <motion.div
             key={`treasure-${activeEvent.id}`}
@@ -1091,15 +1632,7 @@ export default function AdventureMapScreen({
                 whileTap={{ scale: 0.92, y: 3 }}
                 animate={{ y: [0, -7, 0, -4, 0], scale: [1, 1.02, 1, 1.01, 1] }}
                 transition={{ duration: 1.35, repeat: Infinity, ease: 'easeInOut' }}
-                onClick={() => {
-                  if (!treasureChestOpened) {
-                    playSfx(TREASURE_CLOSE_SFX_PATH, 0.86)
-                    setTreasureChestOpened(true)
-                  } else {
-                    playSfx(TREASURE_OPEN_SFX_PATH, 0.86)
-                  }
-                  handleEventInteraction('click')
-                }}
+                onClick={handleTreasureTap}
                 className="pointer-events-auto relative flex items-center justify-center"
                 aria-label={treasureChestOpened ? '열린 보물 상자' : '닫힌 보물 상자'}
               >
@@ -1145,10 +1678,8 @@ export default function AdventureMapScreen({
                 aria-label={activeRegionalAsset.label}
               >
                 <motion.div
-                  animate={isRegionalPressing ? { rotate: 0 } : { rotate: [-2.4, 2.4] }}
-                  transition={isRegionalPressing
-                    ? { duration: 0.1, ease: 'easeOut' }
-                    : { duration: 1.55, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                  animate={{ rotate: [-2.4, 2.4] }}
+                  transition={{ duration: 1.55, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
                   style={{ transformOrigin: '50% 6%' }}
                 >
                   <img
@@ -1173,7 +1704,7 @@ export default function AdventureMapScreen({
               </div>
             </div>
           </motion.div>
-        ) : activeEvent ? (
+        ) : activeEvent && !(activeSpiritMiniGameSpec && activeEvent.kind === 'spirit') ? (
           <motion.div
             key={`event-${activeEvent.id}-${activeEvent.kind}`}
             className="absolute inset-x-0 bottom-[190px] z-[9] px-3 pointer-events-none"
@@ -1183,20 +1714,103 @@ export default function AdventureMapScreen({
             transition={{ duration: 0.28, ease: 'easeOut' }}
           >
             <div
-              className={`mx-auto w-full max-w-[360px] rounded-[20px] bg-[rgba(6,8,18,0.75)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.35)] text-center ${activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'pointer-events-auto' : 'pointer-events-none'}`}
+              className={`mx-auto w-full rounded-[20px] bg-[rgba(6,8,18,0.75)] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.35)] text-center ${activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'pointer-events-auto relative flex flex-col h-[460px] overflow-hidden border p-4 pb-5' : 'pointer-events-none'}`}
+              style={activeEvent.kind === 'spirit' && !activeEvent.resolved ? { borderColor: spiritPopupTheme.borderColor } : undefined}
               onPointerDown={(e) => {
                 if (activeEvent.kind === 'spirit' && !activeEvent.resolved) {
                   e.stopPropagation()
                 }
               }}
             >
-              <div className="flex items-center justify-center text-[12px] font-medium text-white">
-                <span>{activeEvent.title}</span>
-                {activeEvent.kind !== 'empty' && !activeEvent.resolved && (
+              {activeEvent.kind === 'spirit' && !activeEvent.resolved && (
+                <img
+                  src={a(spiritPopupTheme.bgImagePath)}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  draggable={false}
+                />
+              )}
+
+              <div className={`relative z-[1] flex items-center justify-center text-[12px] text-white ${activeEvent.kind === 'empty' ? 'font-normal' : 'font-medium'} ${activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'mt-[15px]' : ''}`}>
+                <span
+                  className={activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'text-[20px] font-bold' : ''}
+                  style={activeEvent.kind === 'spirit' && !activeEvent.resolved ? { color: spiritPopupTheme.textColor } : undefined}
+                >
+                  {activeEvent.title}
+                </span>
+                {activeEvent.kind !== 'empty' && activeEvent.kind !== 'spirit' && !activeEvent.resolved && (
                   <span className="ml-2 text-[11px] text-white/70">{activeEvent.clickCount}/{activeEvent.targetClicks}</span>
                 )}
               </div>
-              <div className="mt-1 text-[15px] leading-relaxed font-semibold text-white">{activeEvent.description}</div>
+              <div
+                className={`relative z-[1] mt-1 whitespace-pre-line text-white ${activeEvent.kind === 'spirit' && !activeEvent.resolved ? 'min-h-[42px] text-[14px] leading-[1.45] font-normal' : 'text-[15px] leading-relaxed font-semibold'}`}
+                style={activeEvent.kind === 'spirit' && !activeEvent.resolved ? { color: spiritPopupTheme.textColor } : undefined}
+              >
+                {activeEvent.description}
+              </div>
+
+              {activeEvent.kind === 'spirit' && !activeEvent.resolved && activeSpiritGuideImagePath && (
+                <div className="relative z-[1] mt-3 mb-4 flex items-center justify-center">
+                  <motion.div
+                    className="pointer-events-none absolute z-[2] h-[280px] w-[280px] rounded-full"
+                    style={{
+                      background: spiritPopupTheme.glowMainGradient,
+                      filter: 'blur(18px)',
+                    }}
+                    animate={{ opacity: [0.45, 0.88, 0.45], scale: [0.94, 1.07, 0.94] }}
+                    transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+
+                  <motion.div
+                    className="pointer-events-none absolute z-[1] h-[320px] w-[320px] rounded-full"
+                    style={{
+                      background: spiritPopupTheme.glowSubGradient,
+                      filter: 'blur(24px)',
+                    }}
+                    animate={{ opacity: [0.2, 0.45, 0.2], scale: [0.96, 1.03, 0.96] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-96px)] top-[calc(50%-74px)] h-[8px] w-[8px] rounded-full"
+                    style={{ backgroundColor: spiritPopupTheme.particleBaseColor, boxShadow: `0 0 14px ${spiritPopupTheme.particleBaseColor}` }}
+                    animate={{ y: [0, -15, 0], opacity: [0.22, 1, 0.22], scale: [0.9, 1.12, 0.9] }}
+                    transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%+64px)] top-[calc(50%-86px)] h-[7px] w-[7px] rounded-full"
+                    style={{ backgroundColor: spiritPopupTheme.particleAltColor, boxShadow: `0 0 12px ${spiritPopupTheme.particleAltColor}` }}
+                    animate={{ y: [0, -18, 0], opacity: [0.18, 0.94, 0.18], scale: [0.92, 1.1, 0.92] }}
+                    transition={{ duration: 1.95, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-42px)] top-[calc(50%+84px)] h-[6px] w-[6px] rounded-full"
+                    style={{ backgroundColor: spiritPopupTheme.particleSoftColor, boxShadow: `0 0 10px ${spiritPopupTheme.particleSoftColor}` }}
+                    animate={{ y: [0, -13, 0], opacity: [0.15, 0.86, 0.15], scale: [0.9, 1.08, 0.9] }}
+                    transition={{ duration: 1.65, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-10px)] top-[calc(50%-108px)] h-[5px] w-[5px] rounded-full"
+                    style={{ backgroundColor: spiritPopupTheme.particleMidColor, boxShadow: `0 0 11px ${spiritPopupTheme.particleMidColor}` }}
+                    animate={{ y: [0, -16, 0], opacity: [0.14, 0.9, 0.14], scale: [0.88, 1.12, 0.88] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 0.42 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%+86px)] top-[calc(50%+28px)] h-[4px] w-[4px] rounded-full"
+                    style={{ backgroundColor: spiritPopupTheme.particleLightColor, boxShadow: `0 0 9px ${spiritPopupTheme.particleLightColor}` }}
+                    animate={{ y: [0, -12, 0], opacity: [0.12, 0.82, 0.12], scale: [0.9, 1.1, 0.9] }}
+                    transition={{ duration: 1.55, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                  />
+
+                  <img
+                    src={a(activeSpiritGuideImagePath)}
+                    alt={activeEvent.title}
+                    className="relative z-[10] w-[245px] h-[245px] object-cover"
+                    draggable={false}
+                  />
+                </div>
+              )}
+
                 {activeEvent.kind === 'regional' && !activeEvent.resolved && (
                   <RegionalProgressGauge
                     current={activeEvent.clickCount}
@@ -1206,20 +1820,30 @@ export default function AdventureMapScreen({
                   />
                 )}
               {activeEvent.kind === 'spirit' && !activeEvent.resolved && (
-                <div className="mt-3 flex gap-2">
+                <div className="relative z-[1] mt-auto flex items-center justify-center gap-[10px]">
                   <button
                     type="button"
                     onClick={() => handleEventInteraction('pass')}
-                    className="flex-1 rounded-lg border border-white/15 bg-[rgba(90,95,115,0.6)] px-2 py-2 text-[12px] font-semibold text-white/90"
+                    className="h-[50px] w-[165px] rounded-[10px] border text-[16px] font-semibold"
+                    style={{
+                      backgroundColor: 'rgba(120,120,120,0.5)',
+                      borderColor: '#878787',
+                      color: '#d2d2d2',
+                    }}
                   >
-                    지나간다
+                    <span className="inline-block -translate-y-[2px]">지나간다</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleEventInteraction('help')}
-                    className="flex-1 rounded-lg border border-[#8fc7a5]/30 bg-[rgba(44,74,61,0.8)] px-2 py-2 text-[12px] font-semibold text-[#ecf9f0]"
+                    onClick={openSpiritMiniGame}
+                    className="h-[50px] w-[165px] rounded-[10px] border text-[16px] font-semibold"
+                    style={{
+                      backgroundColor: spiritPopupTheme.helpButtonBgColor,
+                      borderColor: spiritPopupTheme.helpButtonBorderColor,
+                      color: spiritPopupTheme.helpButtonTextColor,
+                    }}
                   >
-                    도와주기
+                    <span className="inline-block -translate-y-[2px]">도와준다</span>
                   </button>
                 </div>
               )}
@@ -1350,6 +1974,512 @@ function ExitConfirmModal({
   )
 }
 
+function SpiritMiniGameModal({
+  a,
+  spec,
+  onSuccess,
+  onFail,
+}: {
+  a: (path: string) => string
+  spec: SpiritMiniGameSpec
+  onSuccess: () => void
+  onFail: () => void
+}) {
+  const [status, setStatus] = useState<'playing' | 'failed' | 'cleared'>('playing')
+  const [feedbackText, setFeedbackText] = useState('')
+  const failTimerRef = useRef<number | null>(null)
+
+  const resolveSuccess = useCallback((clearMessage?: string) => {
+    if (status !== 'playing') return
+
+    if (spec.mode === 'matching') {
+      onSuccess()
+      return
+    }
+
+    setStatus('cleared')
+    setFeedbackText(clearMessage ?? spec.clearText)
+  }, [onSuccess, spec.clearText, spec.mode, status])
+
+  const resolveFailure = useCallback((failMessage?: string) => {
+    if (status !== 'playing') return
+    setStatus('failed')
+    setFeedbackText(failMessage ?? spec.failText)
+    if (failTimerRef.current !== null) {
+      window.clearTimeout(failTimerRef.current)
+    }
+    failTimerRef.current = window.setTimeout(() => {
+      onFail()
+      failTimerRef.current = null
+    }, 640)
+  }, [onFail, spec.failText, status])
+
+  useEffect(() => {
+    return () => {
+      if (failTimerRef.current !== null) {
+        window.clearTimeout(failTimerRef.current)
+        failTimerRef.current = null
+      }
+    }
+  }, [])
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-[35] flex items-center justify-center px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <motion.div
+        initial={{ y: 24, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 18, opacity: 0 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="relative z-[1] w-[94vw] max-w-[420px] p-2"
+      >
+        {spec.mode !== 'matching' && (
+          <div className="relative z-[1] text-center">
+            <div className="text-[14px] text-white font-bold">{spec.title}</div>
+            <p className="mt-1 text-[12px] leading-relaxed text-white/80">{spec.description}</p>
+          </div>
+        )}
+
+        <div className="relative z-[1] mt-3 p-0 flex flex-col items-center">
+          {spec.mode === 'matching' && (
+            <motion.div
+              className="mb-2 text-center text-[13px] font-medium text-[#c2c5cb]"
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              카드를 뒤집어 짝을 맞춰주세요.
+            </motion.div>
+          )}
+
+          {spec.mode !== 'matching' && (
+            <div className="mt-3 flex items-center justify-center">
+              <motion.img
+                src={a(spec.imagePath)}
+                alt={spec.title}
+                className="w-[180px] h-[180px] object-contain"
+                draggable={false}
+                animate={status === 'cleared'
+                  ? { filter: ['brightness(1) saturate(1)', 'brightness(1.28) saturate(1.25)', 'brightness(1.14) saturate(1.15)'] }
+                  : { filter: 'brightness(1) saturate(1)' }}
+                transition={status === 'cleared'
+                  ? { duration: 0.55, ease: 'easeOut' }
+                  : { duration: 0.2 }}
+              />
+            </div>
+          )}
+
+          {spec.mode === 'timing' && (
+            <TimingTapGame
+              disabled={status !== 'playing'}
+              onSuccess={() => resolveSuccess(spec.clearText)}
+              onFail={() => resolveFailure(spec.failText)}
+              actionLabel={spec.actionLabel}
+            />
+          )}
+
+          {spec.mode === 'matching' && (
+            <MatchingCardGame
+              a={a}
+              disabled={status !== 'playing'}
+              onStatusText={setFeedbackText}
+              onClear={() => resolveSuccess(spec.clearText)}
+            />
+          )}
+
+          {spec.mode === 'fortune' && (
+            <FortuneChoiceGame
+              a={a}
+              disabled={status !== 'playing'}
+              choiceLabels={spec.choiceLabels}
+              onStatusText={setFeedbackText}
+              onSuccess={() => resolveSuccess(spec.clearText)}
+              onFail={() => resolveFailure('빛이 닿지 않았습니다.')}
+            />
+          )}
+
+          {spec.mode !== 'matching' && (
+            <div className="mt-3 text-center text-[12px] leading-relaxed text-white/75 min-h-[32px]">{feedbackText}</div>
+          )}
+        </div>
+
+        <div className="relative z-[1] mt-3 flex gap-2">
+          {status === 'failed' ? (
+            <button
+              type="button"
+              disabled
+              className="w-full h-11 rounded-lg border border-black/20 bg-black/5 text-[13px] font-semibold text-black/70"
+            >
+              실패 처리 중...
+            </button>
+          ) : status === 'cleared' ? (
+            <button
+              type="button"
+              onClick={onSuccess}
+              className="w-full h-11 rounded-lg border border-[#46654f]/35 bg-[rgba(164,191,172,0.55)] text-[13px] font-semibold text-black"
+            >
+              정령을 깨운다
+            </button>
+          ) : spec.mode === 'fortune' ? (
+            <button
+              type="button"
+              disabled
+              className="w-full h-11 rounded-lg border border-black/20 bg-black/5 text-[13px] font-semibold text-black/70"
+            >
+              빛을 하나 선택해 주세요.
+            </button>
+          ) : null}
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+
+function TimingTapGame({
+  disabled,
+  onSuccess,
+  onFail,
+  actionLabel,
+}: {
+  disabled: boolean
+  onSuccess: () => void
+  onFail: () => void
+  actionLabel: string
+}) {
+  const [pointer, setPointer] = useState(0.5)
+  const directionRef = useRef(1)
+
+  useEffect(() => {
+    if (disabled) return
+    directionRef.current = 1
+    const interval = window.setInterval(() => {
+      setPointer((prev) => {
+        const next = prev + (0.016 * directionRef.current)
+        if (next >= 1) {
+          directionRef.current = -1
+          return 1
+        }
+        if (next <= 0) {
+          directionRef.current = 1
+          return 0
+        }
+        return next
+      })
+    }, 16)
+
+    return () => window.clearInterval(interval)
+  }, [disabled])
+
+  const successStart = 0.42
+  const successEnd = 0.58
+
+  return (
+    <div className="mt-1">
+      <div className="relative mx-auto h-3 w-full max-w-[290px] overflow-hidden rounded-full border border-white/15 bg-white/10">
+        <div
+          className="absolute top-0 h-full bg-[#f3d88f]/60"
+          style={{
+            left: `${successStart * 100}%`,
+            width: `${(successEnd - successStart) * 100}%`,
+          }}
+        />
+        <div
+          className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-white/80 bg-[#fff1be] shadow-[0_0_8px_rgba(255,230,150,0.7)]"
+          style={{ left: `calc(${pointer * 100}% - 8px)` }}
+        />
+      </div>
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          const ok = pointer >= successStart && pointer <= successEnd
+          if (ok) onSuccess()
+          else onFail()
+        }}
+        className="mt-3 w-full h-11 rounded-lg border border-[#46654f]/35 bg-[rgba(164,191,172,0.55)] text-[13px] font-semibold text-black disabled:opacity-50"
+      >
+        {actionLabel}
+      </button>
+    </div>
+  )
+}
+
+type MatchingCard = {
+  id: number
+  key: string
+  iconPath: string
+}
+
+function MatchingCardGame({
+  a,
+  disabled,
+  onStatusText,
+  onClear,
+}: {
+  a: (path: string) => string
+  disabled: boolean
+  onStatusText: (text: string) => void
+  onClear: () => void
+}) {
+  const cards = useMemo<MatchingCard[]>(() => {
+    const symbols = ['flower', 'leaf', 'star', 'magic']
+    const raw = symbols.flatMap((key) => ([
+      { id: 0, key, iconPath: `assets/item/it/it_${key}.png` },
+      { id: 0, key, iconPath: `assets/item/it/it_${key}.png` },
+    ]))
+
+    const shuffled = [...raw]
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const temp = shuffled[i]
+      shuffled[i] = shuffled[j]
+      shuffled[j] = temp
+    }
+
+    return shuffled.map((card, idx) => ({ ...card, id: idx }))
+  }, [])
+
+  const [firstSelectedId, setFirstSelectedId] = useState<number | null>(null)
+  const [secondSelectedId, setSecondSelectedId] = useState<number | null>(null)
+  const [matchedIds, setMatchedIds] = useState<number[]>([])
+  const [isJudging, setIsJudging] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const judgeTimerRef = useRef<number | null>(null)
+  const clearTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (firstSelectedId === null || secondSelectedId === null) return
+    setIsJudging(true)
+
+    judgeTimerRef.current = window.setTimeout(() => {
+      const first = cards[firstSelectedId]
+      const second = cards[secondSelectedId]
+      const isMatch = first.key === second.key
+
+      if (isMatch) {
+        const nextMatched = [...matchedIds, firstSelectedId, secondSelectedId]
+        setMatchedIds(nextMatched)
+        setFirstSelectedId(null)
+        setSecondSelectedId(null)
+        setIsJudging(false)
+        onStatusText('같은 문양을 찾았어요!')
+
+        if (nextMatched.length === cards.length) {
+          setIsCompleted(true)
+          clearTimerRef.current = window.setTimeout(() => {
+            onClear()
+            clearTimerRef.current = null
+          }, 650)
+        }
+      } else {
+        setFirstSelectedId(null)
+        setSecondSelectedId(null)
+        setIsJudging(false)
+        onStatusText('문양이 달라 빛이 흩어졌어요.')
+      }
+
+      judgeTimerRef.current = null
+    }, 500)
+
+    return () => {
+      if (judgeTimerRef.current !== null) {
+        window.clearTimeout(judgeTimerRef.current)
+        judgeTimerRef.current = null
+      }
+    }
+  }, [cards, firstSelectedId, matchedIds, onClear, onStatusText, secondSelectedId])
+
+  useEffect(() => {
+    return () => {
+      if (judgeTimerRef.current !== null) {
+        window.clearTimeout(judgeTimerRef.current)
+      }
+      if (clearTimerRef.current !== null) {
+        window.clearTimeout(clearTimerRef.current)
+      }
+    }
+  }, [])
+
+  return (
+    <div className="mt-2">
+      <div className="w-full grid grid-cols-3 gap-2">
+        {Array.from({ length: 9 }).map((_, slotIndex) => {
+          if (slotIndex === 4) {
+            return (
+              <div
+                key="center-spirit-tile"
+                className="relative aspect-square w-full rounded-lg border border-black/15 bg-black/5 flex items-center justify-center"
+              >
+                <img
+                  src={a('assets/map/forest_wreath3.png')}
+                  alt="정령 흔적"
+                  className="w-[28px] h-[28px] object-contain opacity-90"
+                  draggable={false}
+                />
+              </div>
+            )
+          }
+
+          const cardIndex = slotIndex > 4 ? slotIndex - 1 : slotIndex
+          const card = cards[cardIndex]
+          if (!card) return <div key={`empty-${slotIndex}`} className="aspect-square w-full" />
+
+          const isMatched = matchedIds.includes(card.id)
+          const isOpen = card.id === firstSelectedId || card.id === secondSelectedId
+          const canSelect = !disabled && !isJudging && !isMatched && !isCompleted
+
+          return (
+            <button
+              key={card.id}
+              type="button"
+              disabled={!canSelect}
+              onClick={() => {
+                if (!canSelect) return
+                if (firstSelectedId === null) {
+                  setFirstSelectedId(card.id)
+                  return
+                }
+                if (firstSelectedId === card.id) return
+                if (secondSelectedId === null) {
+                  setSecondSelectedId(card.id)
+                }
+              }}
+              className={`relative aspect-square w-full rounded-lg border transition ${isMatched ? 'opacity-0 pointer-events-none scale-90' : isOpen ? 'border-[#6f5a2e]/45 bg-[rgba(242,214,143,0.28)]' : 'border-black/15 bg-black/5'}`}
+            >
+              {isOpen ? (
+                <img src={a(card.iconPath)} alt={card.key} className="w-[28px] h-[28px] object-contain mx-auto" draggable={false} />
+              ) : (
+                <img src={a('assets/background/item_bg.png')} alt="카드 뒷면" className="w-[28px] h-[28px] object-contain mx-auto opacity-90" draggable={false} />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {isCompleted && (
+        <motion.div
+          className="mt-3 flex flex-col items-center"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.26, ease: 'easeOut' }}
+        >
+          <motion.img
+            src={a('assets/map/forest_wreath3.png')}
+            alt="발견한 정령"
+            className="w-[84px] h-[84px] object-contain"
+            animate={{ filter: ['brightness(1)', 'brightness(1.3)', 'brightness(1.12)'] }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
+            draggable={false}
+          />
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
+function FortuneChoiceGame({
+  a,
+  disabled,
+  choiceLabels,
+  onStatusText,
+  onSuccess,
+  onFail,
+}: {
+  a: (path: string) => string
+  disabled: boolean
+  choiceLabels?: [string, string, string]
+  onStatusText: (text: string) => void
+  onSuccess: () => void
+  onFail: () => void
+}) {
+  const defaultLabels: [string, string, string] = ['별빛', '달빛', '햇빛']
+  const labels = choiceLabels ?? defaultLabels
+  const iconPaths = ['assets/item/it/it_star.png', 'assets/item/it/it_moon.png', 'assets/item/it/it_light.png']
+
+  const choices = useMemo(() => labels.map((name, idx) => ({
+    id: `choice-${idx}`,
+    name,
+    iconPath: iconPaths[idx] ?? iconPaths[0],
+  })), [labels])
+
+  const answerIndex = useMemo(() => Math.floor(Math.random() * choices.length), [choices.length])
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [resolved, setResolved] = useState(false)
+  const settleTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current)
+        settleTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const isSuccess = selectedIndex !== null && selectedIndex === answerIndex
+
+  return (
+    <div className="mt-2">
+      <div className="grid grid-cols-3 gap-2">
+        {choices.map((choice, idx) => {
+          const isSelected = selectedIndex === idx
+          const isAnswer = resolved && idx === answerIndex
+          return (
+            <button
+              key={choice.id}
+              type="button"
+              disabled={disabled || selectedIndex !== null}
+              onClick={() => {
+                if (disabled || selectedIndex !== null) return
+                setSelectedIndex(idx)
+                setResolved(true)
+
+                if (idx === answerIndex) {
+                  onStatusText('정령이 당신의 빛에 응답했습니다.')
+                  settleTimerRef.current = window.setTimeout(() => {
+                    onSuccess()
+                    settleTimerRef.current = null
+                  }, 580)
+                } else {
+                  onStatusText('빛이 닿지 않았습니다.')
+                  settleTimerRef.current = window.setTimeout(() => {
+                    onFail()
+                    settleTimerRef.current = null
+                  }, 620)
+                }
+              }}
+              className={`h-[56px] min-w-[44px] rounded-lg border px-1 text-[12px] font-semibold transition ${isAnswer ? 'border-[#46654f]/40 bg-[rgba(164,191,172,0.52)] text-black' : isSelected ? 'border-[#6f5a2e]/40 bg-[rgba(242,214,143,0.28)] text-black' : 'border-black/15 bg-black/5 text-black/85'}`}
+            >
+              <img src={a(choice.iconPath)} alt={choice.name} className="w-5 h-5 object-contain mx-auto" draggable={false} />
+              <div className="mt-1">{choice.name}</div>
+            </button>
+          )
+        })}
+      </div>
+
+      {resolved && isSuccess && (
+        <motion.div
+          className="pointer-events-none mt-3 flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <motion.div
+            className="h-16 w-16 rounded-full border border-[#cde8ff]/55"
+            animate={{ scale: [0.8, 1.35], opacity: [0.95, 0.15] }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+          />
+        </motion.div>
+      )}
+    </div>
+  )
+}
 function RegionalProgressGauge({
   current,
   total,

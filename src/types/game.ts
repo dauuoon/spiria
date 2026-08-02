@@ -143,6 +143,7 @@ export interface RegionDropTableEntry {
 export interface RegionEventTemplate {
   id: string
   kind: 'spirit' | 'regional' | 'treasure'
+  gameType?: 'timing' | 'matching' | 'fortune'
   title: string
   description: string
   reward: Record<string, number | string | string[] | undefined>
