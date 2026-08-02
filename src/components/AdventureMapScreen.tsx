@@ -76,6 +76,9 @@ const TREASURE_OPEN_SFX_PATH = 'assets/sound/chest2.mp3'
 const SOUL_EVENT_SFX_PATH = 'assets/sound/soul_event.mp3'
 const REGIONAL_PICK_SFX_PATH = 'assets/sound/regions_pick.mp3'
 const ALL_MAPS_100_SFX_PATH = 'assets/sound/percent.mp3'
+const CARD_FLIP_SFX_PATH = 'assets/sound/cardsw.mp3'
+const GAME_SUCCESS_SFX_PATH = 'assets/sound/gamesuccess.mp3'
+const GAME_FAIL_SFX_PATH = 'assets/sound/gamefail.mp3'
 const EXPLORE_TAP_COOLDOWN_MS = 400
 const EMPTY_EVENT_DISMISS_MS = 4000
 const FLOATING_TOAST_LIFETIME_MS = 450
@@ -199,7 +202,7 @@ const SPIRIT_MINI_GAMES: Record<string, SpiritMiniGameSpec> = {
     actionLabel: '바람 불어넣기',
     successText: '강한 바람이 불어왔어요!',
     failText: '바람이 약해졌어요.',
-    clearText: '풍차가 다시 힘차게 돌기 시작했습니다.',
+    clearText: '풍차가 다시 힘차게\n돌기 시작했습니다.',
   },
   spirit_cloud_above: {
     eventId: 'spirit_cloud_above',
@@ -287,7 +290,7 @@ const SPIRIT_MINI_GAMES: Record<string, SpiritMiniGameSpec> = {
     description: '짙은 안개가 정령의 감각을 가리고 있습니다.\n정령을 이끌 신호를 선택해 주세요.',
     imagePath: 'assets/map/dark_wreath2.png',
     actionLabel: '신호 선택하기',
-    choiceLabels: ['달의 그림자', '고대의 속삭임', '푸른 불빛'],
+    choiceLabels: ['달의\n그림자', '고대의\n속삭임', '푸름\n불빛'],
     successText: '신호가 정령에게 닿았어요!',
     failText: '신호가 안개에 가려졌어요.',
     clearText: '길 잃은 그림자 정령이 길을 찾았습니다.',
@@ -1065,7 +1068,7 @@ export default function AdventureMapScreen({
     }, revealDelayMs)
   }, [addItem, buildResultFromPlan, getRarityToastColors, initializeExplorationRewardPlan, markExplorationDiscovery, showFloatingRewardToasts, stage])
 
-  const handleEventInteraction = useCallback((action: 'help' | 'pass' | 'click') => {
+  const handleEventInteraction = useCallback((action: 'help' | 'pass' | 'click', options?: { suppressNoRewardToast?: boolean }) => {
     if (!activeEvent) return
 
     const current = activeEvent
@@ -1085,7 +1088,9 @@ export default function AdventureMapScreen({
           applyExploreStepRewards(pendingSpiritStep, { skipAll: true })
           pendingSpiritRewardStepRef.current = null
         }
-        showFloatingRewardToasts([{ text: '획득 없음', colors: FLOATING_TOAST_COLORS.none }])
+        if (!options?.suppressNoRewardToast) {
+          showFloatingRewardToasts([{ text: '획득 없음', colors: FLOATING_TOAST_COLORS.none }])
+        }
         nextState = { ...current, resolved: true, rewardText: '정령은 지나가게 두었습니다.' }
       }
     }
@@ -1412,14 +1417,13 @@ export default function AdventureMapScreen({
   }, [activeEvent, handleEventInteraction])
 
   const handleSpiritMiniGameSuccess = useCallback(() => {
-    setActiveSpiritMiniGameId(null)
     showFloatingRewardToasts([
       {
         text: '성공',
         colors: {
-          textColor: '#B7F6D0',
-          borderColor: '#7ED2A1AA',
-          bgColor: 'rgba(8,10,24,0.82)',
+          textColor: '#C9DCFF',
+          borderColor: '#7CA6FFAA',
+          bgColor: 'rgba(32,52,108,0.82)',
         },
         playSound: false,
       },
@@ -1432,6 +1436,22 @@ export default function AdventureMapScreen({
       handleEventInteraction('help')
       spiritMiniGameSuccessTimerRef.current = null
     }, 620)
+  }, [handleEventInteraction, showFloatingRewardToasts])
+
+  const handleSpiritMiniGameFailure = useCallback(() => {
+    setActiveSpiritMiniGameId(null)
+    showFloatingRewardToasts([
+      {
+        text: '실패',
+        colors: {
+          textColor: '#FFC7D1',
+          borderColor: '#FF7E97AA',
+          bgColor: 'rgba(104,28,40,0.82)',
+        },
+        playSound: false,
+      },
+    ], { durationMs: 520, gapMs: 40 })
+    handleEventInteraction('pass', { suppressNoRewardToast: true })
   }, [handleEventInteraction, showFloatingRewardToasts])
 
   useEffect(() => {
@@ -1484,13 +1504,15 @@ export default function AdventureMapScreen({
 
       <div className="absolute inset-0 z-[7] flex items-center justify-center pointer-events-none">
         <div className="flex flex-col items-center text-center">
-          <motion.div
-            className="mt-5 text-white/85 text-[14px] tracking-wide"
-            animate={{ opacity: [0.35, 1, 0.35] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            아무 곳이나 터치해 탐색하세요.
-          </motion.div>
+          {!activeSpiritMiniGameSpec && (
+            <motion.div
+              className="mt-5 text-white/85 text-[14px] tracking-wide"
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              아무 곳이나 터치해 탐색하세요.
+            </motion.div>
+          )}
           <motion.div animate={circleControls} className="mt-[50px] w-[54%] max-w-[360px]">
             <motion.img
               src={a(circleSrc)}
@@ -1609,11 +1631,10 @@ export default function AdventureMapScreen({
             key={`spirit-mini-game-${activeSpiritMiniGameSpec.eventId}`}
             a={a}
             spec={activeSpiritMiniGameSpec}
+            stage={stage}
+            guideImagePath={activeSpiritGuideImagePath ?? undefined}
             onSuccess={handleSpiritMiniGameSuccess}
-            onFail={() => {
-              setActiveSpiritMiniGameId(null)
-              handleEventInteraction('pass')
-            }}
+            onFail={handleSpiritMiniGameFailure}
           />
         )}
 
@@ -1977,32 +1998,44 @@ function ExitConfirmModal({
 function SpiritMiniGameModal({
   a,
   spec,
+  stage,
+  guideImagePath,
   onSuccess,
   onFail,
 }: {
   a: (path: string) => string
   spec: SpiritMiniGameSpec
+  stage: 1 | 2 | 3 | 4 | 5
+  guideImagePath?: string
   onSuccess: () => void
   onFail: () => void
 }) {
   const [status, setStatus] = useState<'playing' | 'failed' | 'cleared'>('playing')
   const [feedbackText, setFeedbackText] = useState('')
   const failTimerRef = useRef<number | null>(null)
+  const clearTimerRef = useRef<number | null>(null)
 
   const resolveSuccess = useCallback((clearMessage?: string) => {
     if (status !== 'playing') return
-
-    if (spec.mode === 'matching') {
-      onSuccess()
-      return
-    }
+    playSfx(GAME_SUCCESS_SFX_PATH, 0.88)
 
     setStatus('cleared')
     setFeedbackText(clearMessage ?? spec.clearText)
+
+    if (spec.mode === 'timing' || spec.mode === 'fortune' || spec.mode === 'matching') {
+      if (clearTimerRef.current !== null) {
+        window.clearTimeout(clearTimerRef.current)
+      }
+      clearTimerRef.current = window.setTimeout(() => {
+        onSuccess()
+        clearTimerRef.current = null
+      }, 2000)
+    }
   }, [onSuccess, spec.clearText, spec.mode, status])
 
   const resolveFailure = useCallback((failMessage?: string) => {
     if (status !== 'playing') return
+    playSfx(GAME_FAIL_SFX_PATH, 0.88)
     setStatus('failed')
     setFeedbackText(failMessage ?? spec.failText)
     if (failTimerRef.current !== null) {
@@ -2011,7 +2044,7 @@ function SpiritMiniGameModal({
     failTimerRef.current = window.setTimeout(() => {
       onFail()
       failTimerRef.current = null
-    }, 640)
+    }, spec.mode === 'timing' || spec.mode === 'fortune' || spec.mode === 'matching' ? 2000 : 640)
   }, [onFail, spec.failText, status])
 
   useEffect(() => {
@@ -2020,8 +2053,87 @@ function SpiritMiniGameModal({
         window.clearTimeout(failTimerRef.current)
         failTimerRef.current = null
       }
+      if (clearTimerRef.current !== null) {
+        window.clearTimeout(clearTimerRef.current)
+        clearTimerRef.current = null
+      }
     }
   }, [])
+
+  const timingVisualTheme = useMemo(() => {
+    if (stage === 2) {
+      return {
+        glowMainGradient: 'radial-gradient(circle, rgba(212,154,255,0.5) 0%, rgba(136,82,201,0.3) 46%, rgba(28,20,40,0) 78%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(187,121,246,0.34) 0%, rgba(187,121,246,0.14) 52%, rgba(187,121,246,0) 84%)',
+        particleBaseColor: '#D9A9FF',
+        particleAltColor: '#C77BFF',
+        particleSoftColor: '#ECD2FF',
+        particleMidColor: '#CF97FF',
+        particleLightColor: '#F6E8FF',
+      }
+    }
+    if (stage === 3) {
+      return {
+        glowMainGradient: 'radial-gradient(circle, rgba(175,247,232,0.5) 0%, rgba(92,201,180,0.28) 46%, rgba(20,42,40,0) 78%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(146,235,216,0.34) 0%, rgba(146,235,216,0.14) 52%, rgba(146,235,216,0) 84%)',
+        particleBaseColor: '#B7F6E7',
+        particleAltColor: '#8EEFD9',
+        particleSoftColor: '#D8FFF4',
+        particleMidColor: '#9DECD9',
+        particleLightColor: '#ECFFF9',
+      }
+    }
+    if (stage === 4) {
+      return {
+        glowMainGradient: 'radial-gradient(circle, rgba(255,210,154,0.46) 0%, rgba(232,143,95,0.25) 46%, rgba(56,24,18,0) 76%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(255,189,131,0.3) 0%, rgba(255,189,131,0.12) 52%, rgba(255,189,131,0) 82%)',
+        particleBaseColor: '#FFD9A8',
+        particleAltColor: '#FFC48E',
+        particleSoftColor: '#FFE6C5',
+        particleMidColor: '#FFCF9C',
+        particleLightColor: '#FFF1DE',
+      }
+    }
+    if (stage === 5) {
+      return {
+        glowMainGradient: 'radial-gradient(circle, rgba(255,196,236,0.46) 0%, rgba(225,132,193,0.24) 46%, rgba(48,20,44,0) 76%)',
+        glowSubGradient: 'radial-gradient(circle, rgba(244,170,220,0.3) 0%, rgba(244,170,220,0.12) 52%, rgba(244,170,220,0) 82%)',
+        particleBaseColor: '#FFD0EC',
+        particleAltColor: '#F7B4DF',
+        particleSoftColor: '#FFE2F4',
+        particleMidColor: '#F9C3E7',
+        particleLightColor: '#FFF0FA',
+      }
+    }
+    return {
+      glowMainGradient: 'radial-gradient(circle, rgba(255,240,184,0.45) 0%, rgba(232,201,112,0.22) 46%, rgba(44,38,20,0) 76%)',
+      glowSubGradient: 'radial-gradient(circle, rgba(255,226,136,0.28) 0%, rgba(255,226,136,0.1) 52%, rgba(255,226,136,0) 82%)',
+      particleBaseColor: '#FFF0B5',
+      particleAltColor: '#FFE7A0',
+      particleSoftColor: '#FFF6CF',
+      particleMidColor: '#FFEBAE',
+      particleLightColor: '#FFFBE6',
+    }
+  }, [stage])
+
+  const isTimingStyleMiniGame = spec.mode === 'timing' || spec.mode === 'fortune'
+  const showMatchingResultBox = spec.mode === 'matching' && status !== 'playing'
+  const matchingActionTheme = useMemo(() => {
+    if (stage === 2) return { buttonBg: '#1B1B2A', buttonBorder: '#634A6E', buttonGlow: 'rgba(203,165,255,0.62)' }
+    if (stage === 3) return { buttonBg: '#1E1F36', buttonBorder: '#4A4E6E', buttonGlow: 'rgba(138,215,255,0.62)' }
+    if (stage === 4) return { buttonBg: '#351E2A', buttonBorder: '#583949', buttonGlow: 'rgba(255,210,123,0.62)' }
+    if (stage === 5) return { buttonBg: '#261D35', buttonBorder: '#503E6D', buttonGlow: 'rgba(224,146,255,0.62)' }
+    return { buttonBg: '#1B2829', buttonBorder: '#426166', buttonGlow: 'rgba(133,240,177,0.62)' }
+  }, [stage])
+  const displayDescription = useMemo(() => {
+    if (spec.mode !== 'fortune') return spec.description
+    if (spec.description.includes('\n')) return spec.description
+
+    const words = spec.description.trim().split(/\s+/)
+    if (words.length <= 2) return spec.description
+    const mid = Math.ceil(words.length / 2)
+    return `${words.slice(0, mid).join(' ')}\n${words.slice(mid).join(' ')}`
+  }, [spec.description, spec.mode])
 
   return (
     <motion.div
@@ -2038,15 +2150,34 @@ function SpiritMiniGameModal({
         transition={{ duration: 0.2, ease: 'easeOut' }}
         className="relative z-[1] w-[94vw] max-w-[420px] p-2"
       >
-        {spec.mode !== 'matching' && (
+        {spec.mode !== 'matching' && !isTimingStyleMiniGame && (
           <div className="relative z-[1] text-center">
             <div className="text-[14px] text-white font-bold">{spec.title}</div>
             <p className="mt-1 text-[12px] leading-relaxed text-white/80">{spec.description}</p>
           </div>
         )}
 
+        {(isTimingStyleMiniGame || showMatchingResultBox) && (
+          <div className="relative z-[90] text-center min-h-[42px]">
+            <div
+              className={`relative z-[80] top-[125px] mx-auto rounded-xl px-2.5 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md ${spec.mode === 'timing' && status !== 'playing' ? 'w-[310px] max-w-[310px]' : ''}`}
+              style={(isTimingStyleMiniGame || showMatchingResultBox) && status !== 'playing'
+                ? status === 'cleared'
+                  ? { backgroundColor: 'rgba(56,92,170,0.72)' }
+                  : { backgroundColor: 'rgba(140,40,52,0.78)' }
+                : { border: '1px solid rgba(255,255,255,0.10)', backgroundColor: 'rgba(8,11,24,0.37)' }}
+            >
+              <p className={`whitespace-pre-line break-words leading-[1.45] font-medium ${((isTimingStyleMiniGame || showMatchingResultBox) && status !== 'playing') ? 'text-[18px] text-white font-semibold' : 'text-[15px] text-white/90'}`}>
+                <span style={((isTimingStyleMiniGame || showMatchingResultBox) && status !== 'playing') ? { textWrap: 'balance' } : undefined}>
+                  {((isTimingStyleMiniGame || showMatchingResultBox) && status !== 'playing') ? feedbackText : displayDescription}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="relative z-[1] mt-3 p-0 flex flex-col items-center">
-          {spec.mode === 'matching' && (
+          {spec.mode === 'matching' && status === 'playing' && (
             <motion.div
               className="mb-2 text-center text-[13px] font-medium text-[#c2c5cb]"
               animate={{ opacity: [0.35, 1, 0.35] }}
@@ -2057,11 +2188,65 @@ function SpiritMiniGameModal({
           )}
 
           {spec.mode !== 'matching' && (
-            <div className="mt-3 flex items-center justify-center">
+            <div className={`mt-3 flex items-center justify-center ${isTimingStyleMiniGame ? 'relative min-h-[310px]' : ''}`}>
+              {isTimingStyleMiniGame && (
+                <>
+                  <motion.div
+                    className="pointer-events-none absolute z-[2] h-[280px] w-[280px] rounded-full"
+                    style={{
+                      background: timingVisualTheme.glowMainGradient,
+                      filter: 'blur(18px)',
+                    }}
+                    animate={{ opacity: [0.45, 0.88, 0.45], scale: [0.94, 1.07, 0.94] }}
+                    transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+
+                  <motion.div
+                    className="pointer-events-none absolute z-[1] h-[320px] w-[320px] rounded-full"
+                    style={{
+                      background: timingVisualTheme.glowSubGradient,
+                      filter: 'blur(24px)',
+                    }}
+                    animate={{ opacity: [0.2, 0.45, 0.2], scale: [0.96, 1.03, 0.96] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-96px)] top-[calc(50%-74px)] h-[8px] w-[8px] rounded-full"
+                    style={{ backgroundColor: timingVisualTheme.particleBaseColor, boxShadow: `0 0 14px ${timingVisualTheme.particleBaseColor}` }}
+                    animate={{ y: [0, -15, 0], opacity: [0.22, 1, 0.22], scale: [0.9, 1.12, 0.9] }}
+                    transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%+64px)] top-[calc(50%-86px)] h-[7px] w-[7px] rounded-full"
+                    style={{ backgroundColor: timingVisualTheme.particleAltColor, boxShadow: `0 0 12px ${timingVisualTheme.particleAltColor}` }}
+                    animate={{ y: [0, -18, 0], opacity: [0.18, 0.94, 0.18], scale: [0.92, 1.1, 0.92] }}
+                    transition={{ duration: 1.95, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-42px)] top-[calc(50%+84px)] h-[6px] w-[6px] rounded-full"
+                    style={{ backgroundColor: timingVisualTheme.particleSoftColor, boxShadow: `0 0 10px ${timingVisualTheme.particleSoftColor}` }}
+                    animate={{ y: [0, -13, 0], opacity: [0.15, 0.86, 0.15], scale: [0.9, 1.08, 0.9] }}
+                    transition={{ duration: 1.65, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%-10px)] top-[calc(50%-108px)] h-[5px] w-[5px] rounded-full"
+                    style={{ backgroundColor: timingVisualTheme.particleMidColor, boxShadow: `0 0 11px ${timingVisualTheme.particleMidColor}` }}
+                    animate={{ y: [0, -16, 0], opacity: [0.14, 0.9, 0.14], scale: [0.88, 1.12, 0.88] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 0.42 }}
+                  />
+                  <motion.span
+                    className="pointer-events-none absolute z-[20] left-[calc(50%+86px)] top-[calc(50%+28px)] h-[4px] w-[4px] rounded-full"
+                    style={{ backgroundColor: timingVisualTheme.particleLightColor, boxShadow: `0 0 9px ${timingVisualTheme.particleLightColor}` }}
+                    animate={{ y: [0, -12, 0], opacity: [0.12, 0.82, 0.12], scale: [0.9, 1.1, 0.9] }}
+                    transition={{ duration: 1.55, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                  />
+                </>
+              )}
               <motion.img
-                src={a(spec.imagePath)}
+                src={a((isTimingStyleMiniGame && guideImagePath) ? guideImagePath : spec.imagePath)}
                 alt={spec.title}
-                className="w-[180px] h-[180px] object-contain"
+                className={isTimingStyleMiniGame ? 'relative z-[10] w-[292px] h-[292px] object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]' : 'w-[180px] h-[180px] object-contain'}
                 draggable={false}
                 animate={status === 'cleared'
                   ? { filter: ['brightness(1) saturate(1)', 'brightness(1.28) saturate(1.25)', 'brightness(1.14) saturate(1.15)'] }
@@ -2075,6 +2260,7 @@ function SpiritMiniGameModal({
 
           {spec.mode === 'timing' && (
             <TimingTapGame
+              stage={stage}
               disabled={status !== 'playing'}
               onSuccess={() => resolveSuccess(spec.clearText)}
               onFail={() => resolveFailure(spec.failText)}
@@ -2083,32 +2269,68 @@ function SpiritMiniGameModal({
           )}
 
           {spec.mode === 'matching' && (
-            <MatchingCardGame
-              a={a}
-              disabled={status !== 'playing'}
-              onStatusText={setFeedbackText}
-              onClear={() => resolveSuccess(spec.clearText)}
-            />
+            <>
+              {status === 'playing' ? (
+                <MatchingCardGame
+                  a={a}
+                  stage={stage}
+                  disabled={status !== 'playing'}
+                  onStatusText={setFeedbackText}
+                  onClear={() => resolveSuccess(spec.clearText)}
+                />
+              ) : (
+                <div className="mt-3 flex items-center justify-center">
+                  <motion.img
+                    src={a(guideImagePath ?? spec.imagePath)}
+                    alt={spec.title}
+                    className="relative z-[10] w-[292px] h-[292px] object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]"
+                    draggable={false}
+                    animate={status === 'cleared'
+                      ? { filter: ['brightness(1) saturate(1)', 'brightness(1.28) saturate(1.25)', 'brightness(1.14) saturate(1.15)'] }
+                      : { filter: 'brightness(1) saturate(1)' }}
+                    transition={status === 'cleared'
+                      ? { duration: 0.55, ease: 'easeOut' }
+                      : { duration: 0.2 }}
+                  />
+                </div>
+              )}
+
+              {status === 'playing' && (
+                <button
+                  type="button"
+                  disabled={status !== 'playing'}
+                  onClick={() => resolveFailure(spec.failText)}
+                  className="mt-3 mx-auto block h-[54px] w-[140px] rounded-full border px-[15px] text-[15px] font-bold text-white disabled:opacity-50"
+                  style={{
+                    backgroundColor: matchingActionTheme.buttonBg,
+                    borderColor: matchingActionTheme.buttonBorder,
+                    boxShadow: `0 0 14px ${matchingActionTheme.buttonGlow}`,
+                  }}
+                >
+                  <span className="inline-block">포기하기</span>
+                </button>
+              )}
+            </>
           )}
 
           {spec.mode === 'fortune' && (
             <FortuneChoiceGame
               a={a}
+              stage={stage}
               disabled={status !== 'playing'}
               choiceLabels={spec.choiceLabels}
-              onStatusText={setFeedbackText}
               onSuccess={() => resolveSuccess(spec.clearText)}
               onFail={() => resolveFailure('빛이 닿지 않았습니다.')}
             />
           )}
 
-          {spec.mode !== 'matching' && (
+          {spec.mode !== 'matching' && spec.mode !== 'fortune' && spec.mode !== 'timing' && (
             <div className="mt-3 text-center text-[12px] leading-relaxed text-white/75 min-h-[32px]">{feedbackText}</div>
           )}
         </div>
 
         <div className="relative z-[1] mt-3 flex gap-2">
-          {status === 'failed' ? (
+          {status === 'failed' && spec.mode !== 'timing' && spec.mode !== 'fortune' && spec.mode !== 'matching' ? (
             <button
               type="button"
               disabled
@@ -2116,7 +2338,7 @@ function SpiritMiniGameModal({
             >
               실패 처리 중...
             </button>
-          ) : status === 'cleared' ? (
+          ) : status === 'cleared' && spec.mode !== 'timing' && spec.mode !== 'fortune' && spec.mode !== 'matching' ? (
             <button
               type="button"
               onClick={onSuccess}
@@ -2124,28 +2346,22 @@ function SpiritMiniGameModal({
             >
               정령을 깨운다
             </button>
-          ) : spec.mode === 'fortune' ? (
-            <button
-              type="button"
-              disabled
-              className="w-full h-11 rounded-lg border border-black/20 bg-black/5 text-[13px] font-semibold text-black/70"
-            >
-              빛을 하나 선택해 주세요.
-            </button>
           ) : null}
         </div>
       </motion.div>
     </motion.div>
   )
+
 }
 
-
 function TimingTapGame({
+  stage,
   disabled,
   onSuccess,
   onFail,
   actionLabel,
 }: {
+  stage: 1 | 2 | 3 | 4 | 5
   disabled: boolean
   onSuccess: () => void
   onFail: () => void
@@ -2178,19 +2394,77 @@ function TimingTapGame({
   const successStart = 0.42
   const successEnd = 0.58
 
+  const stageTheme = useMemo(() => {
+    if (stage === 2) {
+      return {
+        trackGradient: 'linear-gradient(90deg, rgba(142,215,255,0.95) 0%, rgba(126,74,236,1) 50%, rgba(142,215,255,0.95) 100%)',
+        pointerColor: '#462E70',
+        pointerGlow: 'rgba(70,46,112,0.98)',
+        buttonBg: '#1B1B2A',
+        buttonBorder: '#634A6E',
+        buttonGlow: 'rgba(203,165,255,0.62)',
+      }
+    }
+    if (stage === 3) {
+      return {
+        trackGradient: 'linear-gradient(90deg, rgba(122,187,255,0.95) 0%, rgba(240,204,68,1) 50%, rgba(122,187,255,0.95) 100%)',
+        pointerColor: '#1F5A86',
+        pointerGlow: 'rgba(31,90,134,0.98)',
+        buttonBg: '#1E1F36',
+        buttonBorder: '#4A4E6E',
+        buttonGlow: 'rgba(138,215,255,0.62)',
+      }
+    }
+    if (stage === 4) {
+      return {
+        trackGradient: 'linear-gradient(90deg, rgba(255,233,140,0.95) 0%, rgba(236,78,12,1) 50%, rgba(255,233,140,0.95) 100%)',
+        pointerColor: '#853415',
+        pointerGlow: 'rgba(133,52,21,0.98)',
+        buttonBg: '#351E2A',
+        buttonBorder: '#583949',
+        buttonGlow: 'rgba(255,210,123,0.62)',
+      }
+    }
+    if (stage === 5) {
+      return {
+        trackGradient: 'linear-gradient(90deg, rgba(182,142,255,0.95) 0%, rgba(232,62,172,1) 50%, rgba(182,142,255,0.95) 100%)',
+        pointerColor: '#5B216A',
+        pointerGlow: 'rgba(91,33,106,0.98)',
+        buttonBg: '#261D35',
+        buttonBorder: '#503E6D',
+        buttonGlow: 'rgba(224,146,255,0.62)',
+      }
+    }
+    return {
+      trackGradient: 'linear-gradient(90deg, rgba(251,232,137,0.95) 0%, rgba(63,206,52,1) 50%, rgba(251,232,137,0.95) 100%)',
+      pointerColor: '#1E6447',
+      pointerGlow: 'rgba(30,100,71,0.98)',
+      buttonBg: '#1B2829',
+      buttonBorder: '#426166',
+      buttonGlow: 'rgba(133,240,177,0.62)',
+    }
+  }, [stage])
+
   return (
-    <div className="mt-1">
-      <div className="relative mx-auto h-3 w-full max-w-[290px] overflow-hidden rounded-full border border-white/15 bg-white/10">
+    <div className="mt-[12px]">
+      <div
+        className="relative mx-auto h-[30px] w-[280px] overflow-hidden rounded-full border-[2px] border-white/95"
+        style={{ background: stageTheme.trackGradient }}
+      >
         <div
-          className="absolute top-0 h-full bg-[#f3d88f]/60"
+          className="absolute top-0 h-full bg-black/20"
           style={{
             left: `${successStart * 100}%`,
             width: `${(successEnd - successStart) * 100}%`,
           }}
         />
         <div
-          className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-white/80 bg-[#fff1be] shadow-[0_0_8px_rgba(255,230,150,0.7)]"
-          style={{ left: `calc(${pointer * 100}% - 8px)` }}
+          className="absolute top-1/2 h-[22px] w-[22px] -translate-y-1/2 rounded-full border-[2px] border-white/90"
+          style={{
+            left: `calc(${pointer * 100}% - 11px)`,
+            backgroundColor: '#0c0c13',
+            boxShadow: `0 0 16px ${stageTheme.pointerGlow}`,
+          }}
         />
       </div>
 
@@ -2202,9 +2476,14 @@ function TimingTapGame({
           if (ok) onSuccess()
           else onFail()
         }}
-        className="mt-3 w-full h-11 rounded-lg border border-[#46654f]/35 bg-[rgba(164,191,172,0.55)] text-[13px] font-semibold text-black disabled:opacity-50"
+        className="mt-3 mx-auto block h-[54px] w-[140px] rounded-full border px-[15px] text-[15px] font-bold text-white disabled:opacity-50"
+        style={{
+          backgroundColor: stageTheme.buttonBg,
+          borderColor: stageTheme.buttonBorder,
+          boxShadow: `0 0 14px ${stageTheme.buttonGlow}`,
+        }}
       >
-        {actionLabel}
+        <span className="inline-block">{actionLabel}</span>
       </button>
     </div>
   )
@@ -2218,15 +2497,49 @@ type MatchingCard = {
 
 function MatchingCardGame({
   a,
+  stage,
   disabled,
   onStatusText,
   onClear,
 }: {
   a: (path: string) => string
+  stage: 1 | 2 | 3 | 4 | 5
   disabled: boolean
   onStatusText: (text: string) => void
   onClear: () => void
 }) {
+  const cardBackPath = useMemo(() => {
+    if (stage === 2) return 'assets/map/wind_cardback.png'
+    if (stage === 3) return 'assets/map/snow_cardback.png'
+    if (stage === 4) return 'assets/map/fire_cardback.png'
+    if (stage === 5) return 'assets/map/soul_cardback.png'
+    return 'assets/map/forest_cardback.png'
+  }, [stage])
+
+  const cardBackCenterPath = useMemo(() => {
+    if (stage === 2) return 'assets/map/wind_cardbackcenter.png'
+    if (stage === 3) return 'assets/map/snow_cardbackcenter.png'
+    if (stage === 4) return 'assets/map/fire_cardbackcenter.png'
+    if (stage === 5) return 'assets/map/soul_cardbackcenter.png'
+    return 'assets/map/forest_cardbackcenter.png'
+  }, [stage])
+
+  const cardFaceTheme = useMemo(() => {
+    if (stage === 2) return { bg: '#1B1B2A', border: '#634A6E' }
+    if (stage === 3) return { bg: '#1E1F36', border: '#4A4E6E' }
+    if (stage === 4) return { bg: '#351E2A', border: '#583949' }
+    if (stage === 5) return { bg: '#261D35', border: '#503E6D' }
+    return { bg: '#1B2829', border: '#426166' }
+  }, [stage])
+
+  const closedCardBg = useMemo(() => {
+    if (stage === 2) return '#D0A9B3'
+    if (stage === 3) return '#CBCBFB'
+    if (stage === 4) return '#DA9461'
+    if (stage === 5) return '#B789A3'
+    return '#A7C8A3'
+  }, [stage])
+
   const cards = useMemo<MatchingCard[]>(() => {
     const symbols = ['flower', 'leaf', 'star', 'magic']
     const raw = symbols.flatMap((key) => ([
@@ -2263,6 +2576,7 @@ function MatchingCardGame({
       const isMatch = first.key === second.key
 
       if (isMatch) {
+        playSfx(CARD_FLIP_SFX_PATH, 0.82)
         const nextMatched = [...matchedIds, firstSelectedId, secondSelectedId]
         setMatchedIds(nextMatched)
         setFirstSelectedId(null)
@@ -2272,10 +2586,7 @@ function MatchingCardGame({
 
         if (nextMatched.length === cards.length) {
           setIsCompleted(true)
-          clearTimerRef.current = window.setTimeout(() => {
-            onClear()
-            clearTimerRef.current = null
-          }, 650)
+          onClear()
         }
       } else {
         setFirstSelectedId(null)
@@ -2314,12 +2625,13 @@ function MatchingCardGame({
             return (
               <div
                 key="center-spirit-tile"
-                className="relative aspect-square w-full rounded-lg border border-black/15 bg-black/5 flex items-center justify-center"
+                className="relative aspect-square w-full overflow-hidden rounded-lg border border-black/15 bg-black/5 flex items-center justify-center"
+                style={closedCardBg ? { backgroundColor: closedCardBg } : undefined}
               >
                 <img
-                  src={a('assets/map/forest_wreath3.png')}
+                  src={a(cardBackCenterPath)}
                   alt="정령 흔적"
-                  className="w-[28px] h-[28px] object-contain opacity-90"
+                  className="absolute left-1/2 top-1/2 h-[108%] w-[108%] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover opacity-90"
                   draggable={false}
                 />
               </div>
@@ -2350,51 +2662,47 @@ function MatchingCardGame({
                   setSecondSelectedId(card.id)
                 }
               }}
-              className={`relative aspect-square w-full rounded-lg border transition ${isMatched ? 'opacity-0 pointer-events-none scale-90' : isOpen ? 'border-[#6f5a2e]/45 bg-[rgba(242,214,143,0.28)]' : 'border-black/15 bg-black/5'}`}
+              className={`relative aspect-square w-full rounded-lg transition ${isMatched ? 'opacity-0 pointer-events-none scale-90' : !isOpen ? 'border border-black/15 bg-black/5' : 'border-0'}`}
+              style={isOpen
+                ? {
+                    backgroundColor: cardFaceTheme.bg,
+                    borderColor: cardFaceTheme.border,
+                  }
+                : closedCardBg
+                  ? { backgroundColor: closedCardBg }
+                  : undefined}
             >
               {isOpen ? (
-                <img src={a(card.iconPath)} alt={card.key} className="w-[28px] h-[28px] object-contain mx-auto" draggable={false} />
+                <img
+                  src={a(card.iconPath)}
+                  alt={card.key}
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[105%] w-[105%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+                  draggable={false}
+                />
               ) : (
-                <img src={a('assets/background/item_bg.png')} alt="카드 뒷면" className="w-[28px] h-[28px] object-contain mx-auto opacity-90" draggable={false} />
+                <img src={a(cardBackPath)} alt="카드 뒷면" className="h-full w-full object-contain p-1 opacity-90" draggable={false} />
               )}
             </button>
           )
         })}
       </div>
 
-      {isCompleted && (
-        <motion.div
-          className="mt-3 flex flex-col items-center"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.26, ease: 'easeOut' }}
-        >
-          <motion.img
-            src={a('assets/map/forest_wreath3.png')}
-            alt="발견한 정령"
-            className="w-[84px] h-[84px] object-contain"
-            animate={{ filter: ['brightness(1)', 'brightness(1.3)', 'brightness(1.12)'] }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
-            draggable={false}
-          />
-        </motion.div>
-      )}
     </div>
   )
 }
 
 function FortuneChoiceGame({
   a,
+  stage,
   disabled,
   choiceLabels,
-  onStatusText,
   onSuccess,
   onFail,
 }: {
   a: (path: string) => string
+  stage: 1 | 2 | 3 | 4 | 5
   disabled: boolean
   choiceLabels?: [string, string, string]
-  onStatusText: (text: string) => void
   onSuccess: () => void
   onFail: () => void
 }) {
@@ -2407,6 +2715,14 @@ function FortuneChoiceGame({
     name,
     iconPath: iconPaths[idx] ?? iconPaths[0],
   })), [labels])
+
+  const choiceTheme = useMemo(() => {
+    if (stage === 2) return { bg: '#1B1B2A', border: '#634A6E' }
+    if (stage === 3) return { bg: '#1E1F36', border: '#4A4E6E' }
+    if (stage === 4) return { bg: '#351E2A', border: '#583949' }
+    if (stage === 5) return { bg: '#261D35', border: '#503E6D' }
+    return { bg: '#1B2829', border: '#426166' }
+  }, [stage])
 
   const answerIndex = useMemo(() => Math.floor(Math.random() * choices.length), [choices.length])
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
@@ -2423,10 +2739,37 @@ function FortuneChoiceGame({
   }, [])
 
   const isSuccess = selectedIndex !== null && selectedIndex === answerIndex
+  const guideMessageTheme = useMemo(() => {
+    if (!resolved) {
+      return {
+        text: '빛을 하나 선택해 주세요.',
+        textClass: 'text-white/50',
+        bgClass: 'bg-[rgba(10,12,26,0.25)]',
+      }
+    }
+
+    if (isSuccess) {
+      return {
+        text: '성공!',
+        textClass: 'text-[#B7C8FF]',
+        bgClass: 'bg-[rgba(44,54,98,0.42)]',
+      }
+    }
+
+    return {
+      text: '실패!',
+      textClass: 'text-[#FF7B92]',
+      bgClass: 'bg-[rgba(96,30,44,0.42)]',
+    }
+  }, [isSuccess, resolved])
 
   return (
     <div className="mt-2">
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`mx-auto mb-2 w-[310px] rounded-full border-0 px-3 py-2 text-center text-[13px] font-semibold ${guideMessageTheme.textClass} ${guideMessageTheme.bgClass}`}>
+        {guideMessageTheme.text}
+      </div>
+
+      <div className="mx-auto grid w-[310px] grid-cols-3 gap-2">
         {choices.map((choice, idx) => {
           const isSelected = selectedIndex === idx
           const isAnswer = resolved && idx === answerIndex
@@ -2439,44 +2782,26 @@ function FortuneChoiceGame({
                 if (disabled || selectedIndex !== null) return
                 setSelectedIndex(idx)
                 setResolved(true)
-
                 if (idx === answerIndex) {
-                  onStatusText('정령이 당신의 빛에 응답했습니다.')
-                  settleTimerRef.current = window.setTimeout(() => {
-                    onSuccess()
-                    settleTimerRef.current = null
-                  }, 580)
+                  onSuccess()
                 } else {
-                  onStatusText('빛이 닿지 않았습니다.')
-                  settleTimerRef.current = window.setTimeout(() => {
-                    onFail()
-                    settleTimerRef.current = null
-                  }, 620)
+                  onFail()
                 }
               }}
-              className={`h-[56px] min-w-[44px] rounded-lg border px-1 text-[12px] font-semibold transition ${isAnswer ? 'border-[#46654f]/40 bg-[rgba(164,191,172,0.52)] text-black' : isSelected ? 'border-[#6f5a2e]/40 bg-[rgba(242,214,143,0.28)] text-black' : 'border-black/15 bg-black/5 text-black/85'}`}
+              className="flex h-[126px] min-w-[44px] flex-col items-center justify-center rounded-[15px] border px-1 text-[17px] font-medium text-white transition"
+              style={{
+                backgroundColor: choiceTheme.bg,
+                borderColor: choiceTheme.border,
+                opacity: 1,
+              }}
             >
-              <img src={a(choice.iconPath)} alt={choice.name} className="w-5 h-5 object-contain mx-auto" draggable={false} />
-              <div className="mt-1">{choice.name}</div>
+              <img src={a(choice.iconPath)} alt={choice.name} className="h-10 w-10 object-contain" draggable={false} />
+              <div className="mt-[3px] w-full break-words whitespace-pre-line px-1 text-center text-[18px] leading-[1.22]">{choice.name}</div>
             </button>
           )
         })}
       </div>
 
-      {resolved && isSuccess && (
-        <motion.div
-          className="pointer-events-none mt-3 flex items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-        >
-          <motion.div
-            className="h-16 w-16 rounded-full border border-[#cde8ff]/55"
-            animate={{ scale: [0.8, 1.35], opacity: [0.95, 0.15] }}
-            transition={{ duration: 0.65, ease: 'easeOut' }}
-          />
-        </motion.div>
-      )}
     </div>
   )
 }
