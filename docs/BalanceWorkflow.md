@@ -90,7 +90,23 @@ Spiria의 게임 밸런스는 다음 세 계층으로 관리한다.
 - 획득 확률(TBD)
 - 획득 수량(TBD)
 
-### 4.4 Rarity
+### 4.4 Hidden Stage Reward Balance
+
+- Hidden Stage EXP 배율
+- Hidden Stage Gold 배율
+- Hidden Stage 재료 배율
+- Hidden Stage 흔적 드랍 최소/최대 수량
+- Hidden Stage 정령 조각 드랍 확률 및 최소/최대 수량
+- Hidden Stage Mana 지급 확률
+
+런타임 반영 소스:
+
+- `src/data/drops.ts`
+	- `EXPEDITION_REWARD_DRAFT` (일반 탐험)
+- `src/data/hiddenStage.ts`
+	- `HIDDEN_STAGE_BALANCE` (Hidden Stage)
+
+### 4.5 Rarity
 
 - 희귀도 Key
 - 국문명
@@ -98,7 +114,7 @@ Spiria의 게임 밸런스는 다음 세 계층으로 관리한다.
 - 메인 컬러
 - 테두리 컬러
 
-### 4.5 Naming Convention
+### 4.6 Naming Convention
 
 - 제작 재료 보석: `Gem / 젬 / gem`
 - 탐험 에너지: `Mana / 마나 / mana`

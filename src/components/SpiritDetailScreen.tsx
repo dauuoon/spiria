@@ -1,21 +1,40 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import TopBar from './TopBar'
-import useAppStore from '../lib/store'
-import { getSpiritArtworkPath, SPIRITS } from '../data/spirits'
+import useAppStore, { SPIRIT_COMMUNICATION_DAILY_LIMIT } from '../lib/store'
+import { getSpiritAnimationFrames, getSpiritArtworkPath, SPIRITS } from '../data/spirits'
 import { DEFAULT_SPIRIT_DETAIL_META, SPIRIT_DETAIL_META } from '../data/spiritDetails'
 import { SPIRIT_RARITY_TOKENS } from '../data/rarity'
 import { getSpiritSummonHistory } from '../lib/spiritSummonHistory'
+
+function getTodayLocalKey(now = new Date()) {
+  const year = now.getFullYear()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 export default function SpiritDetailScreen() {
   const setScreen = useAppStore((s) => s.setScreen)
   const selectedSpiritId = useAppStore((s) => s.selectedSpiritId)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
+  const claimSpiritCommunicationReward = useAppStore((s) => s.claimSpiritCommunicationReward)
+  const spiritCommunicationRewards = useAppStore((s) => s.spiritCommunicationRewards)
+
+  const playRewardSfx = () => {
+    try {
+      const audio = new Audio(a('assets/sound/num_coin.mp3'))
+      void audio.play()
+    } catch {
+      // ignore sound playback errors
+    }
+  }
 
   const spirit = SPIRITS.find((s) => s.id === selectedSpiritId) ?? SPIRITS[0]
   const meta = SPIRIT_DETAIL_META[spirit.id] ?? DEFAULT_SPIRIT_DETAIL_META
   const summonHistory = getSpiritSummonHistory(spirit.id)
-  const isSoyo = spirit.id === 'spirit_soyo'
+  const spiritFrames = getSpiritAnimationFrames(spirit.id)
+  const hasAnimatedFrames = spiritFrames.length === 3
   const [isHistoryOpen, setIsHistoryOpen] = useState(true)
 
   const themePalette: Record<string, { overlay: string; glow: string; accent: string }> = {
@@ -46,7 +65,7 @@ export default function SpiritDetailScreen() {
     },
   }
   const themeStyle = themePalette[meta.themeLabel] ?? themePalette['따뜻한 골드']
-  const accentColor = isSoyo ? '#eaa49a' : themeStyle.accent
+  const accentColor = themeStyle.accent
   const summonCountText = summonHistory ? `${summonHistory.craftCount}회` : meta.craftCount
   const firstMetDateText = summonHistory?.firstMetDate ?? meta.firstMetDate
   const detailRarityColorByKey: Record<typeof meta.rarityKey, string> = {
@@ -56,6 +75,62 @@ export default function SpiritDetailScreen() {
     legendary: '#F6E7A8',
   }
   const detailRarityColor = detailRarityColorByKey[meta.rarityKey]
+  const conversationLines = meta.conversationLines?.length === 3
+    ? meta.conversationLines
+    : DEFAULT_SPIRIT_DETAIL_META.conversationLines
+  const [isTalkOpen, setIsTalkOpen] = useState(false)
+  const [talkLineIndex, setTalkLineIndex] = useState(0)
+  const [typedTalkText, setTypedTalkText] = useState('')
+  const [talkFeedback, setTalkFeedback] = useState<string | null>(null)
+  const [todayKey, setTodayKey] = useState(() => getTodayLocalKey())
+  const activeTalkLine = conversationLines[talkLineIndex] ?? ''
+  const todayClaimedCount = spiritCommunicationRewards.dayKey === todayKey
+    ? spiritCommunicationRewards.claimedCount
+    : 0
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setTodayKey(getTodayLocalKey())
+    }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!isTalkOpen) {
+      setTypedTalkText('')
+      return
+    }
+    let index = 0
+    setTypedTalkText('')
+    const timer = window.setInterval(() => {
+      index += 1
+      setTypedTalkText(activeTalkLine.slice(0, index))
+      if (index >= activeTalkLine.length) {
+        window.clearInterval(timer)
+      }
+    }, 42)
+    return () => window.clearInterval(timer)
+  }, [activeTalkLine, isTalkOpen])
+
+  const triggerSpiritTalk = () => {
+    let nextIndex = 0
+    if (conversationLines.length > 1) {
+      do {
+        nextIndex = Math.floor(Math.random() * conversationLines.length)
+      } while (conversationLines.length > 1 && nextIndex === talkLineIndex)
+    }
+    setTalkLineIndex(nextIndex)
+    setIsTalkOpen(true)
+
+    const reward = claimSpiritCommunicationReward()
+    if (reward.granted) {
+      playRewardSfx()
+      const rewardLabel = reward.rewardType === 'gold' ? `골드 +${reward.amount}` : `마나 +${reward.amount}`
+      setTalkFeedback(`${rewardLabel} · 오늘 남은 소통 ${reward.remaining}회`)
+      return
+    }
+    setTalkFeedback('오늘의 소통 보상은 모두 받았습니다.')
+  }
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
@@ -104,27 +179,27 @@ export default function SpiritDetailScreen() {
               animate={{ y: [20, 12, 20] }}
               transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
             >
-              {isSoyo ? (
+              {hasAnimatedFrames ? (
                 <>
                   <motion.img
-                    src={a('assets/spirt/soyo1.png')}
-                    alt="소요 기본상태 1"
+                    src={a(spiritFrames[0])}
+                    alt={`${spirit.name} 프레임 1`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
                     animate={{ opacity: [1, 0, 0, 0, 1] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
-                    src={a('assets/spirt/soyo2.png')}
-                    alt="소요 기본상태 2"
+                    src={a(spiritFrames[1])}
+                    alt={`${spirit.name} 프레임 2`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
                     animate={{ opacity: [0, 1, 0, 1, 0] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
-                    src={a('assets/spirt/soyo3.png')}
-                    alt="소요 입벌림"
+                    src={a(spiritFrames[2])}
+                    alt={`${spirit.name} 프레임 3`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
                     animate={{ opacity: [0, 0, 1, 0, 0] }}
@@ -145,10 +220,41 @@ export default function SpiritDetailScreen() {
             </motion.div>
           </div>
 
-          <div className="mt-[28px] text-center">
+          <div className="-mt-[20px]">
+            <button
+              type="button"
+              onClick={triggerSpiritTalk}
+              title={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              aria-label={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              className="relative z-10 inline-flex h-12 w-12 items-center justify-center"
+            >
+              <img src={a('assets/particle/talk.png')} alt="" aria-hidden className="h-12 w-12 object-contain" draggable={false} />
+            </button>
+            <AnimatePresence initial={false}>
+              {isTalkOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -4, height: 0 }}
+                  transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative z-0 mt-[-13px] w-full overflow-hidden rounded-[16px] bg-[rgba(0,0,0,0.5)] px-6 py-3 text-center"
+                >
+                  <p className="min-h-[30px] whitespace-pre-line text-[14px] leading-[1.6]" style={{ color: accentColor }}>
+                    {typedTalkText}
+                    {typedTalkText.length < activeTalkLine.length && <span className="ml-0.5 animate-pulse">|</span>}
+                  </p>
+                  {talkFeedback && (
+                    <p className="mt-0.5 text-[12px] text-white/50">{talkFeedback}</p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-[20px] text-center">
             <div
               className="rounded-[16px] px-6 py-3"
-              style={{ backgroundColor: isSoyo ? 'rgba(69, 47, 44, 0.5)' : 'rgba(8,10,20,0.5)' }}
+              style={{ backgroundColor: meta.storyBoxColor || 'rgba(8,10,20,0.5)' }}
             >
               <p className="whitespace-pre-line text-[15px] leading-[1.7] text-white/90 break-words overflow-wrap-anywhere">
                 {meta.story}

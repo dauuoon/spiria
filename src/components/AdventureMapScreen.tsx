@@ -8,8 +8,10 @@ import ParticlesCanvas from './ParticlesCanvas'
 import SoftGlow from './SoftGlow'
 import { ITEMS, MATERIAL_ITEM_IDS, TRACE_ITEM_BY_STAGE } from '../data/items'
 import { EXPEDITION_REWARD_DRAFT } from '../data/drops'
+import { HIDDEN_STAGE_BALANCE } from '../data/hiddenStage'
 import { SPIRIT_FRAGMENT_ITEM_BY_STAGE } from '../data/progression'
 import { getRarityByItemId, RESULT_RARITY_UI, SPIRIT_RARITY_TOKENS } from '../data/rarity'
+import { SPIRITS } from '../data/spirits'
 import type { SpiritRarity } from '../types/game'
 
 type AdventureMapScreenProps = {
@@ -24,6 +26,14 @@ const REGIONAL_ACCENT_BY_STAGE: Record<1 | 2 | 3 | 4 | 5, string> = {
   3: '#9fc9e4',
   4: '#ffbe9f',
   5: '#d39ee0',
+}
+
+const HIDDEN_BACKGROUND_BY_STAGE: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: 'assets/background/map1_back_hidden.png',
+  2: 'assets/background/map2_back_hidden.png',
+  3: 'assets/background/map3_back_hidden.png',
+  4: 'assets/background/map4_back_hidden.png',
+  5: 'assets/background/map5_back_hidden.png',
 }
 
 type ExploreResult = {
@@ -382,10 +392,14 @@ export default function AdventureMapScreen({
   footstepSrc,
 }: AdventureMapScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen)
+  const activeHiddenStage = useAppStore((s) => s.activeHiddenStage)
   const addItem = useAppStore((s) => s.addItem)
   const addCoins = useAppStore((s) => s.addCoins)
   const addMana = useAppStore((s) => s.addMana)
   const gainExp = useAppStore((s) => s.gainExp)
+  const discoveredSpiritIds = useAppStore((s) => s.discoveredSpiritIds)
+  const hiddenStageFirstClearByRegion = useAppStore((s) => s.hiddenStageFirstClearByRegion)
+  const markHiddenStageFirstClear = useAppStore((s) => s.markHiddenStageFirstClear)
   const markExplorationDiscovery = useAppStore((s) => s.markExplorationDiscovery)
   const explorationProgress = useAppStore((s) => s.explorationProgressByStage[stage])
   const explorationProgressByStage = useAppStore((s) => s.explorationProgressByStage)
@@ -421,8 +435,11 @@ export default function AdventureMapScreen({
   const spiritMiniGameSuccessTimerRef = useRef<number | null>(null)
   const spiritPlanRef = useRef<ExplorationSpiritPlan | null>(null)
   const eventKindHistoryRef = useRef<ActiveEventState['kind'][]>([])
+  const hiddenResultGrantLockRef = useRef(false)
 
   const remaining = Math.max(0, TOTAL_EXPLORES - used)
+  const isHiddenStage = activeHiddenStage === stage
+  const activeBackgroundSrc = isHiddenStage ? HIDDEN_BACKGROUND_BY_STAGE[stage] : backgroundSrc
   const bgControls = useAnimation()
   const circleControls = useAnimation()
 
@@ -871,7 +888,78 @@ export default function AdventureMapScreen({
       etcRewards,
       itemRewards,
     }
-  }, [a, dungeon, getItemDef, stage])
+  }, [a, dungeon, getItemDef, region?.dropTable, stage])
+
+  const randomIntInclusive = useCallback((min: number, max: number) => {
+    if (max <= min) return min
+    return min + Math.floor(Math.random() * (max - min + 1))
+  }, [])
+
+  const buildHiddenStageRewardResult = useCallback((isFirstClear: boolean): ExploreResult => {
+    const profile = isFirstClear ? HIDDEN_STAGE_BALANCE.firstClear : HIDDEN_STAGE_BALANCE.repeatClear
+
+    const fragmentItemBySpiritId = new Map(
+      ITEMS
+        .filter((item) => item.id.startsWith('fragment_spirit_'))
+        .map((item) => [item.id.replace(/^fragment_/, ''), item] as const),
+    )
+
+    const validSpiritIds = SPIRITS
+      .map((spirit) => spirit.id)
+      .filter((spiritId) => fragmentItemBySpiritId.has(spiritId))
+
+    const undiscoveredSpiritIds = validSpiritIds.filter((spiritId) => !discoveredSpiritIds.includes(spiritId))
+    const candidateSpiritIds = undiscoveredSpiritIds.length > 0 ? undiscoveredSpiritIds : validSpiritIds
+    const selectedSpiritId = candidateSpiritIds[Math.floor(Math.random() * candidateSpiritIds.length)]
+    const selectedFragmentItem = selectedSpiritId ? fragmentItemBySpiritId.get(selectedSpiritId) ?? null : null
+
+    const materialTotal = randomIntInclusive(profile.materialTotalMin, profile.materialTotalMax)
+    const materialCounts = new Map<string, number>()
+    for (let i = 0; i < materialTotal; i += 1) {
+      const randomMaterialId = MATERIAL_ITEM_IDS[Math.floor(Math.random() * MATERIAL_ITEM_IDS.length)]
+      materialCounts.set(randomMaterialId, (materialCounts.get(randomMaterialId) ?? 0) + 1)
+    }
+
+    const materialRewards: ExploreResult['itemRewards'] = Array.from(materialCounts.entries()).map(([materialId, count]) => {
+      const materialDef = getItemDef(materialId)
+      return {
+        id: materialId,
+        name: materialDef?.name ?? materialId,
+        count,
+        iconSrc: a(`assets/item/it/it_${materialId}.png`),
+        category: '재료' as const,
+        rarity: getRarityByItemId(materialId, '재료'),
+      }
+    })
+
+    const fragmentRewards: ExploreResult['itemRewards'] = selectedFragmentItem
+      ? [{
+          id: selectedFragmentItem.id,
+          name: selectedFragmentItem.name,
+          count: profile.fragmentAmount,
+          iconSrc: a(selectedFragmentItem.icon ?? 'assets/item/it/it_soul.png'),
+          category: '기타' as const,
+          rarity: getRarityByItemId(selectedFragmentItem.id, '기타'),
+        }]
+      : []
+
+    const mana = Math.random() < HIDDEN_STAGE_BALANCE.manaBonusChance ? HIDDEN_STAGE_BALANCE.manaBonusAmount : 0
+
+    return {
+      exp: profile.exp,
+      gold: profile.gold,
+      materials: materialTotal,
+      mana,
+      etcRewards: fragmentRewards.map((reward) => ({
+        id: reward.id,
+        name: reward.name,
+        count: reward.count,
+        iconSrc: reward.iconSrc,
+        rarity: reward.rarity,
+      })),
+      itemRewards: [...materialRewards, ...fragmentRewards],
+    }
+  }, [a, discoveredSpiritIds, getItemDef, randomIntInclusive])
 
   const randomAngle = () => (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.35)
 
@@ -909,6 +997,8 @@ export default function AdventureMapScreen({
   }, [buildResult, distributeAmountBySteps])
 
   const applyExploreStepRewards = useCallback((stepIndex: number, options?: { skipAll?: boolean }) => {
+    if (isHiddenStage) return
+
     const safeStepIndex = Math.max(0, Math.min(TOTAL_EXPLORES - 1, stepIndex))
     if (!explorationRewardPlanRef.current) {
       explorationRewardPlanRef.current = initializeExplorationRewardPlan()
@@ -981,7 +1071,7 @@ export default function AdventureMapScreen({
     if (toastEntries.length > 0) {
       showFloatingRewardToasts(toastEntries)
     }
-  }, [addCoins, addItem, addMana, gainExp, getRarityToastColors, initializeExplorationRewardPlan, markExplorationDiscovery, showFloatingRewardToasts, stage])
+  }, [addCoins, addItem, addMana, gainExp, getRarityToastColors, initializeExplorationRewardPlan, isHiddenStage, markExplorationDiscovery, showFloatingRewardToasts, stage])
 
   const buildResultFromPlan = useCallback((plan: ExplorationRewardPlan): ExploreResult => {
     const itemRewards = plan.items
@@ -1021,6 +1111,45 @@ export default function AdventureMapScreen({
 
   const finalizeExploreResult = useCallback(() => {
     pendingFinalResultRef.current = false
+
+    if (isHiddenStage) {
+      if (hiddenResultGrantLockRef.current) return
+      hiddenResultGrantLockRef.current = true
+
+      const regionId = region?.id
+      const isFirstClear = regionId ? !hiddenStageFirstClearByRegion[regionId] : false
+      const hiddenResult = buildHiddenStageRewardResult(isFirstClear)
+
+      const levelUpInfo = gainExp(hiddenResult.exp)
+      if (levelUpInfo) {
+        setShowLevelUpBadge(true)
+        window.setTimeout(() => setShowLevelUpBadge(false), 900)
+      }
+      addCoins(hiddenResult.gold)
+      if (hiddenResult.mana > 0) addMana(hiddenResult.mana)
+
+      for (const reward of hiddenResult.itemRewards) {
+        addItem(reward.id, reward.count)
+        if (reward.category === '재료') markExplorationDiscovery(stage, 'material')
+        if (reward.id.startsWith('fragment_')) markExplorationDiscovery(stage, 'spirit')
+      }
+
+      if (isFirstClear && regionId) {
+        markHiddenStageFirstClear(regionId)
+      }
+
+      if (resultTimerRef.current !== null) {
+        window.clearTimeout(resultTimerRef.current)
+      }
+      resultTimerRef.current = window.setTimeout(() => {
+        setResult(hiddenResult)
+        setShowResult(true)
+        explorationRewardPlanRef.current = null
+        resultTimerRef.current = null
+      }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
+      return
+    }
+
     if (!explorationRewardPlanRef.current) {
       explorationRewardPlanRef.current = initializeExplorationRewardPlan()
     }
@@ -1066,7 +1195,23 @@ export default function AdventureMapScreen({
       explorationRewardPlanRef.current = null
       resultTimerRef.current = null
     }, revealDelayMs)
-  }, [addItem, buildResultFromPlan, getRarityToastColors, initializeExplorationRewardPlan, markExplorationDiscovery, showFloatingRewardToasts, stage])
+  }, [
+    addCoins,
+    addItem,
+    addMana,
+    buildHiddenStageRewardResult,
+    buildResultFromPlan,
+    gainExp,
+    getRarityToastColors,
+    hiddenStageFirstClearByRegion,
+    initializeExplorationRewardPlan,
+    isHiddenStage,
+    markExplorationDiscovery,
+    markHiddenStageFirstClear,
+    region?.id,
+    showFloatingRewardToasts,
+    stage,
+  ])
 
   const handleEventInteraction = useCallback((action: 'help' | 'pass' | 'click', options?: { suppressNoRewardToast?: boolean }) => {
     if (!activeEvent) return
@@ -1473,7 +1618,7 @@ export default function AdventureMapScreen({
     <div className="relative w-full h-full bg-black">
       <motion.img
         animate={bgControls}
-        src={a(backgroundSrc)}
+        src={a(activeBackgroundSrc)}
         alt={`${mapTitle} background`}
         className="absolute inset-0 w-full h-full object-cover"
         draggable={false}

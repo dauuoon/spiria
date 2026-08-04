@@ -6,7 +6,7 @@ import { CRAFT_FAILURE_EXP, CRAFT_FAILURE_FRAGMENT_AMOUNT, CRAFT_FAILURE_GOLD_MA
 import { ITEMS } from '../data/items'
 import { RECIPES } from '../data/recipes'
 import { getRarityByItemId, RESULT_RARITY_UI, SPIRIT_RARITY_TOKENS } from '../data/rarity'
-import { getSpiritArtworkPath, SPIRITS } from '../data/spirits'
+import { getSpiritAnimationFrames, getSpiritArtworkPath, SPIRITS } from '../data/spirits'
 import { DEFAULT_SPIRIT_DETAIL_META, SPIRIT_DETAIL_META } from '../data/spiritDetails'
 import type { SpiritRarity } from '../types/game'
 import { recordSpiritSummon } from '../lib/spiritSummonHistory'
@@ -118,8 +118,11 @@ export default function CraftResultScreen() {
   const craftedSpirit = craftResult.spiritId ? SPIRITS.find((s) => s.id === craftResult.spiritId) ?? null : null
   const spirit = craftedSpirit ?? SPIRITS[0]
   const meta = craftedSpirit ? SPIRIT_DETAIL_META[craftedSpirit.id] ?? DEFAULT_SPIRIT_DETAIL_META : DEFAULT_SPIRIT_DETAIL_META
+  const craftedSpiritFrames = craftedSpirit ? getSpiritAnimationFrames(craftedSpirit.id) : []
+  const hasAnimatedCraftedSpirit = craftedSpiritFrames.length === 3
   const isSoyo = craftedSpirit?.id === 'spirit_soyo'
   const isFailure = !craftResult.success
+  const isAwakening = craftResult.resultMode === 'awakening'
   const spiritRarity = craftedSpirit?.rarity ?? 'common'
   const spiritTypeLabel = meta.typeLabel ?? '정령'
   const materialLabelById: Record<string, string> = {
@@ -168,10 +171,13 @@ export default function CraftResultScreen() {
   const [animatedMatchRate, setAnimatedMatchRate] = useState(0)
   const numericMatchRate = useMemo(() => {
     if (isFailure) return 0
+    if (typeof craftResult.matchRate === 'number' && !Number.isNaN(craftResult.matchRate)) {
+      return Math.max(0, craftResult.matchRate)
+    }
     const found = String(meta.requestMatchRate).match(/\d+(?:\.\d+)?/)
     if (!found) return null
     return Math.max(0, Number(found[0]))
-  }, [isFailure, meta.requestMatchRate])
+  }, [craftResult.matchRate, isFailure, meta.requestMatchRate])
 
   const failureHint = useMemo(() => {
     if (!isFailure) return null
@@ -405,7 +411,7 @@ export default function CraftResultScreen() {
 
         <div className="absolute inset-0 overflow-y-auto px-5 pt-[90px] pb-20">
           <motion.div
-            className="mx-auto w-full max-w-[360px] text-center"
+            className="mx-auto mt-[20px] w-full max-w-[360px] text-center"
             variants={resultContainerVariants}
             initial="hidden"
             animate={introStage === 'content' ? 'visible' : 'hidden'}
@@ -431,9 +437,15 @@ export default function CraftResultScreen() {
                   </span>
                 </div>
               )}
-              <div className="mt-1 text-[26px] font-semibold tracking-wide" style={{ color: headingColor }}>
-                의뢰 일치율 {numericMatchRate === null ? meta.requestMatchRate : `${animatedMatchRate}%`}
-              </div>
+              {isAwakening ? (
+                <div className="mt-1 text-[22px] font-semibold tracking-wide" style={{ color: headingColor }}>
+                  정령이 깨어났습니다.
+                </div>
+              ) : (
+                <div className="mt-1 text-[26px] font-semibold tracking-wide" style={{ color: headingColor }}>
+                  의뢰 일치율 {numericMatchRate === null ? meta.requestMatchRate : `${animatedMatchRate}%`}
+                </div>
+              )}
 
               {isFailure && candidateSpiritNames.length > 0 && (
                 <>
@@ -488,27 +500,27 @@ export default function CraftResultScreen() {
                     transition={{ duration: 2.6, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                 </>
-              ) : isSoyo ? (
+              ) : hasAnimatedCraftedSpirit ? (
                 <>
                   <motion.img
-                    src={a('assets/spirt/soyo1.png')}
-                    alt="소요 기본상태 1"
+                    src={a(craftedSpiritFrames[0])}
+                    alt={`${craftedSpirit?.name ?? '정령'} 프레임 1`}
                     className="absolute left-1/2 top-1/2 h-[96%] w-[96%] -translate-x-1/2 -translate-y-1/2 object-contain"
                     draggable={false}
                     animate={{ opacity: [1, 0, 0, 0, 1] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
-                    src={a('assets/spirt/soyo2.png')}
-                    alt="소요 기본상태 2"
+                    src={a(craftedSpiritFrames[1])}
+                    alt={`${craftedSpirit?.name ?? '정령'} 프레임 2`}
                     className="absolute left-1/2 top-1/2 h-[96%] w-[96%] -translate-x-1/2 -translate-y-1/2 object-contain"
                     draggable={false}
                     animate={{ opacity: [0, 1, 0, 1, 0] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
-                    src={a('assets/spirt/soyo3.png')}
-                    alt="소요 입벌림"
+                    src={a(craftedSpiritFrames[2])}
+                    alt={`${craftedSpirit?.name ?? '정령'} 프레임 3`}
                     className="absolute left-1/2 top-1/2 h-[96%] w-[96%] -translate-x-1/2 -translate-y-1/2 object-contain"
                     draggable={false}
                     animate={{ opacity: [0, 0, 1, 0, 0] }}
@@ -553,28 +565,30 @@ export default function CraftResultScreen() {
               </div>
             </motion.div>
 
-            <motion.div variants={resultSectionVariants} className="mt-3 rounded-[16px] bg-[rgba(12,12,20,0.6)] px-4 py-3 text-center">
-              <div className="mb-2 text-[12px] font-semibold text-[#f0dcc2]">사용 재료</div>
-              <div className="flex items-center justify-center gap-2">
-                {recipeMaterials.map((material, index) => (
-                  <div key={`${material}-${index}`} className="inline-flex h-9 min-w-[54px] items-center justify-center rounded-full border border-white/15 bg-[rgba(255,255,255,0.05)] px-3 text-[12px] font-semibold text-[#eadcca]">
-                    {material}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    playSfx(PAPER_SFX_PATH, 0.88)
-                    setIsRequestPopupOpen(true)
-                  }}
-                  className="inline-flex h-9 items-center justify-center gap-1 rounded-full border border-white/15 bg-[rgba(255,255,255,0.06)] px-3"
-                  aria-label="의뢰서 내용 보기"
-                >
-                  <span className="text-[12px] font-semibold text-[#eadcca]">의뢰서</span>
-                  <img src={a('assets/particle/history.png')} alt="의뢰서 열기" className="h-4 w-4 object-contain opacity-90" draggable={false} />
-                </button>
-              </div>
-            </motion.div>
+            {!isAwakening && (
+              <motion.div variants={resultSectionVariants} className="mt-3 rounded-[16px] bg-[rgba(12,12,20,0.6)] px-4 py-3 text-center">
+                <div className="mb-2 text-[12px] font-semibold text-[#f0dcc2]">사용 재료</div>
+                <div className="flex items-center justify-center gap-2">
+                  {recipeMaterials.map((material, index) => (
+                    <div key={`${material}-${index}`} className="inline-flex h-9 min-w-[54px] items-center justify-center rounded-full border border-white/15 bg-[rgba(255,255,255,0.05)] px-3 text-[12px] font-semibold text-[#eadcca]">
+                      {material}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSfx(PAPER_SFX_PATH, 0.88)
+                      setIsRequestPopupOpen(true)
+                    }}
+                    className="inline-flex h-9 items-center justify-center gap-1 rounded-full border border-white/15 bg-[rgba(255,255,255,0.06)] px-3"
+                    aria-label="의뢰서 내용 보기"
+                  >
+                    <span className="text-[12px] font-semibold text-[#eadcca]">의뢰서</span>
+                    <img src={a('assets/particle/history.png')} alt="의뢰서 열기" className="h-4 w-4 object-contain opacity-90" draggable={false} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
 
             {isFailure && (
               <motion.div variants={resultSectionVariants} className="mt-2 rounded-[14px] bg-[rgba(240,220,194,0.05)] px-4 py-[6px] text-[13px] text-[#e6ebf3]">

@@ -401,6 +401,49 @@ def build_economy(economy_rows: list[dict[str, Any]]) -> str:
     ])
 
 
+def build_hidden_stage(economy_rows: list[dict[str, Any]]) -> str:
+    lookup = {row['키']: row['value'] for row in economy_rows if row.get('키')}
+    return '\n'.join([
+        '// Hidden-stage runtime balance values.',
+        '// Source of truth: balance/Spiria_Game_Balance_v1.0.xlsx (09_Economy hidden_stage_* keys)',
+        '',
+        'export type HiddenStageClearReward = {',
+        '  fragmentAmount: number',
+        '  exp: number',
+        '  gold: number',
+        '  materialTotalMin: number',
+        '  materialTotalMax: number',
+        '}',
+        '',
+        'export const HIDDEN_STAGE_BALANCE = {',
+        f"  entryTraceCost: {int(lookup['hidden_stage_entry_trace_cost'])},",
+        f"  manaBonusAmount: {int(lookup['hidden_stage_mana_bonus_amount'])},",
+        f"  manaBonusChance: {ts_string(lookup['hidden_stage_mana_bonus_chance'])},",
+        '  firstClear: {',
+        f"    fragmentAmount: {int(lookup['hidden_stage_first_fragment_amount'])},",
+        f"    exp: {int(lookup['hidden_stage_first_exp'])},",
+        f"    gold: {int(lookup['hidden_stage_first_gold'])},",
+        f"    materialTotalMin: {int(lookup['hidden_stage_first_material_total_min'])},",
+        f"    materialTotalMax: {int(lookup['hidden_stage_first_material_total_max'])},",
+        '  },',
+        '  repeatClear: {',
+        f"    fragmentAmount: {int(lookup['hidden_stage_repeat_fragment_amount'])},",
+        f"    exp: {int(lookup['hidden_stage_repeat_exp'])},",
+        f"    gold: {int(lookup['hidden_stage_repeat_gold'])},",
+        f"    materialTotalMin: {int(lookup['hidden_stage_repeat_material_total_min'])},",
+        f"    materialTotalMax: {int(lookup['hidden_stage_repeat_material_total_max'])},",
+        '  },',
+        '} as const satisfies {',
+        '  entryTraceCost: number',
+        '  manaBonusAmount: number',
+        '  manaBonusChance: number',
+        '  firstClear: HiddenStageClearReward',
+        '  repeatClear: HiddenStageClearReward',
+        '}',
+        '',
+    ])
+
+
 def build_regions(region_rows: list[dict[str, Any]], drop_rows: list[dict[str, Any]], current_text: str) -> str:
     templates_match = re.search(r"eventTemplates:\s*\[(.*?)\],\n\s*emptyEventTexts:", current_text, re.S)
     empty_match = re.search(r"emptyEventTexts:\s*\[(.*?)\]\n\s*  },\n\] as const", current_text, re.S)
@@ -473,6 +516,7 @@ def main() -> int:
         ROOT / 'src' / 'data' / 'items.ts': build_items(item_rows),
         ROOT / 'src' / 'data' / 'drops.ts': build_drops(exploration_rows, drop_rows),
         ROOT / 'src' / 'data' / 'economy.ts': build_economy(economy_rows),
+        ROOT / 'src' / 'data' / 'hiddenStage.ts': build_hidden_stage(economy_rows),
     }
 
     changed: list[str] = []

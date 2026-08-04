@@ -17,7 +17,6 @@ export default function MainScreen() {
   const resetGameData = useAppStore(s => s.resetGameData)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const [storeModalOpen, setStoreModalOpen] = useState(false)
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -163,7 +162,7 @@ export default function MainScreen() {
           aria-label="공방"
           whileTap={{ scale: 0.9, y: 2 }}
           className="absolute left-[calc(2%-70px)] bottom-[calc(18%-505px)] w-[70%] max-w-none z-[8] cursor-pointer relative overflow-visible"
-          onClick={() => setStoreModalOpen(true)}
+          onClick={() => setScreen('exchange')}
         >
           <Wiggly>
             <span
@@ -187,7 +186,7 @@ export default function MainScreen() {
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="-translate-y-[2px] inline-block text-[min(3.2vw,15px)] font-semibold tracking-wide text-[#ac8a7a]">
-                  상점 가기
+                  교환소 가기
                 </span>
               </div>
             </div>
@@ -271,29 +270,6 @@ export default function MainScreen() {
         </div>
       </div>
 
-      {/* store coming-soon modal */}
-      {storeModalOpen && (
-        <div className="absolute inset-0 z-[50] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setStoreModalOpen(false)} />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            className="relative z-[51] w-[min(70vw,240px)] rounded-2xl bg-[rgba(16,18,32,0.95)] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.55)] p-5 text-center"
-          >
-            <p className="text-[14px] text-[#ac8a7a] mb-4">···준비중 입니다···</p>
-            <div className="flex items-center justify-center gap-2">
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 text-[#ac8a7a] border border-white/15 text-[13px]"
-                onClick={() => setStoreModalOpen(false)}
-              >
-                확인
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   )
 }

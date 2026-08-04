@@ -4,6 +4,7 @@ import useAppStore from '../lib/store'
 const BGM_SRC_1 = `${import.meta.env.BASE_URL}assets/sound/bgm1.mp3`
 const BGM_SRC_2 = `${import.meta.env.BASE_URL}assets/sound/magic_bgm.mp3`
 const BGM_EXPEDITION = `${import.meta.env.BASE_URL}assets/sound/expedition_bgm.mp3`
+const BGM_EXPEDITION_HIDDEN = `${import.meta.env.BASE_URL}assets/sound/expedition_hidden_bgm.mp3`
 const AMB_MAP1_BUG = `${import.meta.env.BASE_URL}assets/sound/bug.mp3`
 const AMB_MAP2_WIND = `${import.meta.env.BASE_URL}assets/sound/wind.mp3`
 const AMB_MAP3_ICE = `${import.meta.env.BASE_URL}assets/sound/ice.mp3`
@@ -14,6 +15,7 @@ export default function BgmPlayer() {
   const audioRef1 = useRef<HTMLAudioElement | null>(null)
   const audioRef2 = useRef<HTMLAudioElement | null>(null)
   const expeditionRef = useRef<HTMLAudioElement | null>(null)
+  const expeditionHiddenRef = useRef<HTMLAudioElement | null>(null)
   const ambMap1Ref = useRef<HTMLAudioElement | null>(null)
   const ambMap2Ref = useRef<HTMLAudioElement | null>(null)
   const ambMap3Ref = useRef<HTMLAudioElement | null>(null)
@@ -23,6 +25,17 @@ export default function BgmPlayer() {
   const [enabled, setEnabled] = useState(true)
   const [temporarilyPaused, setTemporarilyPaused] = useState(false)
   const screen = useAppStore(s => s.screen)
+  const activeHiddenStage = useAppStore(s => s.activeHiddenStage)
+
+  const isMapScreen = screen === 'map1' || screen === 'map2' || screen === 'map3' || screen === 'map4' || screen === 'map5'
+  const shouldUseHiddenBgm = isMapScreen && activeHiddenStage !== null
+
+  const getExpeditionBgmRef = () => (shouldUseHiddenBgm ? expeditionHiddenRef.current : expeditionRef.current)
+
+  const pauseExpeditionBgms = () => {
+    expeditionRef.current?.pause()
+    expeditionHiddenRef.current?.pause()
+  }
 
   const getMapAmbientRef = () => {
     if (screen === 'map1') return ambMap1Ref.current
@@ -58,6 +71,11 @@ export default function BgmPlayer() {
     ae.volume = 0.5
     expeditionRef.current = ae
 
+    const aeh = new Audio(BGM_EXPEDITION_HIDDEN)
+    aeh.loop = true
+    aeh.volume = 0.5
+    expeditionHiddenRef.current = aeh
+
     const am1 = new Audio(AMB_MAP1_BUG)
     am1.loop = true
     am1.volume = 0.28
@@ -89,7 +107,7 @@ export default function BgmPlayer() {
         // Play depending on current screen
         if (screen === 'expedition' || screen === 'map1' || screen === 'map2' || screen === 'map3' || screen === 'map4' || screen === 'map5') {
           await Promise.allSettled([
-            expeditionRef.current?.play() ?? Promise.resolve(),
+            getExpeditionBgmRef()?.play() ?? Promise.resolve(),
             getMapAmbientRef()?.play() ?? Promise.resolve(),
           ])
         } else {
@@ -106,7 +124,7 @@ export default function BgmPlayer() {
             try {
               if (screen === 'expedition' || screen === 'map1' || screen === 'map2' || screen === 'map3' || screen === 'map4' || screen === 'map5') {
                 await Promise.allSettled([
-                  expeditionRef.current?.play() ?? Promise.resolve(),
+                  getExpeditionBgmRef()?.play() ?? Promise.resolve(),
                   getMapAmbientRef()?.play() ?? Promise.resolve(),
                 ])
               } else {
@@ -132,7 +150,7 @@ export default function BgmPlayer() {
     void tryPlay()
 
     return () => {
-      for (const a of [audioRef1.current, audioRef2.current, expeditionRef.current, ambMap1Ref.current, ambMap2Ref.current, ambMap3Ref.current, ambMap4Ref.current, ambMap5Ref.current]) {
+      for (const a of [audioRef1.current, audioRef2.current, expeditionRef.current, expeditionHiddenRef.current, ambMap1Ref.current, ambMap2Ref.current, ambMap3Ref.current, ambMap4Ref.current, ambMap5Ref.current]) {
         if (a) {
           a.pause()
           a.src = ''
@@ -141,6 +159,7 @@ export default function BgmPlayer() {
       audioRef1.current = null
       audioRef2.current = null
       expeditionRef.current = null
+      expeditionHiddenRef.current = null
       ambMap1Ref.current = null
       ambMap2Ref.current = null
       ambMap3Ref.current = null
@@ -154,34 +173,36 @@ export default function BgmPlayer() {
     const a1 = audioRef1.current
     const a2 = audioRef2.current
     const ae = expeditionRef.current
+    const aeh = expeditionHiddenRef.current
     const am1 = ambMap1Ref.current
     const am2 = ambMap2Ref.current
     const am3 = ambMap3Ref.current
     const am4 = ambMap4Ref.current
     const am5 = ambMap5Ref.current
-    if (!a1 && !a2 && !ae && !am1 && !am2 && !am3 && !am4 && !am5) return
+    if (!a1 && !a2 && !ae && !aeh && !am1 && !am2 && !am3 && !am4 && !am5) return
 
     if (!enabled || temporarilyPaused) {
-      a1?.pause(); a2?.pause(); ae?.pause(); am1?.pause(); am2?.pause(); am3?.pause(); am4?.pause(); am5?.pause()
+      a1?.pause(); a2?.pause(); ae?.pause(); aeh?.pause(); am1?.pause(); am2?.pause(); am3?.pause(); am4?.pause(); am5?.pause()
       return
     }
 
     if (screen === 'expedition' || screen === 'map1' || screen === 'map2' || screen === 'map3' || screen === 'map4' || screen === 'map5') {
       a1?.pause(); a2?.pause()
+      pauseExpeditionBgms()
       pauseAllMapAmbients()
       void Promise.allSettled([
-        ae?.play() ?? Promise.resolve(),
+        getExpeditionBgmRef()?.play() ?? Promise.resolve(),
         getMapAmbientRef()?.play() ?? Promise.resolve(),
       ])
     } else {
-      ae?.pause()
+      pauseExpeditionBgms()
       pauseAllMapAmbients()
       void Promise.allSettled([
         a1?.play() ?? Promise.resolve(),
         a2?.play() ?? Promise.resolve(),
       ])
     }
-  }, [enabled, screen, temporarilyPaused])
+  }, [enabled, screen, temporarilyPaused, shouldUseHiddenBgm])
 
   useEffect(() => {
     const onPauseTemp = () => setTemporarilyPaused(true)

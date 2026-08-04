@@ -1,17 +1,23 @@
 import { motion } from 'framer-motion'
 import useAppStore from '../lib/store'
 import { DUNGEONS } from '../data/dungeons'
+import { REGIONS } from '../data/regions'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MANA_PER_EXPLORE } from '../data/constants'
+import { TRACE_ITEM_BY_STAGE } from '../data/items'
+import { HIDDEN_STAGE_BALANCE } from '../data/hiddenStage'
 
 type MapScreen = 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
 
 type EntryTarget = {
-  stage: number
+  stage: 1 | 2 | 3 | 4 | 5
   screen: MapScreen
+  hiddenAvailable: boolean
+  hiddenTraceItemId: string
+  hiddenTraceRequired: number
 }
 
 const TAP_SFX_PATH = 'assets/sound/tap.mp3'
@@ -32,9 +38,16 @@ export default function ExpeditionScreen() {
   const mana = useAppStore(s => s.mana)
   const maxMana = useAppStore(s => s.maxMana)
   const manaUpdatedAt = useAppStore(s => s.manaUpdatedAt)
+  const inventory = useAppStore(s => s.inventory)
   const recomputeMana = useAppStore(s => s.recomputeMana)
   const spendMana = useAppStore(s => s.spendMana)
+  const consumeItem = useAppStore(s => s.consumeItem)
+  const setActiveHiddenStage = useAppStore(s => s.setActiveHiddenStage)
+  const pendingHiddenStageJump = useAppStore(s => s.pendingHiddenStageJump)
+  const clearPendingHiddenStageJump = useAppStore(s => s.clearPendingHiddenStageJump)
+  const acknowledgeExpeditionMapUnlockNotifications = useAppStore(s => s.acknowledgeExpeditionMapUnlockNotifications)
   const [entryTarget, setEntryTarget] = useState<EntryTarget | null>(null)
+  const entryActionLockRef = useRef(false)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const isUnlocked = (stage: number) => level >= DUNGEONS[stage - 1]?.unlockLv
   const hasMana = mana > 0
@@ -48,23 +61,107 @@ export default function ExpeditionScreen() {
     }
   }
 
-  const requestEnter = (stage: number, screen: MapScreen) => {
-    if (!isUnlocked(stage)) { playLockSfx(); return }
-    if (!hasMana) { playLockSfx(); return }
-    setEntryTarget({ stage, screen })
+  const hiddenTraceInfoByStage = useMemo(() => {
+    return {
+      1: {
+        itemId: TRACE_ITEM_BY_STAGE[1],
+        required: REGIONS[0]?.hiddenStageRequiredAmount ?? HIDDEN_STAGE_BALANCE.entryTraceCost,
+      },
+      2: {
+        itemId: TRACE_ITEM_BY_STAGE[2],
+        required: REGIONS[1]?.hiddenStageRequiredAmount ?? HIDDEN_STAGE_BALANCE.entryTraceCost,
+      },
+      3: {
+        itemId: TRACE_ITEM_BY_STAGE[3],
+        required: REGIONS[2]?.hiddenStageRequiredAmount ?? HIDDEN_STAGE_BALANCE.entryTraceCost,
+      },
+      4: {
+        itemId: TRACE_ITEM_BY_STAGE[4],
+        required: REGIONS[3]?.hiddenStageRequiredAmount ?? HIDDEN_STAGE_BALANCE.entryTraceCost,
+      },
+      5: {
+        itemId: TRACE_ITEM_BY_STAGE[5],
+        required: REGIONS[4]?.hiddenStageRequiredAmount ?? HIDDEN_STAGE_BALANCE.entryTraceCost,
+      },
+    } as const
+  }, [])
+
+  const canEnterHiddenStage = (stage: 1 | 2 | 3 | 4 | 5) => {
+    const info = hiddenTraceInfoByStage[stage]
+    const owned = inventory[info.itemId] ?? 0
+    return owned >= info.required
   }
 
-  const confirmEnter = () => {
+  const requestEnter = (stage: 1 | 2 | 3 | 4 | 5, screen: MapScreen) => {
+    if (!isUnlocked(stage)) { playLockSfx(); return }
+    if (!hasMana) { playLockSfx(); return }
+    const info = hiddenTraceInfoByStage[stage]
+    setEntryTarget({
+      stage,
+      screen,
+      hiddenAvailable: canEnterHiddenStage(stage),
+      hiddenTraceItemId: info.itemId,
+      hiddenTraceRequired: info.required,
+    })
+  }
+
+  const confirmNormalEnter = () => {
     if (!entryTarget) return
+    if (entryActionLockRef.current) return
+    entryActionLockRef.current = true
     const manaCost = DUNGEONS[entryTarget.stage - 1]?.manaCost ?? MANA_PER_EXPLORE
     const ok = spendMana(manaCost)
     if (ok) {
+      setActiveHiddenStage(null)
       setScreen(entryTarget.screen)
       setEntryTarget(null)
     } else {
       playLockSfx()
+      entryActionLockRef.current = false
     }
   }
+
+  const confirmHiddenEnter = () => {
+    if (!entryTarget) return
+    if (entryActionLockRef.current) return
+    entryActionLockRef.current = true
+    const owned = inventory[entryTarget.hiddenTraceItemId] ?? 0
+    if (owned < entryTarget.hiddenTraceRequired) {
+      playLockSfx()
+      entryActionLockRef.current = false
+      return
+    }
+
+    consumeItem(entryTarget.hiddenTraceItemId, entryTarget.hiddenTraceRequired)
+    setActiveHiddenStage(entryTarget.stage)
+    setScreen(entryTarget.screen)
+    setEntryTarget(null)
+  }
+
+  useEffect(() => {
+    acknowledgeExpeditionMapUnlockNotifications()
+  }, [acknowledgeExpeditionMapUnlockNotifications])
+
+  useEffect(() => {
+    if (!entryTarget) {
+      entryActionLockRef.current = false
+    }
+  }, [entryTarget])
+
+  useEffect(() => {
+    if (!pendingHiddenStageJump) return
+
+    const stage = pendingHiddenStageJump
+    const targetScreen: Record<1 | 2 | 3 | 4 | 5, MapScreen> = {
+      1: 'map1',
+      2: 'map2',
+      3: 'map3',
+      4: 'map4',
+      5: 'map5',
+    }
+    clearPendingHiddenStageJump()
+    requestEnter(stage, targetScreen[stage])
+  }, [pendingHiddenStageJump, clearPendingHiddenStageJump, requestEnter])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -126,6 +223,7 @@ export default function ExpeditionScreen() {
               draggable={false}
               style={{ top: '100px', left: 'calc(50% + 35px)' }}
             />
+              {canEnterHiddenStage(1) && <HiddenReadyBadge moveLeft={10} moveUp={15} />}
           </motion.div>
         </motion.button>
 
@@ -154,6 +252,7 @@ export default function ExpeditionScreen() {
               draggable={false}
               style={{ top: '75px', left: 'calc(50% + 25px)' }}
             />
+              {canEnterHiddenStage(2) && <HiddenReadyBadge moveLeft={10} moveUp={15} />}
           </motion.div>
         </motion.button>
 
@@ -182,6 +281,7 @@ export default function ExpeditionScreen() {
               draggable={false}
               style={{ top: '60px', left: 'calc(50% - 30px)' }}
             />
+              {canEnterHiddenStage(3) && <HiddenReadyBadge moveLeft={15} moveUp={0} />}
           </motion.div>
         </motion.button>
 
@@ -210,6 +310,7 @@ export default function ExpeditionScreen() {
               draggable={false}
               style={{ top: '80px', left: 'calc(50% + 35px)' }}
             />
+              {canEnterHiddenStage(4) && <HiddenReadyBadge moveLeft={25} moveUp={25} />}
           </motion.div>
         </motion.button>
 
@@ -238,6 +339,7 @@ export default function ExpeditionScreen() {
               draggable={false}
               style={{ top: '5px', left: 'calc(50% + 65px)' }}
             />
+              {canEnterHiddenStage(5) && <HiddenReadyBadge moveLeft={15} moveUp={0} />}
           </motion.div>
         </motion.button>
       </div>
@@ -255,11 +357,30 @@ export default function ExpeditionScreen() {
           a={a}
           mapName={DUNGEONS[entryTarget.stage - 1]?.name ?? `${entryTarget.stage}단계`}
           manaCost={DUNGEONS[entryTarget.stage - 1]?.manaCost ?? MANA_PER_EXPLORE}
+          hiddenAvailable={entryTarget.hiddenAvailable}
+          hiddenTraceItemId={entryTarget.hiddenTraceItemId}
+          hiddenTraceRequired={entryTarget.hiddenTraceRequired}
           onCancel={() => setEntryTarget(null)}
-          onConfirm={confirmEnter}
+          onConfirmNormal={confirmNormalEnter}
+          onConfirmHidden={confirmHiddenEnter}
         />
       )}
     </div>
+  )
+}
+
+function HiddenReadyBadge({ moveLeft = 0, moveUp = 0 }: { moveLeft?: number; moveUp?: number }) {
+  return (
+    <motion.div
+      className="absolute left-1/2 top-1/2 z-[20] -translate-x-1/2 -translate-y-1/2"
+      style={{ x: -moveLeft, y: -moveUp }}
+      animate={{ scale: [1, 1.1, 1] }}
+      transition={{ duration: 0.95, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#de4e57] text-[18px] font-black text-white shadow-[0_8px_18px_rgba(0,0,0,0.42)] drop-shadow-[0_2px_6px_rgba(0,0,0,0.38)]">
+        !
+      </div>
+    </motion.div>
   )
 }
 
@@ -267,15 +388,31 @@ function MapEntryModal({
   a,
   mapName,
   manaCost,
+  hiddenAvailable,
+  hiddenTraceItemId,
+  hiddenTraceRequired,
   onCancel,
-  onConfirm,
+  onConfirmNormal,
+  onConfirmHidden,
 }: {
   a: (p: string) => string
   mapName: string
   manaCost: number
+  hiddenAvailable: boolean
+  hiddenTraceItemId: string
+  hiddenTraceRequired: number
   onCancel: () => void
-  onConfirm: () => void
+  onConfirmNormal: () => void
+  onConfirmHidden: () => void
 }) {
+  const traceIconSrc = {
+    forest_trace: 'assets/item/it/it_forestmap.png',
+    wind_trace: 'assets/item/it/it_windmap.png',
+    lake_trace: 'assets/item/it/it_lakemap.png',
+    ruins_trace: 'assets/item/it/it_ruinsmap.png',
+    final_trace: 'assets/item/it/it_finalmap.png',
+  }[hiddenTraceItemId] ?? 'assets/item/it/it_forestmap.png'
+
   return (
     <div className="absolute inset-0 z-[40] bg-black/65 backdrop-blur-[2px] flex items-center justify-center px-5">
       <div className="relative w-full max-w-[426px] shadow-[0_18px_50px_rgba(0,0,0,0.45)] text-center">
@@ -285,52 +422,110 @@ function MapEntryModal({
           className="block w-full h-auto"
           draggable={false}
         />
-        <div className="absolute inset-0 p-5 translate-y-[5px]">
-          <div className="text-white text-[21px] font-medium">정말 입장하시겠습니까?</div>
-          <p className="mt-0 text-white/75 text-[13px] leading-relaxed">
-            <span className="text-[#efdcaf] font-semibold">{mapName}</span> 입장 시 아래 비용이 소요됩니다.
-          </p>
-          <div className="mt-2 mb-[20px] flex items-center justify-center gap-2 text-[#877cf1] font-bold text-[14px] -translate-x-[5px]">
-            <img src={a('assets/particle/gem.png')} alt="마나" className="w-4 h-4 translate-y-[2px]" draggable={false} />
-            <span>-{manaCost}개</span>
-          </div>
+        <div className="absolute inset-0 px-6 py-5 flex flex-col items-center justify-center">
+          <div className="text-white text-[21px] font-medium leading-tight">{hiddenAvailable ? '숨겨진 장소에 들어가시겠습니까?' : '정말 입장하시겠습니까?'}</div>
+          {hiddenAvailable ? (
+            <p className="mt-2 text-white/75 text-[14px] leading-relaxed">
+              <span className="text-[#efdcaf] font-semibold">{mapName}</span>에서 숨겨진 장소의 기운이 느껴집니다.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-white/75 text-[14px] leading-relaxed">
+                <span className="text-[#efdcaf] font-semibold">{mapName}</span> 입장 시 아래 비용이 소요됩니다.
+              </p>
+              <div className="mt-3 mb-5 flex items-center justify-center gap-2 text-[#877cf1] font-bold text-[16px] -translate-x-[2px]">
+                <img src={a('assets/particle/gem.png')} alt="마나" className="w-4 h-4 translate-y-[2px]" draggable={false} />
+                <span>-{manaCost}개</span>
+              </div>
+            </>
+          )}
 
-          <div className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              playTapSfx()
-              onCancel()
-            }}
-            data-suppress-tap-sfx="true"
-            className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-slate-200/45 bg-[rgba(130,140,150,0.35)] text-white transition-transform duration-100 active:scale-95"
-          >
-            <img
-              src={a('assets/particle/btn_bg_sliver.png')}
-              alt="취소 버튼 이미지"
-              className="absolute inset-0 w-full h-full object-cover opacity-60"
-              draggable={false}
-            />
-            <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">취소하기</span>
-          </button>
+          <div className="mt-2 flex items-center justify-center gap-3">
+            {hiddenAvailable ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSfx()
+                    onConfirmNormal()
+                  }}
+                  data-suppress-tap-sfx="true"
+                  className="relative h-12 w-[138px] rounded-lg overflow-hidden border border-slate-200/45 bg-[rgba(130,140,150,0.35)] text-white transition-transform duration-100 active:scale-95"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_sliver.png')}
+                    alt="아니요 버튼 이미지"
+                    className="absolute inset-0 w-full h-full object-cover opacity-60"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-flex items-center gap-1.5 -translate-y-[1px] text-[14px] font-bold tracking-[0.01em]">
+                    기존 맵
+                    <img src={a('assets/particle/gem.png')} alt="마나" className="h-4 w-4 shrink-0 object-contain" draggable={false} />
+                    <span>-{manaCost}</span>
+                  </span>
+                </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              playTapSfx()
-              onConfirm()
-            }}
-            data-suppress-tap-sfx="true"
-            className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white transition-transform duration-100 active:scale-95"
-          >
-            <img
-              src={a('assets/particle/btn_bg_brown.png')}
-              alt="입장하기 버튼 이미지"
-              className="absolute inset-0 w-full h-full object-cover opacity-62"
-              draggable={false}
-            />
-            <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">입장하기</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSfx()
+                    onConfirmHidden()
+                  }}
+                  data-suppress-tap-sfx="true"
+                  className="relative h-12 w-[138px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white transition-transform duration-100 active:scale-95"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_brown.png')}
+                    alt="네 버튼 이미지"
+                    className="absolute inset-0 w-full h-full object-cover opacity-62"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-flex items-center gap-1.5 -translate-y-[1px] text-[14px] font-bold tracking-[0.01em]">
+                    히든 맵
+                    <img src={a(traceIconSrc)} alt="지역의 흔적" className="h-4 w-4 shrink-0 object-contain" draggable={false} />
+                    <span>-{hiddenTraceRequired}</span>
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSfx()
+                    onCancel()
+                  }}
+                  data-suppress-tap-sfx="true"
+                  className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-slate-200/45 bg-[rgba(130,140,150,0.35)] text-white transition-transform duration-100 active:scale-95"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_sliver.png')}
+                    alt="취소 버튼 이미지"
+                    className="absolute inset-0 w-full h-full object-cover opacity-60"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">취소하기</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTapSfx()
+                    onConfirmNormal()
+                  }}
+                  data-suppress-tap-sfx="true"
+                  className="relative h-11 w-[132px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white transition-transform duration-100 active:scale-95"
+                >
+                  <img
+                    src={a('assets/particle/btn_bg_brown.png')}
+                    alt="입장하기 버튼 이미지"
+                    className="absolute inset-0 w-full h-full object-cover opacity-62"
+                    draggable={false}
+                  />
+                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide">입장하기</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

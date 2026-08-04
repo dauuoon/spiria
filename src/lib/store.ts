@@ -1,14 +1,57 @@
 import { create } from 'zustand'
 import { DUNGEONS } from '../data/dungeons'
 import { ITEMS } from '../data/items'
+import { CRAFTING_MATERIALS } from '../data/items'
 import { INITIAL_MANA, LEGACY_ENERGY_STORAGE_KEY, MANA_REGEN_MS, MANA_STORAGE_KEY, MAX_MANA, MANA_PER_EXPLORE } from '../data/constants'
 import { EXP_TO_NEXT } from '../data/levels'
 import { getLevelUpRewardsForLevel } from '../data/economy'
 import { getLevelTitle } from '../data/levelTitles'
 import { REGIONS } from '../data/regions'
+import { SPIRITS } from '../data/spirits'
 import { clearSpiritSummonHistory } from './spiritSummonHistory'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
+
+export const EXCHANGE_CYCLE_MS = 60 * 60 * 1000
+export const EXCHANGE_REFRESH_COSTS = [30, 60, 90] as const
+export const EXCHANGE_MAX_REFRESH_PER_CYCLE = EXCHANGE_REFRESH_COSTS.length
+export const SPIRIT_COMMUNICATION_DAILY_LIMIT = 3
+
+type ExchangeOfferKind = 'material' | 'fragment'
+
+export type ExchangeOffer = {
+  id: string
+  kind: ExchangeOfferKind
+  receiveItemId: string
+  receiveAmount: number
+  costCoins: number
+  purchased: boolean
+}
+
+export type ExchangeState = {
+  cycleStartedAt: number
+  cycleEndsAt: number
+  refreshUsedCount: number
+  offers: ExchangeOffer[]
+}
+
+export type ExchangeActionResult = {
+  ok: boolean
+  reason?: 'notFound' | 'alreadyPurchased' | 'insufficientCoins' | 'limitReached'
+  cost?: number
+}
+
+type SpiritCommunicationRewardState = {
+  dayKey: string
+  claimedCount: number
+}
+
+export type SpiritCommunicationRewardResult = {
+  granted: boolean
+  rewardType: 'gold' | 'mana' | null
+  amount: number
+  remaining: number
+}
 
 type CraftResult = {
   spiritId: string | null
@@ -16,6 +59,8 @@ type CraftResult = {
   success: boolean
   candidateSpiritIds: string[]
   materialIds: [string, string, string]
+  matchRate?: number | null
+  resultMode?: 'craft' | 'awakening'
 }
 
 type PersistedGameState = {
@@ -25,6 +70,12 @@ type PersistedGameState = {
   inventory: Record<string, number>
   mana: number
   manaUpdatedAt: number | null
+}
+
+type PersistedNotificationSeenState = {
+  seenDiscoveredSpiritCount: number
+  seenOwnedItemTypeCount: number
+  seenUnlockedStageCount: number
 }
 
 type PendingLevelUp = {
@@ -49,16 +100,31 @@ type ExplorationProgress = {
 }
 
 type ExplorationProgressByStage = Record<1 | 2 | 3 | 4 | 5, ExplorationProgress>
+type HiddenStageFirstClearByRegion = Record<string, boolean>
+type StageId = 1 | 2 | 3 | 4 | 5
 
 type AppState = {
   progress: number
   setProgress: (v: number) => void
   screen: Screen
   setScreen: (s: Screen) => void
+  activeHiddenStage: StageId | null
+  setActiveHiddenStage: (stage: StageId | null) => void
+  pendingHiddenStageJump: StageId | null
+  requestHiddenStageJump: (stage: StageId) => void
+  clearPendingHiddenStageJump: () => void
+  hiddenStageFirstClearByRegion: HiddenStageFirstClearByRegion
+  markHiddenStageFirstClear: (regionId: string) => void
   selectedSpiritId: string | null
   openSpiritDetail: (id: string) => void
   discoveredSpiritIds: string[]
   markSpiritDiscovered: (id: string) => boolean
+  seenDiscoveredSpiritCount: number
+  seenOwnedItemTypeCount: number
+  seenUnlockedStageCount: number
+  acknowledgeBookNotifications: () => void
+  acknowledgeBagNotifications: () => void
+  acknowledgeExpeditionMapUnlockNotifications: () => void
   craftResult: CraftResult | null
   openCraftResult: (payload: CraftResult) => void
   clearCraftResult: () => void
@@ -87,6 +153,12 @@ type AppState = {
   coins: number
   addCoins: (delta?: number) => void
   spendCoins: (delta?: number) => number
+  exchange: ExchangeState
+  ensureExchangeCycle: () => void
+  refreshExchangeOffers: () => ExchangeActionResult
+  buyExchangeOffer: (offerId: string) => ExchangeActionResult
+  spiritCommunicationRewards: SpiritCommunicationRewardState
+  claimSpiritCommunicationReward: () => SpiritCommunicationRewardResult
   resetGameData: () => void
 }
 
@@ -121,8 +193,20 @@ const saveMana = (mana: number, manaUpdatedAt: number | null) => {
 
 const GAME_STATE_STORAGE_KEY = 'spiria.game-state.v1'
 const DISCOVERED_SPIRITS_STORAGE_KEY = 'spiria.discovered-spirits.v1'
+const HIDDEN_STAGE_FIRST_CLEAR_STORAGE_KEY = 'spiria.hidden-stage-first-clear.v1'
+const NOTIFICATION_SEEN_STORAGE_KEY = 'spiria.notification-seen.v1'
+const EXCHANGE_STORAGE_KEY = 'spiria.exchange.v1'
+const SPIRIT_COMM_REWARD_STORAGE_KEY = 'spiria.spirit-communication-reward.v1'
 const INITIAL_LEVEL = 1
 const INITIAL_COINS = 1250
+
+const countOwnedItemType = (inventory: Record<string, number>) => (
+  ITEMS.reduce((count, item) => count + ((inventory[item.id] ?? 0) > 0 ? 1 : 0), 0)
+)
+
+const getUnlockedStageCount = (level: number) => (
+  DUNGEONS.reduce((count, dungeon) => count + (level >= dungeon.unlockLv ? 1 : 0), 0)
+)
 
 const loadGameState = (): PersistedGameState | null => {
   try {
@@ -215,11 +299,252 @@ const createInitialExplorationProgressByStage = (): ExplorationProgressByStage =
   5: createEmptyExplorationProgress(),
 })
 
+const createInitialHiddenStageFirstClearByRegion = (): HiddenStageFirstClearByRegion => (
+  REGIONS.reduce<HiddenStageFirstClearByRegion>((acc, region) => {
+    acc[region.id] = false
+    return acc
+  }, {})
+)
+
+const loadHiddenStageFirstClearByRegion = (): HiddenStageFirstClearByRegion => {
+  const defaults = createInitialHiddenStageFirstClearByRegion()
+  try {
+    const raw = localStorage.getItem(HIDDEN_STAGE_FIRST_CLEAR_STORAGE_KEY)
+    if (!raw) return defaults
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return defaults
+    const next = { ...defaults }
+    for (const regionId of Object.keys(defaults)) {
+      next[regionId] = parsed[regionId] === true
+    }
+    return next
+  } catch {
+    return defaults
+  }
+}
+
+const saveHiddenStageFirstClearByRegion = (value: HiddenStageFirstClearByRegion) => {
+  try {
+    localStorage.setItem(HIDDEN_STAGE_FIRST_CLEAR_STORAGE_KEY, JSON.stringify(value))
+  } catch {
+    // ignore
+  }
+}
+
+const loadNotificationSeenState = (defaults: PersistedNotificationSeenState): PersistedNotificationSeenState => {
+  try {
+    const raw = localStorage.getItem(NOTIFICATION_SEEN_STORAGE_KEY)
+    if (!raw) return defaults
+    const parsed = JSON.parse(raw) as Partial<PersistedNotificationSeenState>
+    if (!parsed || typeof parsed !== 'object') return defaults
+    return {
+      seenDiscoveredSpiritCount: Math.max(0, Math.floor(parsed.seenDiscoveredSpiritCount ?? defaults.seenDiscoveredSpiritCount)),
+      seenOwnedItemTypeCount: Math.max(0, Math.floor(parsed.seenOwnedItemTypeCount ?? defaults.seenOwnedItemTypeCount)),
+      seenUnlockedStageCount: Math.max(0, Math.floor(parsed.seenUnlockedStageCount ?? defaults.seenUnlockedStageCount)),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+const saveNotificationSeenState = (state: PersistedNotificationSeenState) => {
+  try {
+    localStorage.setItem(NOTIFICATION_SEEN_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore
+  }
+}
+
+const getTodayLocalKey = (now = new Date()) => {
+  const year = now.getFullYear()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
+
+const weightedPickIndex = (weights: readonly number[]) => {
+  const total = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0)
+  if (total <= 0) return 0
+  let cursor = Math.random() * total
+  for (let index = 0; index < weights.length; index += 1) {
+    cursor -= Math.max(0, weights[index])
+    if (cursor <= 0) return index
+  }
+  return Math.max(0, weights.length - 1)
+}
+
+const pickUniqueWeighted = <T,>(entries: readonly T[], weightOf: (entry: T) => number, count: number): T[] => {
+  const pool = [...entries]
+  const picked: T[] = []
+  while (pool.length > 0 && picked.length < count) {
+    const index = weightedPickIndex(pool.map(weightOf))
+    const [item] = pool.splice(index, 1)
+    if (item) picked.push(item)
+  }
+  return picked
+}
+
+const createMaterialOffer = (itemId: string, category: 'nature' | 'element' | 'sky' | 'mystic', slot: number): ExchangeOffer => {
+  const amountRangeByCategory = {
+    nature: { min: 4, max: 7 },
+    element: { min: 3, max: 6 },
+    sky: { min: 3, max: 5 },
+    mystic: { min: 2, max: 4 },
+  } as const
+  const costMultiplierByCategory = {
+    nature: 1,
+    element: 1.15,
+    sky: 1.35,
+    mystic: 1.8,
+  } as const
+  const range = amountRangeByCategory[category]
+  const amount = randomInt(range.min, range.max)
+  const cost = Math.max(20, Math.round(amount * 9 * costMultiplierByCategory[category]))
+  return {
+    id: `material-${slot}`,
+    kind: 'material',
+    receiveItemId: itemId,
+    receiveAmount: amount,
+    costCoins: cost,
+    purchased: false,
+  }
+}
+
+const createFragmentOffer = (spiritId: string, spiritRarity: string | undefined, slot: number): ExchangeOffer => {
+  const amount = randomInt(2, 5)
+  const rarityBonus = spiritRarity === 'legendary'
+    ? 50
+    : spiritRarity === 'epic'
+      ? 30
+      : spiritRarity === 'rare'
+        ? 20
+        : 10
+  const cost = amount * 25 + rarityBonus
+  return {
+    id: `fragment-${slot}`,
+    kind: 'fragment',
+    receiveItemId: `fragment_${spiritId}`,
+    receiveAmount: amount,
+    costCoins: cost,
+    purchased: false,
+  }
+}
+
+const generateExchangeOffers = (): ExchangeOffer[] => {
+  const materialWeightsByCategory = {
+    nature: 1.8,
+    element: 1.3,
+    sky: 1.0,
+    mystic: 0.55,
+  } as const
+  const materialPicks = pickUniqueWeighted(
+    CRAFTING_MATERIALS,
+    (item) => materialWeightsByCategory[item.materialCategory],
+    3,
+  )
+  const materialOffers = materialPicks.map((item, index) => createMaterialOffer(item.id, item.materialCategory, index + 1))
+
+  const spiritPool = SPIRITS.filter((spirit) => ITEMS.some((item) => item.id === `fragment_${spirit.id}`))
+  const fragmentPicks = pickUniqueWeighted(
+    spiritPool,
+    (spirit) => spirit.rarity === 'legendary' ? 0.55 : spirit.rarity === 'epic' ? 0.8 : spirit.rarity === 'rare' ? 1.15 : 1.4,
+    3,
+  )
+  const fragmentOffers = fragmentPicks.map((spirit, index) => createFragmentOffer(spirit.id, spirit.rarity, index + 1))
+
+  return [...materialOffers, ...fragmentOffers]
+}
+
+const createExchangeState = (startedAt = Date.now()): ExchangeState => ({
+  cycleStartedAt: startedAt,
+  cycleEndsAt: startedAt + EXCHANGE_CYCLE_MS,
+  refreshUsedCount: 0,
+  offers: generateExchangeOffers(),
+})
+
+const loadExchangeState = (): ExchangeState | null => {
+  try {
+    const raw = localStorage.getItem(EXCHANGE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<ExchangeState>
+    if (!parsed || typeof parsed !== 'object') return null
+    if (typeof parsed.cycleStartedAt !== 'number' || typeof parsed.cycleEndsAt !== 'number') return null
+    if (!Array.isArray(parsed.offers) || parsed.offers.length !== 6) return null
+    return {
+      cycleStartedAt: parsed.cycleStartedAt,
+      cycleEndsAt: parsed.cycleEndsAt,
+      refreshUsedCount: Math.max(0, Math.min(EXCHANGE_MAX_REFRESH_PER_CYCLE, Math.floor(parsed.refreshUsedCount ?? 0))),
+      offers: parsed.offers.map((offer, index) => ({
+        id: typeof offer.id === 'string' ? offer.id : `offer-${index + 1}`,
+        kind: offer.kind === 'fragment' ? 'fragment' : 'material',
+        receiveItemId: typeof offer.receiveItemId === 'string' ? offer.receiveItemId : 'flower',
+        receiveAmount: Math.max(1, Math.floor(offer.receiveAmount ?? 1)),
+        costCoins: Math.max(1, Math.floor(offer.costCoins ?? 1)),
+        purchased: offer.purchased === true,
+      })),
+    }
+  } catch {
+    return null
+  }
+}
+
+const saveExchangeState = (state: ExchangeState) => {
+  try {
+    localStorage.setItem(EXCHANGE_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore
+  }
+}
+
+const ensureExchangeStateFresh = (state: ExchangeState, now = Date.now()): ExchangeState => {
+  if (now < state.cycleEndsAt) return state
+  return createExchangeState(now)
+}
+
+const loadSpiritCommunicationRewardState = (): SpiritCommunicationRewardState => {
+  const defaultState: SpiritCommunicationRewardState = {
+    dayKey: getTodayLocalKey(),
+    claimedCount: 0,
+  }
+  try {
+    const raw = localStorage.getItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
+    if (!raw) return defaultState
+    const parsed = JSON.parse(raw) as Partial<SpiritCommunicationRewardState>
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.dayKey !== 'string') return defaultState
+    if (parsed.dayKey !== defaultState.dayKey) return defaultState
+    return {
+      dayKey: parsed.dayKey,
+      claimedCount: Math.max(0, Math.min(SPIRIT_COMMUNICATION_DAILY_LIMIT, Math.floor(parsed.claimedCount ?? 0))),
+    }
+  } catch {
+    return defaultState
+  }
+}
+
+const saveSpiritCommunicationRewardState = (state: SpiritCommunicationRewardState) => {
+  try {
+    localStorage.setItem(SPIRIT_COMM_REWARD_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore
+  }
+}
+
 const persistedGameState = loadGameState()
 const persistedDiscoveredSpiritIds = loadDiscoveredSpiritIds()
+const persistedHiddenStageFirstClearByRegion = loadHiddenStageFirstClearByRegion()
 const persistedInventory = persistedGameState?.inventory ?? {}
 const initialInventory = createInitialInventory()
 const initialInventoryWithPersisted = { ...initialInventory, ...persistedInventory }
+const loadedExchangeState = loadExchangeState()
+const initialExchangeState = ensureExchangeStateFresh(loadedExchangeState ?? createExchangeState())
+const initialSpiritCommunicationRewards = loadSpiritCommunicationRewardState()
+const initialNotificationSeenState = loadNotificationSeenState({
+  seenDiscoveredSpiritCount: persistedDiscoveredSpiritIds.length,
+  seenOwnedItemTypeCount: countOwnedItemType(initialInventoryWithPersisted),
+  seenUnlockedStageCount: getUnlockedStageCount(persistedGameState?.level ?? INITIAL_LEVEL),
+})
 
 const useAppStore = create<AppState>((set, get) => ({
   progress: 0,
@@ -227,8 +552,24 @@ const useAppStore = create<AppState>((set, get) => ({
   screen: 'loading',
   setScreen: (s) => set((state) => ({
     screen: s,
+    activeHiddenStage: s === 'expedition' ? null : state.activeHiddenStage,
     showLevelUpPopup: state.pendingLevelUp !== null && s !== state.screen && !state.showLevelUpPopup ? true : state.showLevelUpPopup,
   })),
+  activeHiddenStage: null,
+  setActiveHiddenStage: (stage) => set({ activeHiddenStage: stage }),
+  pendingHiddenStageJump: null,
+  requestHiddenStageJump: (stage) => set({ pendingHiddenStageJump: stage }),
+  clearPendingHiddenStageJump: () => set({ pendingHiddenStageJump: null }),
+  hiddenStageFirstClearByRegion: persistedHiddenStageFirstClearByRegion,
+  markHiddenStageFirstClear: (regionId) => set((state) => {
+    if (!regionId || state.hiddenStageFirstClearByRegion[regionId]) return state
+    const next = {
+      ...state.hiddenStageFirstClearByRegion,
+      [regionId]: true,
+    }
+    saveHiddenStageFirstClearByRegion(next)
+    return { hiddenStageFirstClearByRegion: next }
+  }),
   selectedSpiritId: null,
   openSpiritDetail: (id) => set({ selectedSpiritId: id, screen: 'spiritDetail' }),
   discoveredSpiritIds: persistedDiscoveredSpiritIds,
@@ -240,6 +581,42 @@ const useAppStore = create<AppState>((set, get) => ({
     set({ discoveredSpiritIds: next })
     return true
   },
+  seenDiscoveredSpiritCount: initialNotificationSeenState.seenDiscoveredSpiritCount,
+  seenOwnedItemTypeCount: initialNotificationSeenState.seenOwnedItemTypeCount,
+  seenUnlockedStageCount: initialNotificationSeenState.seenUnlockedStageCount,
+  acknowledgeBookNotifications: () => set((state) => {
+    const nextSeenDiscoveredSpiritCount = state.discoveredSpiritIds.length
+    if (nextSeenDiscoveredSpiritCount === state.seenDiscoveredSpiritCount) return state
+    const nextSeenState = {
+      seenDiscoveredSpiritCount: nextSeenDiscoveredSpiritCount,
+      seenOwnedItemTypeCount: state.seenOwnedItemTypeCount,
+      seenUnlockedStageCount: state.seenUnlockedStageCount,
+    }
+    saveNotificationSeenState(nextSeenState)
+    return nextSeenState
+  }),
+  acknowledgeBagNotifications: () => set((state) => {
+    const nextSeenOwnedItemTypeCount = countOwnedItemType(state.inventory)
+    if (nextSeenOwnedItemTypeCount === state.seenOwnedItemTypeCount) return state
+    const nextSeenState = {
+      seenDiscoveredSpiritCount: state.seenDiscoveredSpiritCount,
+      seenOwnedItemTypeCount: nextSeenOwnedItemTypeCount,
+      seenUnlockedStageCount: state.seenUnlockedStageCount,
+    }
+    saveNotificationSeenState(nextSeenState)
+    return nextSeenState
+  }),
+  acknowledgeExpeditionMapUnlockNotifications: () => set((state) => {
+    const nextSeenUnlockedStageCount = getUnlockedStageCount(state.level)
+    if (nextSeenUnlockedStageCount === state.seenUnlockedStageCount) return state
+    const nextSeenState = {
+      seenDiscoveredSpiritCount: state.seenDiscoveredSpiritCount,
+      seenOwnedItemTypeCount: state.seenOwnedItemTypeCount,
+      seenUnlockedStageCount: nextSeenUnlockedStageCount,
+    }
+    saveNotificationSeenState(nextSeenState)
+    return nextSeenState
+  }),
   craftResult: null,
   openCraftResult: (payload) => set({ craftResult: payload, screen: 'craftResult' }),
   clearCraftResult: () => set({ craftResult: null }),
@@ -493,6 +870,109 @@ const useAppStore = create<AppState>((set, get) => ({
     })
     return spent
   },
+  exchange: initialExchangeState,
+  ensureExchangeCycle: () => set((state) => {
+    const next = ensureExchangeStateFresh(state.exchange)
+    if (next === state.exchange) return state
+    saveExchangeState(next)
+    return { exchange: next }
+  }),
+  refreshExchangeOffers: () => {
+    const { exchange, coins } = get()
+    const current = ensureExchangeStateFresh(exchange)
+    if (current !== exchange) {
+      saveExchangeState(current)
+      set({ exchange: current })
+    }
+    if (current.refreshUsedCount >= EXCHANGE_MAX_REFRESH_PER_CYCLE) {
+      return { ok: false, reason: 'limitReached' }
+    }
+    const refreshCost = EXCHANGE_REFRESH_COSTS[current.refreshUsedCount]
+    if (coins < refreshCost) {
+      return { ok: false, reason: 'insufficientCoins', cost: refreshCost }
+    }
+    get().spendCoins(refreshCost)
+    const next: ExchangeState = {
+      ...current,
+      refreshUsedCount: current.refreshUsedCount + 1,
+      offers: generateExchangeOffers(),
+    }
+    saveExchangeState(next)
+    set({ exchange: next })
+    return { ok: true, cost: refreshCost }
+  },
+  buyExchangeOffer: (offerId) => {
+    const { exchange, coins } = get()
+    const current = ensureExchangeStateFresh(exchange)
+    if (current !== exchange) {
+      saveExchangeState(current)
+      set({ exchange: current })
+    }
+    const target = current.offers.find((offer) => offer.id === offerId)
+    if (!target) return { ok: false, reason: 'notFound' }
+    if (target.purchased) return { ok: false, reason: 'alreadyPurchased' }
+    if (coins < target.costCoins) return { ok: false, reason: 'insufficientCoins' }
+
+    get().spendCoins(target.costCoins)
+    get().addItem(target.receiveItemId, target.receiveAmount)
+
+    const next: ExchangeState = {
+      ...current,
+      offers: current.offers.map((offer) => (
+        offer.id === offerId
+          ? { ...offer, purchased: true }
+          : offer
+      )),
+    }
+    saveExchangeState(next)
+    set({ exchange: next })
+    return { ok: true }
+  },
+  spiritCommunicationRewards: initialSpiritCommunicationRewards,
+  claimSpiritCommunicationReward: () => {
+    const today = getTodayLocalKey()
+    const current = get().spiritCommunicationRewards
+    const normalized = current.dayKey === today
+      ? current
+      : {
+        dayKey: today,
+        claimedCount: 0,
+      }
+
+    if (normalized.claimedCount >= SPIRIT_COMMUNICATION_DAILY_LIMIT) {
+      if (normalized !== current) {
+        saveSpiritCommunicationRewardState(normalized)
+        set({ spiritCommunicationRewards: normalized })
+      }
+      return {
+        granted: false,
+        rewardType: null,
+        amount: 0,
+        remaining: 0,
+      }
+    }
+
+    const rewardType: 'gold' | 'mana' = Math.random() < 0.5 ? 'gold' : 'mana'
+    const amount = rewardType === 'gold' ? randomInt(40, 120) : randomInt(1, 3)
+    if (rewardType === 'gold') {
+      get().addCoins(amount)
+    } else {
+      get().addMana(amount)
+    }
+
+    const next = {
+      dayKey: today,
+      claimedCount: normalized.claimedCount + 1,
+    }
+    saveSpiritCommunicationRewardState(next)
+    set({ spiritCommunicationRewards: next })
+    return {
+      granted: true,
+      rewardType,
+      amount,
+      remaining: Math.max(0, SPIRIT_COMMUNICATION_DAILY_LIMIT - next.claimedCount),
+    }
+  },
   resetGameData: () => {
     const fresh = createFreshGameState()
     try {
@@ -500,27 +980,51 @@ const useAppStore = create<AppState>((set, get) => ({
       localStorage.removeItem(MANA_STORAGE_KEY)
       localStorage.removeItem(LEGACY_ENERGY_STORAGE_KEY)
       localStorage.removeItem(DISCOVERED_SPIRITS_STORAGE_KEY)
+      localStorage.removeItem(HIDDEN_STAGE_FIRST_CLEAR_STORAGE_KEY)
+      localStorage.removeItem(NOTIFICATION_SEEN_STORAGE_KEY)
       localStorage.removeItem('spiria.craft-hint-state.v1')
       localStorage.removeItem('spiria.craft-board-state.v1')
+      localStorage.removeItem(EXCHANGE_STORAGE_KEY)
+      localStorage.removeItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
     } catch {
       // ignore storage errors
     }
     clearSpiritSummonHistory()
+    const refreshedExchange = createExchangeState()
+    const refreshedCommunicationRewards = {
+      dayKey: getTodayLocalKey(),
+      claimedCount: 0,
+    }
     saveMana(fresh.mana, fresh.manaUpdatedAt)
     saveGameState(fresh)
+    saveExchangeState(refreshedExchange)
+    saveSpiritCommunicationRewardState(refreshedCommunicationRewards)
+    const freshNotificationSeenState = {
+      seenDiscoveredSpiritCount: 0,
+      seenOwnedItemTypeCount: countOwnedItemType(fresh.inventory),
+      seenUnlockedStageCount: getUnlockedStageCount(fresh.level),
+    }
+    saveNotificationSeenState(freshNotificationSeenState)
     set({
       progress: 0,
       screen: 'loading',
       craftResult: null,
       pendingLevelUp: null,
       showLevelUpPopup: false,
+      pendingHiddenStageJump: null,
       level: fresh.level,
       expInLevel: fresh.expInLevel,
       coins: fresh.coins,
+      exchange: refreshedExchange,
+      spiritCommunicationRewards: refreshedCommunicationRewards,
       inventory: fresh.inventory,
       mana: fresh.mana,
       manaUpdatedAt: fresh.manaUpdatedAt,
       discoveredSpiritIds: [],
+      seenDiscoveredSpiritCount: freshNotificationSeenState.seenDiscoveredSpiritCount,
+      seenOwnedItemTypeCount: freshNotificationSeenState.seenOwnedItemTypeCount,
+      seenUnlockedStageCount: freshNotificationSeenState.seenUnlockedStageCount,
+      hiddenStageFirstClearByRegion: createInitialHiddenStageFirstClearByRegion(),
       explorationProgressByStage: createInitialExplorationProgressByStage(),
     })
   },

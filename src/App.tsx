@@ -1,25 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import LoadingScreen from './components/LoadingScreen'
 import MainScreen from './components/MainScreen'
-import ExpeditionScreen from './components/ExpeditionScreen'
-import CraftScreen from './components/CraftScreen'
-import CraftResultScreen from './components/CraftResultScreen'
-import BookScreen from './components/BookScreen'
-import InventoryScreen from './components/InventoryScreen'
-import ProfileScreen from './components/ProfileScreen'
-import LicenseScreen from './components/LicenseScreen'
-import Map1Screen from './components/Map1Screen'
-import Map2Screen from './components/Map2Screen'
-import Map3Screen from './components/Map3Screen'
-import Map4Screen from './components/Map4Screen'
-import Map5Screen from './components/Map5Screen'
-import SpiritDetailScreen from './components/SpiritDetailScreen'
 import DevRemote from './components/DevRemote'
 import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
 import useAppStore from './lib/store'
 import { LEVEL_COLORS } from './data/levels'
+
+const ExpeditionScreen = lazy(() => import('./components/ExpeditionScreen'))
+const CraftScreen = lazy(() => import('./components/CraftScreen'))
+const CraftResultScreen = lazy(() => import('./components/CraftResultScreen'))
+const BookScreen = lazy(() => import('./components/BookScreen'))
+const InventoryScreen = lazy(() => import('./components/InventoryScreen'))
+const ProfileScreen = lazy(() => import('./components/ProfileScreen'))
+const LicenseScreen = lazy(() => import('./components/LicenseScreen'))
+const Map1Screen = lazy(() => import('./components/Map1Screen'))
+const Map2Screen = lazy(() => import('./components/Map2Screen'))
+const Map3Screen = lazy(() => import('./components/Map3Screen'))
+const Map4Screen = lazy(() => import('./components/Map4Screen'))
+const Map5Screen = lazy(() => import('./components/Map5Screen'))
+const SpiritDetailScreen = lazy(() => import('./components/SpiritDetailScreen'))
+const ExchangeScreen = lazy(() => import('./components/ExchangeScreen'))
 
 const LEVEL_UP_PARTICLES = [
   { x: -84, y: -46, size: 10, delay: 0 },
@@ -43,16 +45,84 @@ export default function App() {
   const pendingLevelUp = useAppStore(s => s.pendingLevelUp)
   const showLevelUpPopup = useAppStore(s => s.showLevelUpPopup)
   const claimPendingLevelUpRewards = useAppStore(s => s.claimPendingLevelUpRewards)
+  const warmedUpScreenChunksRef = useRef(false)
 
-  // Fake loading progress for now
+  // Preload critical startup assets and reflect real progress on loading screen.
   useEffect(() => {
-    let p = 0
-    const id = setInterval(() => {
-      p = Math.min(100, p + Math.random() * 8 + 2)
-      setProgress(p)
-    }, 300)
-    return () => clearInterval(id)
+    const criticalAssets = [
+      'assets/background/loading.png',
+      'assets/logo/logo.png',
+      'assets/background/main_back_em.png',
+      'assets/background/book.png',
+      'assets/background/book_top.png',
+      'assets/background/profile_back.png',
+      'assets/background/make_back.png',
+      'assets/background/map_back.png',
+      'assets/particle/light.png',
+      'assets/particle/btn_bg_brown.png',
+      'assets/particle/btn_bg_sliver.png',
+      'assets/codex/unknown.png',
+      'assets/codex/card_common.png',
+      'assets/codex/card_rare.png',
+      'assets/codex/card_epic.png',
+      'assets/codex/card_lezendary.png',
+    ] as const
+
+    let cancelled = false
+    const base = import.meta.env.BASE_URL
+    let loadedCount = 0
+
+    const update = () => {
+      const ratio = loadedCount / criticalAssets.length
+      const pct = Math.round(Math.max(0, Math.min(1, ratio)) * 100)
+      setProgress(pct)
+    }
+
+    update()
+
+    const loadOne = (relativePath: string) => new Promise<void>((resolve) => {
+      const img = new Image()
+      img.decoding = 'async'
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = `${base}${relativePath.replace(/^\//, '')}`
+    })
+
+    ;(async () => {
+      for (const asset of criticalAssets) {
+        if (cancelled) return
+        await loadOne(asset)
+        loadedCount += 1
+        update()
+      }
+      if (!cancelled) setProgress(100)
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [setProgress])
+
+  // Warm up frequently used screen chunks after initial loading to reduce first-navigation delay.
+  useEffect(() => {
+    if (screen === 'loading' || warmedUpScreenChunksRef.current) return
+    warmedUpScreenChunksRef.current = true
+
+    const timer = window.setTimeout(() => {
+      void Promise.allSettled([
+        import('./components/ExpeditionScreen'),
+        import('./components/CraftScreen'),
+        import('./components/CraftResultScreen'),
+        import('./components/BookScreen'),
+        import('./components/InventoryScreen'),
+        import('./components/ProfileScreen'),
+        import('./components/SpiritDetailScreen'),
+        import('./components/ExchangeScreen'),
+      ])
+    }, 800)
+
+    return () => window.clearTimeout(timer)
+  }, [screen])
 
   return (
     <MotionConfig reducedMotion="never">
@@ -68,37 +138,41 @@ export default function App() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeInOut' }}
             >
-              {screen === 'loading' ? (
-                <LoadingScreen />
-              ) : screen === 'expedition' ? (
-                <ExpeditionScreen />
-              ) : screen === 'book' ? (
-                <BookScreen />
-              ) : screen === 'craft' ? (
-                <CraftScreen />
-              ) : screen === 'craftResult' ? (
-                <CraftResultScreen />
-              ) : screen === 'bag' ? (
-                <InventoryScreen />
-              ) : screen === 'profile' ? (
-                <ProfileScreen />
-              ) : screen === 'license' ? (
-                <LicenseScreen />
-              ) : screen === 'map1' ? (
-                <Map1Screen />
-              ) : screen === 'map2' ? (
-                <Map2Screen />
-              ) : screen === 'map3' ? (
-                <Map3Screen />
-              ) : screen === 'map4' ? (
-                <Map4Screen />
-              ) : screen === 'map5' ? (
-                <Map5Screen />
-              ) : screen === 'spiritDetail' ? (
-                <SpiritDetailScreen />
-              ) : (
-                <MainScreen />
-              )}
+              <Suspense fallback={<LoadingScreen />}>
+                {screen === 'loading' ? (
+                  <LoadingScreen />
+                ) : screen === 'expedition' ? (
+                  <ExpeditionScreen />
+                ) : screen === 'book' ? (
+                  <BookScreen />
+                ) : screen === 'craft' ? (
+                  <CraftScreen />
+                ) : screen === 'craftResult' ? (
+                  <CraftResultScreen />
+                ) : screen === 'bag' ? (
+                  <InventoryScreen />
+                ) : screen === 'profile' ? (
+                  <ProfileScreen />
+                ) : screen === 'license' ? (
+                  <LicenseScreen />
+                ) : screen === 'map1' ? (
+                  <Map1Screen />
+                ) : screen === 'map2' ? (
+                  <Map2Screen />
+                ) : screen === 'map3' ? (
+                  <Map3Screen />
+                ) : screen === 'map4' ? (
+                  <Map4Screen />
+                ) : screen === 'map5' ? (
+                  <Map5Screen />
+                ) : screen === 'spiritDetail' ? (
+                  <SpiritDetailScreen />
+                ) : screen === 'exchange' ? (
+                  <ExchangeScreen />
+                ) : (
+                  <MainScreen />
+                )}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>

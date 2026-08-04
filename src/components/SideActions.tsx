@@ -1,25 +1,48 @@
 import { motion } from 'framer-motion'
-import { useNotifications } from '../state/notifications'
 import useAppStore from '../lib/store'
+import { DUNGEONS } from '../data/dungeons'
+import { ITEMS, TRACE_ITEM_BY_STAGE } from '../data/items'
+import { REGIONS } from '../data/regions'
 
 type ActionItem = {
   id: string
   label: string
   icon: string
-  badge?: boolean
 }
 
 const items: ActionItem[] = [
-  { id: 'order', label: '의뢰서', icon: 'assets/particle/order_icon.png', badge: true },
-  { id: 'book', label: '도감', icon: 'assets/particle/book_icon.png', badge: false },
-  { id: 'bag', label: '가방', icon: 'assets/particle/inven_icon.png', badge: false },
-  { id: 'expedition', label: '탐험', icon: 'assets/particle/dun_icon.png', badge: false },
+  { id: 'order', label: '의뢰서', icon: 'assets/particle/order_icon.png' },
+  { id: 'book', label: '도감', icon: 'assets/particle/book_icon.png' },
+  { id: 'bag', label: '가방', icon: 'assets/particle/inven_icon.png' },
+  { id: 'expedition', label: '탐험', icon: 'assets/particle/dun_icon.png' },
 ]
 
 export default function SideActions() {
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
-  const badges = useNotifications((s) => s.badges)
   const setScreen = useAppStore(s => s.setScreen)
+  const discoveredSpiritIds = useAppStore(s => s.discoveredSpiritIds)
+  const seenDiscoveredSpiritCount = useAppStore(s => s.seenDiscoveredSpiritCount)
+  const inventory = useAppStore(s => s.inventory)
+  const seenOwnedItemTypeCount = useAppStore(s => s.seenOwnedItemTypeCount)
+  const level = useAppStore(s => s.level)
+  const seenUnlockedStageCount = useAppStore(s => s.seenUnlockedStageCount)
+
+  const ownedItemTypeCount = ITEMS.reduce((count, item) => count + ((inventory[item.id] ?? 0) > 0 ? 1 : 0), 0)
+  const unlockedStageCount = DUNGEONS.reduce((count, dungeon) => count + (level >= dungeon.unlockLv ? 1 : 0), 0)
+  const hasHiddenReadyStage = ([1, 2, 3, 4, 5] as const).some((stage) => {
+    const region = REGIONS[stage - 1]
+    if (!region) return false
+    if (level < region.unlockLevel) return false
+    const traceItemId = TRACE_ITEM_BY_STAGE[stage]
+    return (inventory[traceItemId] ?? 0) >= region.hiddenStageRequiredAmount
+  })
+
+  const badges: Record<string, boolean> = {
+    order: true,
+    book: discoveredSpiritIds.length > seenDiscoveredSpiritCount,
+    bag: ownedItemTypeCount > seenOwnedItemTypeCount,
+    expedition: unlockedStageCount > seenUnlockedStageCount || hasHiddenReadyStage,
+  }
 
   return (
     <div className="absolute left-[13px] top-[109px] z-10 pointer-events-none">
@@ -49,7 +72,7 @@ export default function SideActions() {
                   aria-hidden
                   className="pointer-events-none absolute -inset-1 rounded-full bg-[radial-gradient(closest-side,rgba(8,10,22,0.95),rgba(8,10,22,0)_70%)] blur-[12px]"
                 />
-                {(badges[it.id] ?? it.badge) && (
+                {badges[it.id] && (
                   <span
                     aria-hidden
                     className="absolute top-[4px] right-[3px] w-[16px] h-[16px] rounded-full bg-[#DE4E57] flex items-center justify-center shadow-[0_2px_6px_rgba(0,0,0,0.5)] z-10 transform-gpu will-change-transform origin-top animate-[bell7_7s_ease-in-out_infinite]"

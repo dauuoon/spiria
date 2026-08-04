@@ -6,6 +6,10 @@ import { ITEMS } from '../data/items'
 import useAppStore from '../lib/store'
 import { getRarityByItemId, INVENTORY_RARITY_UI, SPIRIT_RARITY_TOKENS } from '../data/rarity'
 import type { SpiritRarity } from '../types/game'
+import { SPIRITS } from '../data/spirits'
+import { TRACE_ITEM_BY_STAGE } from '../data/items'
+
+const AWAKEN_FRAGMENT_REQUIRED = 100
 
 const ITEM_DESCRIPTION_BY_ID: Record<string, string> = {
   forest_trace: '숲 지역을 탐험하며 남긴 흔적입니다.',
@@ -18,6 +22,11 @@ const ITEM_DESCRIPTION_BY_ID: Record<string, string> = {
 export default function InventoryScreen() {
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^[\/]?/, '')}`
   const inventory = useAppStore(s => s.inventory)
+  const consumeItem = useAppStore(s => s.consumeItem)
+  const openCraftResult = useAppStore(s => s.openCraftResult)
+  const setScreen = useAppStore(s => s.setScreen)
+  const requestHiddenStageJump = useAppStore(s => s.requestHiddenStageJump)
+  const acknowledgeBagNotifications = useAppStore(s => s.acknowledgeBagNotifications)
   const filters = ['전체','재료','기타'] as const
   const [tab, setTab] = useState<(typeof filters)[number]>('전체')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -43,6 +52,10 @@ export default function InventoryScreen() {
   }
 
   useEffect(() => {
+    acknowledgeBagNotifications()
+  }, [acknowledgeBagNotifications])
+
+  useEffect(() => {
     if (!selectedItemId) return
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -66,6 +79,50 @@ export default function InventoryScreen() {
   const selectedCategory = selectedItem ? getCategory(selectedItem.id) : null
   const selectedRarity = selectedItem ? getRarity(selectedItem.id) : null
   const selectedDescription = selectedItem ? getDescription(selectedItem.id) : null
+  const awakenSpirit = useMemo(() => {
+    if (!selectedItem) return null
+    if (!selectedItem.id.startsWith('fragment_spirit_')) return null
+    const spiritId = selectedItem.id.replace(/^fragment_/, '')
+    return SPIRITS.find((spirit) => spirit.id === spiritId) ?? null
+  }, [selectedItem])
+  const canAwakenSpirit = Boolean(awakenSpirit && selectedCount >= AWAKEN_FRAGMENT_REQUIRED)
+  const traceStageByItemId = useMemo(() => {
+    return {
+      [TRACE_ITEM_BY_STAGE[1]]: 1,
+      [TRACE_ITEM_BY_STAGE[2]]: 2,
+      [TRACE_ITEM_BY_STAGE[3]]: 3,
+      [TRACE_ITEM_BY_STAGE[4]]: 4,
+      [TRACE_ITEM_BY_STAGE[5]]: 5,
+    } as const
+  }, [])
+  const selectedTraceStage = selectedItem ? traceStageByItemId[selectedItem.id as keyof typeof traceStageByItemId] ?? null : null
+  const canGoHiddenPlace = Boolean(selectedTraceStage && selectedCount >= 20)
+
+  const awakenSpiritFromFragment = () => {
+    if (!selectedItem || !awakenSpirit) return
+    if (selectedCount < AWAKEN_FRAGMENT_REQUIRED) return
+
+    consumeItem(selectedItem.id, AWAKEN_FRAGMENT_REQUIRED)
+    setSelectedItemId(null)
+    openCraftResult({
+      spiritId: awakenSpirit.id,
+      requestText: '',
+      success: true,
+      candidateSpiritIds: [],
+      materialIds: ['flower', 'leaf', 'soil'],
+      matchRate: 100,
+      resultMode: 'awakening',
+    })
+  }
+
+  const moveToHiddenStageFromTrace = () => {
+    if (!selectedTraceStage) return
+    if (selectedCount < 20) return
+
+    requestHiddenStageJump(selectedTraceStage)
+    setSelectedItemId(null)
+    setScreen('expedition')
+  }
 
   const visibleItems = useMemo(() => {
     const owned = ITEMS.filter((it) => (inventory[it.id] ?? 0) > 0)
@@ -219,7 +276,7 @@ export default function InventoryScreen() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 220, opacity: 0.96 }}
               transition={{ duration: 0.24, ease: 'easeOut' }}
-              className="pointer-events-auto absolute left-0 right-0 bottom-0 h-[150px] rounded-t-[18px] border-t border-white/15 bg-[linear-gradient(180deg,rgb(26_22_42_/_90%)_0%,rgb(9_11_26_/_90%)_100%)] shadow-[0_-14px_36px_rgba(0,0,0,0.45)] px-4 py-4"
+              className="pointer-events-auto absolute left-0 right-0 bottom-0 h-[176px] rounded-t-[18px] border-t border-white/15 bg-[linear-gradient(180deg,rgb(26_22_42_/_100%)_0%,rgb(9_11_26_/_100%)_100%)] shadow-[0_-14px_36px_rgba(0,0,0,0.45)] px-4 py-4"
             >
               <button
                 type="button"
@@ -252,6 +309,24 @@ export default function InventoryScreen() {
                   <p className="mt-3 whitespace-pre-line text-[13px] leading-relaxed text-white/80">
                     {selectedDescription}
                   </p>
+                  {canAwakenSpirit && (
+                    <button
+                      type="button"
+                      onClick={awakenSpiritFromFragment}
+                      className="mt-3 inline-flex h-8 items-center justify-center rounded-full border border-[#e4cda1]/45 bg-[rgba(132,99,56,0.6)] px-3 text-[12px] font-semibold text-[#f8e4c3]"
+                    >
+                      정령 깨우기 ({AWAKEN_FRAGMENT_REQUIRED})
+                    </button>
+                  )}
+                  {canGoHiddenPlace && (
+                    <button
+                      type="button"
+                      onClick={moveToHiddenStageFromTrace}
+                      className="mt-2 inline-flex h-8 items-center justify-center rounded-full border border-[#e4cda1]/45 bg-[rgba(132,99,56,0.6)] px-3 text-[12px] font-semibold text-[#f8e4c3]"
+                    >
+                      숨겨진 장소가기
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>

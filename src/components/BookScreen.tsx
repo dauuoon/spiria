@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import useAppStore from '../lib/store'
 import { DEFAULT_SPIRIT_DETAIL_META, SPIRIT_DETAIL_META } from '../data/spiritDetails'
-import { getSpiritArtworkPath, sortSpiritsByDiscoveryOrder, SPIRITS } from '../data/spirits'
+import { getSpiritAnimationFrames, getSpiritArtworkPath, sortSpiritsByDiscoveryOrder, SPIRITS } from '../data/spirits'
 import type { SpiritRarity } from '../types/game'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
@@ -11,9 +11,15 @@ import TopBar from './TopBar'
 export default function BookScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const openSpiritDetail = useAppStore(s => s.openSpiritDetail)
+  const discoveredSpiritIds = useAppStore(s => s.discoveredSpiritIds)
+  const acknowledgeBookNotifications = useAppStore(s => s.acknowledgeBookNotifications)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const tabs = ['전체', '발견', '미발견'] as const
   const [tab, setTab] = useState<(typeof tabs)[number]>('전체')
+
+  useEffect(() => {
+    acknowledgeBookNotifications()
+  }, [acknowledgeBookNotifications])
 
   const cardFrameByRarity: Record<SpiritRarity, string> = {
     common: 'assets/codex/card_common.png',
@@ -23,12 +29,29 @@ export default function BookScreen() {
   }
 
   type Card = { id: string; name: string; img: string; discovered: boolean; rarity?: SpiritRarity }
-  const discoveredSpirits: Card[] = sortSpiritsByDiscoveryOrder(SPIRITS).map((spirit) => ({
+  const baseOrder = sortSpiritsByDiscoveryOrder(SPIRITS)
+  const latestFirstOrder = [...discoveredSpiritIds].reverse()
+  const latestRank = new Map(latestFirstOrder.map((id, index) => [id, index]))
+
+  const discoveredSpirits: Card[] = [...baseOrder]
+    .sort((a, b) => {
+      const aRank = latestRank.get(a.id)
+      const bRank = latestRank.get(b.id)
+
+      const aDiscovered = aRank !== undefined
+      const bDiscovered = bRank !== undefined
+
+      if (aDiscovered && bDiscovered) return aRank - bRank
+      if (aDiscovered) return -1
+      if (bDiscovered) return 1
+      return 0
+    })
+    .map((spirit) => ({
     rarity: (SPIRIT_DETAIL_META[spirit.id] ?? DEFAULT_SPIRIT_DETAIL_META).rarityKey,
     id: spirit.id,
     name: spirit.name,
     img: getSpiritArtworkPath(spirit.id),
-    discovered: true,
+    discovered: discoveredSpiritIds.includes(spirit.id),
   }))
   const baseDiscovered: readonly Card[] = [
     ...discoveredSpirits,
@@ -134,6 +157,10 @@ export default function BookScreen() {
         {/* 3-col grid placeholder: positioned well under the top overlay */}
         <div className="grid grid-cols-3 gap-3 mt-[10px] pb-6 relative z-[1]">
           {filteredCards.map((c) => (
+              (() => {
+                const spiritFrames = c.discovered ? getSpiritAnimationFrames(c.id) : []
+                const hasAnimatedFrames = spiritFrames.length === 3
+                return (
               <motion.button
                 key={c.id}
                 type="button"
@@ -154,7 +181,7 @@ export default function BookScreen() {
               />
 
               {/* creature artwork */}
-              {c.discovered ? c.id === 'spirit_soyo' ? (
+              {c.discovered ? hasAnimatedFrames ? (
                 <div className="absolute inset-[8%]">
                   <motion.div
                     className="absolute inset-0 rounded-full"
@@ -171,24 +198,24 @@ export default function BookScreen() {
                     transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
                   >
                     <motion.img
-                      src={a('assets/spirt/soyo1.png')}
-                      alt="소요 기본상태 1"
+                      src={a(spiritFrames[0])}
+                      alt={`${c.name} 프레임 1`}
                       className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
                       draggable={false}
                       animate={{ opacity: [1, 0, 0, 0, 1] }}
                       transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                     />
                     <motion.img
-                      src={a('assets/spirt/soyo2.png')}
-                      alt="소요 기본상태 2"
+                      src={a(spiritFrames[1])}
+                      alt={`${c.name} 프레임 2`}
                       className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
                       draggable={false}
                       animate={{ opacity: [0, 1, 0, 1, 0] }}
                       transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                     />
                     <motion.img
-                      src={a('assets/spirt/soyo3.png')}
-                      alt="소요 입벌림"
+                      src={a(spiritFrames[2])}
+                      alt={`${c.name} 프레임 3`}
                       className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
                       draggable={false}
                       animate={{ opacity: [0, 0, 1, 0, 0] }}
@@ -250,6 +277,8 @@ export default function BookScreen() {
                 </span>
               </div>
               </motion.button>
+                )
+              })()
           ))}
         </div>
       </div>

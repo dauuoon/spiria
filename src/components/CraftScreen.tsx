@@ -7,6 +7,7 @@ import TopBar from './TopBar'
 import { CRAFT_HINT_COSTS, getSpiritCraftCostByLevel, QUEST_REJECT_PENALTY_GOLD } from '../data/economy'
 import { QUEST_REWARDS } from '../data/quests'
 import { RECIPES } from '../data/recipes'
+import { DEFAULT_SPIRIT_DETAIL_META, SPIRIT_DETAIL_META } from '../data/spiritDetails'
 import { SPIRIT_REQUEST_PAGES, type SpiritRequestPage } from '../data/spiritRequests'
 import { buildOrderedRecipe } from '../lib/crafting'
 
@@ -100,6 +101,52 @@ function shuffleRequests<T>(items: readonly T[]): T[] {
     next[randomIndex] = current
   }
   return next
+}
+
+function parseMatchRatePercent(raw: string): number | null {
+  const found = String(raw).match(/\d+(?:\.\d+)?/)
+  if (!found) return null
+  const value = Number(found[0])
+  if (Number.isNaN(value)) return null
+  return Math.max(0, value)
+}
+
+function resolveQuestMatchRate(quest: SpiritRequestPage, craftedSpiritId: string): number | null {
+  const explicitRate = quest.candidateMatchRates?.[craftedSpiritId]
+  if (typeof explicitRate === 'number' && !Number.isNaN(explicitRate)) {
+    return Math.max(0, explicitRate)
+  }
+  if (!quest.candidateSpiritIds.includes(craftedSpiritId)) return null
+
+  // Fallback: use each candidate spirit's own baseline match rate metadata.
+  const candidateMeta = SPIRIT_DETAIL_META[craftedSpiritId] ?? DEFAULT_SPIRIT_DETAIL_META
+  const candidateRate = parseMatchRatePercent(candidateMeta.requestMatchRate)
+  if (candidateRate !== null) return candidateRate
+
+  const requestedMeta = SPIRIT_DETAIL_META[quest.spiritId] ?? DEFAULT_SPIRIT_DETAIL_META
+  return parseMatchRatePercent(requestedMeta.requestMatchRate)
+}
+
+function resolveBestHintSpiritId(quest: SpiritRequestPage): string | null {
+  let bestSpiritId: string | null = null
+  let bestRate = -1
+
+  for (const candidateId of quest.candidateSpiritIds) {
+    const rate = resolveQuestMatchRate(quest, candidateId)
+    if (rate === null) continue
+    if (rate > bestRate) {
+      bestRate = rate
+      bestSpiritId = candidateId
+      continue
+    }
+    // Tie-breaker: prefer quest representative spirit.
+    if (rate === bestRate && candidateId === quest.spiritId) {
+      bestSpiritId = candidateId
+    }
+  }
+
+  if (bestSpiritId) return bestSpiritId
+  return quest.candidateSpiritIds[0] ?? null
 }
 
 export default function CraftScreen() {
@@ -197,14 +244,18 @@ export default function CraftScreen() {
   const slots = selectedSlots
   const craftCost = useMemo(() => getSpiritCraftCostByLevel(level), [level])
   const activeQuest = questBoard.active[questIndex] ?? null
+  const activeHintSpiritId = useMemo(() => {
+    if (!activeQuest) return null
+    return resolveBestHintSpiritId(activeQuest)
+  }, [activeQuest])
   const activeQuestRecipe = useMemo(() => {
     if (!activeQuest) return null
-    return RECIPES.find((recipe) => recipe.resultItemId === activeQuest.spiritId)
+    return RECIPES.find((recipe) => recipe.resultItemId === activeHintSpiritId)
       ?? activeQuest.candidateSpiritIds
         .map((candidateId) => RECIPES.find((recipe) => recipe.resultItemId === candidateId) ?? null)
         .find((recipe): recipe is (typeof RECIPES)[number] => Boolean(recipe))
       ?? null
-  }, [activeQuest])
+  }, [activeHintSpiritId, activeQuest])
   const activeHintState = useMemo<QuestHintState>(() => {
     if (!activeQuest) return { hintCount: 0, revealedSlots: [] }
     return hintStateByQuestId[activeQuest.id] ?? { hintCount: 0, revealedSlots: [] }
@@ -416,7 +467,11 @@ export default function CraftScreen() {
 
       if (targetQuest) {
         const isSuccess = craftedSpiritId !== null && targetQuest.candidateSpiritIds.includes(craftedSpiritId)
+        const resolvedMatchRate = isSuccess && craftedSpiritId
+          ? resolveQuestMatchRate(targetQuest, craftedSpiritId)
+          : 0
         if (isSuccess) {
+          clearHintStateForQuest(targetQuest.id)
           removeQuestAndFill(targetQuest.id)
           setAcceptedQuestId(null)
         }
@@ -426,6 +481,8 @@ export default function CraftScreen() {
           success: isSuccess,
           candidateSpiritIds: targetQuest.candidateSpiritIds,
           materialIds: orderedMaterialIds,
+          matchRate: resolvedMatchRate,
+          resultMode: 'craft',
         })
       } else {
         openCraftResult({
@@ -434,6 +491,8 @@ export default function CraftScreen() {
           success: craftedSpiritId !== null,
           candidateSpiritIds: [],
           materialIds: orderedMaterialIds,
+          matchRate: craftedSpiritId !== null ? 100 : 0,
+          resultMode: 'craft',
         })
       }
       setSelectedSlots([null, null, null])
