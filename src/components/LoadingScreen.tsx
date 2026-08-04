@@ -58,7 +58,7 @@ export default function LoadingScreen() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.6 }}
         >
-          <p className="text-sm text-[#E3BD87] font-medium">소원이 깃드는 따뜻한 정령의 이야기</p>
+          <p className="text-sm text-[#E3BD87] font-medium">마음을 담아 빚는 정령 이야기</p>
         </motion.div>
 
         {/* Tip above the loading bar */}

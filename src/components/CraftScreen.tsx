@@ -4,49 +4,166 @@ import useAppStore from '../lib/store'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
-import { getSpiritCraftCostByLevel, QUEST_REJECT_PENALTY_GOLD } from '../data/economy'
+import { CRAFT_HINT_COSTS, getSpiritCraftCostByLevel, QUEST_REJECT_PENALTY_GOLD } from '../data/economy'
 import { QUEST_REWARDS } from '../data/quests'
+import { RECIPES } from '../data/recipes'
+import { SPIRIT_REQUEST_PAGES, type SpiritRequestPage } from '../data/spiritRequests'
 import { buildOrderedRecipe } from '../lib/crafting'
 
 // Inventory counts are TBD; UI focuses on selection layout (3x4 grid)
 // When counts become available, wire them from store/state.
 
+const ACTIVE_REQUEST_COUNT = 4
+const HINT_STATE_STORAGE_KEY = 'spiria.craft-hint-state.v1'
+const CRAFT_BOARD_STATE_STORAGE_KEY = 'spiria.craft-board-state.v1'
+
+type CraftSlots = [string | null, string | null, string | null]
+
+type QuestHintState = {
+  hintCount: number
+  revealedSlots: number[]
+}
+
+type HintStateByQuestId = Record<string, QuestHintState>
+
+type CraftBoardState = {
+  activeQuestIds: string[]
+  queueQuestIds: string[]
+  questIndex: number
+  acceptedQuestId: string | null
+}
+
+function loadHintStateByQuestId(): HintStateByQuestId {
+  try {
+    const raw = localStorage.getItem(HINT_STATE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as HintStateByQuestId
+    if (!parsed || typeof parsed !== 'object') return {}
+    return parsed
+  } catch {
+    return {}
+  }
+}
+
+function saveHintStateByQuestId(state: HintStateByQuestId) {
+  try {
+    localStorage.setItem(HINT_STATE_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function buildQuestMap() {
+  return Object.fromEntries(SPIRIT_REQUEST_PAGES.map((quest) => [quest.id, quest])) as Record<string, SpiritRequestPage>
+}
+
+function loadCraftBoardState(): CraftBoardState | null {
+  try {
+    const raw = localStorage.getItem(CRAFT_BOARD_STATE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as CraftBoardState
+    if (!parsed || typeof parsed !== 'object') return null
+    if (!Array.isArray(parsed.activeQuestIds) || !Array.isArray(parsed.queueQuestIds)) return null
+    return {
+      activeQuestIds: parsed.activeQuestIds.filter((id) => typeof id === 'string'),
+      queueQuestIds: parsed.queueQuestIds.filter((id) => typeof id === 'string'),
+      questIndex: Math.max(0, Math.floor(parsed.questIndex ?? 0)),
+      acceptedQuestId: typeof parsed.acceptedQuestId === 'string' ? parsed.acceptedQuestId : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveCraftBoardState(state: CraftBoardState) {
+  try {
+    localStorage.setItem(CRAFT_BOARD_STATE_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function toCraftSlots(next: Array<string | null>): CraftSlots {
+  return [next[0] ?? null, next[1] ?? null, next[2] ?? null]
+}
+
+function isSlotLocked(slotIndex: number, revealedSlots: number[]) {
+  return revealedSlots.includes(slotIndex)
+}
+
+function shuffleRequests<T>(items: readonly T[]): T[] {
+  const next = [...items]
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1))
+    const current = next[index]
+    next[index] = next[randomIndex]
+    next[randomIndex] = current
+  }
+  return next
+}
+
 export default function CraftScreen() {
   const setScreen = useAppStore(s => s.setScreen)
+  const openCraftResult = useAppStore(s => s.openCraftResult)
   const inventory = useAppStore(s => s.inventory)
+  const coins = useAppStore(s => s.coins)
   const level = useAppStore(s => s.level)
   const consumeItem = useAppStore(s => s.consumeItem)
   const spendCoins = useAppStore(s => s.spendCoins)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
-  const [selected, setSelected] = useState<string[]>([])
+  const [selectedSlots, setSelectedSlots] = useState<CraftSlots>([null, null, null])
   const [questIndex, setQuestIndex] = useState(0)
   const [acceptedQuestId, setAcceptedQuestId] = useState<string | null>(null)
   const [isCraftStartPending, setIsCraftStartPending] = useState(false)
+  const [isHintApplyPending, setIsHintApplyPending] = useState(false)
+  const [hintStateByQuestId, setHintStateByQuestId] = useState<HintStateByQuestId>(() => loadHintStateByQuestId())
+  const [systemNotice, setSystemNotice] = useState<{ title: string; message: string } | null>(null)
+  const hintApplyLockRef = useRef(false)
   const bubblingRef = useRef<HTMLAudioElement | null>(null)
   const PAPER_SFX_PATH = 'assets/sound/paper.mp3'
   const BUBBLING_SFX_PATH = 'assets/sound/bubbling.mp3'
   const COIN_PENALTY_SFX_PATH = 'assets/sound/num_coin.mp3'
 
-  const [questPages, setQuestPages] = useState([
-    {
-      id: 'req_lumen',
-      spiritName: '소요',
-      tier: 'Easy' as const,
-      text: '밤 안개 속에서 길을 잃은 이들을 위해, 은은하게 빛나는 등불이 되어줄 정령이 필요해요.',
-    },
-    {
-      id: 'req_frostseal',
-      spiritName: '루아',
-      tier: 'Normal' as const,
-      text: '깊은 숲의 균열에서 새어 나오는 냉기를 잠재울 수 있는 정령이 필요해요.',
-    },
-    {
-      id: 'req_blossomwind',
-      spiritName: '플레오',
-      tier: 'Hard' as const,
-      text: '메마른 들판에 다시 숨결이 돌 수 있도록 따뜻한 기운의 정령을 빚어 주세요.',
-    },
-  ])
+  const [questBoard, setQuestBoard] = useState<{ active: SpiritRequestPage[]; queue: SpiritRequestPage[] }>(() => {
+    const saved = loadCraftBoardState()
+    if (!saved) {
+      const shuffledRequests = shuffleRequests(SPIRIT_REQUEST_PAGES)
+      return {
+        active: [...shuffledRequests.slice(0, ACTIVE_REQUEST_COUNT)],
+        queue: [...shuffledRequests.slice(ACTIVE_REQUEST_COUNT)],
+      }
+    }
+
+    const questMap = buildQuestMap()
+    const active = saved.activeQuestIds
+      .map((id) => questMap[id])
+      .filter((quest): quest is SpiritRequestPage => Boolean(quest))
+    const queue = saved.queueQuestIds
+      .map((id) => questMap[id])
+      .filter((quest): quest is SpiritRequestPage => Boolean(quest))
+
+    const existingIds = new Set([...active, ...queue].map((quest) => quest.id))
+    const missing = SPIRIT_REQUEST_PAGES.filter((quest) => !existingIds.has(quest.id))
+    const nextActive = [...active]
+    const nextQueue = [...queue, ...missing]
+
+    while (nextActive.length < ACTIVE_REQUEST_COUNT && nextQueue.length > 0) {
+      const pulled = nextQueue.shift()
+      if (pulled) nextActive.push(pulled)
+    }
+
+    return {
+      active: nextActive,
+      queue: nextQueue,
+    }
+  })
+
+  useEffect(() => {
+    const saved = loadCraftBoardState()
+    if (!saved) return
+    setQuestIndex(saved.questIndex)
+    setAcceptedQuestId(saved.acceptedQuestId)
+  }, [])
 
   const craftMaterials = [
     { id: 'flower', name: '꽃' },
@@ -77,56 +194,208 @@ export default function CraftScreen() {
     '#F6E7A8',
   ]
 
-  const slots = useMemo(() => [0, 1, 2].map((i) => selected[i] ?? null), [selected])
+  const slots = selectedSlots
   const craftCost = useMemo(() => getSpiritCraftCostByLevel(level), [level])
-  const activeQuest = questPages[questIndex] ?? null
+  const activeQuest = questBoard.active[questIndex] ?? null
+  const activeQuestRecipe = useMemo(() => {
+    if (!activeQuest) return null
+    return RECIPES.find((recipe) => recipe.resultItemId === activeQuest.spiritId)
+      ?? activeQuest.candidateSpiritIds
+        .map((candidateId) => RECIPES.find((recipe) => recipe.resultItemId === candidateId) ?? null)
+        .find((recipe): recipe is (typeof RECIPES)[number] => Boolean(recipe))
+      ?? null
+  }, [activeQuest])
+  const activeHintState = useMemo<QuestHintState>(() => {
+    if (!activeQuest) return { hintCount: 0, revealedSlots: [] }
+    return hintStateByQuestId[activeQuest.id] ?? { hintCount: 0, revealedSlots: [] }
+  }, [activeQuest, hintStateByQuestId])
+  const lockedSlots = activeHintState.revealedSlots
+  const nextHintCost = CRAFT_HINT_COSTS[activeHintState.hintCount] ?? null
   const activeQuestRewardGold = useMemo(() => {
     if (!activeQuest) return 0
     const reward = QUEST_REWARDS.find((entry) => entry.tier === activeQuest.tier)
     return reward?.gold ?? 0
   }, [activeQuest])
   const acceptedQuest = useMemo(
-    () => (acceptedQuestId ? questPages.find((q) => q.id === acceptedQuestId) ?? null : null),
-    [questPages, acceptedQuestId],
+    () => (acceptedQuestId ? questBoard.active.find((q) => q.id === acceptedQuestId) ?? null : null),
+    [questBoard.active, acceptedQuestId],
   )
-  const discoveredSpiritNames = useMemo(
-    () => new Set(['소요', '루아', '플레오', '스텔리오', '포리나', '누비']),
-    [],
+  const hasAcceptedQuest = Boolean(acceptedQuest)
+  const isViewingAcceptedQuest = Boolean(acceptedQuest && activeQuest && acceptedQuest.id === activeQuest.id)
+  const canNavigateQuests = questBoard.active.length > 0 && !acceptedQuest
+  const canUseHint = Boolean(activeQuest && activeQuestRecipe && acceptedQuest && acceptedQuest.id === activeQuest.id)
+
+  const selectedMaterialIds = useMemo(
+    () => selectedSlots.filter((slot): slot is string => Boolean(slot)),
+    [selectedSlots],
   )
-  const visibleTargetSpiritName = useMemo(() => {
-    if (!activeQuest) return '???'
-    return discoveredSpiritNames.has(activeQuest.spiritName) ? activeQuest.spiritName : '???'
-  }, [activeQuest, discoveredSpiritNames])
   const selectedShortageIds = useMemo(
-    () => selected.filter((id) => (inventory[id] ?? 0) < craftCost.requiredPerMaterial),
-    [selected, inventory, craftCost.requiredPerMaterial],
+    () => selectedMaterialIds.filter((id) => (inventory[id] ?? 0) < craftCost.requiredPerMaterial),
+    [selectedMaterialIds, inventory, craftCost.requiredPerMaterial],
   )
-  const canCraft = selected.length === craftCost.selectedMaterialKinds && selectedShortageIds.length === 0 && !isCraftStartPending
+  const canCraft = selectedMaterialIds.length === craftCost.selectedMaterialKinds && selectedShortageIds.length === 0 && !isCraftStartPending
 
   const toggle = (id: string) => {
-    setSelected((cur) => {
-      const has = cur.includes(id)
-      if (has) return cur.filter((x) => x !== id)
-      if (cur.length >= 3) return cur // limit 3
-      return [...cur, id]
+    setSelectedSlots((cur) => {
+      const next = [...cur]
+      const currentIndex = next.findIndex((slotId, index) => slotId === id && !isSlotLocked(index, lockedSlots))
+      if (currentIndex >= 0) {
+        next[currentIndex] = null
+        return toCraftSlots(next)
+      }
+
+      if (next.includes(id)) return cur
+
+      const firstEmptyUnlockedIndex = next.findIndex((slotId, index) => !slotId && !isSlotLocked(index, lockedSlots))
+      if (firstEmptyUnlockedIndex < 0) return cur
+
+      next[firstEmptyUnlockedIndex] = id
+      return toCraftSlots(next)
     })
   }
 
-  const resetSelected = () => setSelected([])
+  const resetSelected = () => {
+    setSelectedSlots((cur) => toCraftSlots(cur.map((slotId, index) => (isSlotLocked(index, lockedSlots) ? slotId : null))))
+  }
+
+  useEffect(() => {
+    if (!activeQuest) {
+      setSelectedSlots([null, null, null])
+      return
+    }
+
+    setSelectedSlots(() => {
+      const next: Array<string | null> = [null, null, null]
+      if (activeQuestRecipe) {
+        for (const slotIndex of lockedSlots) {
+          next[slotIndex] = activeQuestRecipe.ingredientIds[slotIndex]
+        }
+      }
+      return toCraftSlots(next)
+    })
+  }, [activeQuest?.id])
+
+  useEffect(() => {
+    if (!activeQuestRecipe) return
+    if (lockedSlots.length === 0) return
+
+    setSelectedSlots((cur) => {
+      const next = [...cur]
+      for (const slotIndex of lockedSlots) {
+        next[slotIndex] = activeQuestRecipe.ingredientIds[slotIndex]
+      }
+      return toCraftSlots(next)
+    })
+  }, [activeQuestRecipe, lockedSlots])
 
   const requestCraftStart = async (_recipe: { materialIds: [string, string, string]; recipeKey: string }) => {
     await new Promise((resolve) => window.setTimeout(resolve, 120))
     return true
   }
 
-  const startCraft = async () => {
-    if (!canCraft || isCraftStartPending) return
-    if (questPages.length > 0 && !acceptedQuest) {
-      alert('먼저 의뢰를 수락해 주세요.')
+  const openSystemNotice = (message: string, title = '시스템 알림') => {
+    setSystemNotice({ title, message })
+  }
+
+  const removeQuestAndFill = (questId: string) => {
+    setQuestBoard((prev) => {
+      const nextActive = prev.active.filter((quest) => quest.id !== questId)
+      const nextQueue = [...prev.queue]
+      if (nextQueue.length > 0) {
+        const nextQuest = nextQueue.shift()
+        if (nextQuest) nextActive.push(nextQuest)
+      }
+      return { active: nextActive, queue: nextQueue }
+    })
+  }
+
+  const persistHintStateForQuest = (questId: string, nextState: QuestHintState) => {
+    setHintStateByQuestId((prev) => {
+      const next = {
+        ...prev,
+        [questId]: nextState,
+      }
+      saveHintStateByQuestId(next)
+      return next
+    })
+  }
+
+  const clearHintStateForQuest = (questId: string) => {
+    setHintStateByQuestId((prev) => {
+      if (!prev[questId]) return prev
+      const next = { ...prev }
+      delete next[questId]
+      saveHintStateByQuestId(next)
+      return next
+    })
+  }
+
+  const playCoinSfx = () => {
+    try {
+      const audio = new Audio(a(COIN_PENALTY_SFX_PATH))
+      audio.volume = 0.86
+      void audio.play()
+    } catch {
+      // ignore audio failures
+    }
+  }
+
+  const handleUseHint = () => {
+    if (!activeQuest || !activeQuestRecipe || isHintApplyPending || hintApplyLockRef.current) return
+    if (!acceptedQuest || acceptedQuest.id !== activeQuest.id) {
+      openSystemNotice('의뢰서를 수락해야 힌트를 사용할 수 있어요.', '힌트 안내')
+      return
+    }
+    if (activeHintState.hintCount >= CRAFT_HINT_COSTS.length) return
+
+    const hintCost = CRAFT_HINT_COSTS[activeHintState.hintCount]
+    if (coins < hintCost) {
+      openSystemNotice('골드가 부족합니다.', '힌트 안내')
       return
     }
 
-    const orderedMaterialIds = [...selected] as [string, string, string]
+    const availableSlots = [0, 1, 2].filter((slotIndex) => !activeHintState.revealedSlots.includes(slotIndex))
+    if (availableSlots.length === 0) return
+
+    hintApplyLockRef.current = true
+    setIsHintApplyPending(true)
+    const spent = spendCoins(hintCost)
+    if (spent < hintCost) {
+      hintApplyLockRef.current = false
+      setIsHintApplyPending(false)
+      openSystemNotice('골드가 부족합니다.', '힌트 안내')
+      return
+    }
+
+    const randomIndex = Math.floor(Math.random() * availableSlots.length)
+    const revealedSlot = availableSlots[randomIndex]
+    const nextRevealedSlots = [...activeHintState.revealedSlots, revealedSlot].sort((a, b) => a - b)
+    const nextHintState: QuestHintState = {
+      hintCount: Math.min(CRAFT_HINT_COSTS.length, activeHintState.hintCount + 1),
+      revealedSlots: nextRevealedSlots,
+    }
+
+    persistHintStateForQuest(activeQuest.id, nextHintState)
+    setSelectedSlots((cur) => {
+      const next = [...cur]
+      next[revealedSlot] = activeQuestRecipe.ingredientIds[revealedSlot]
+      return toCraftSlots(next)
+    })
+    playCoinSfx()
+    hintApplyLockRef.current = false
+    setIsHintApplyPending(false)
+  }
+
+  const startCraft = async () => {
+    if (!canCraft || isCraftStartPending) return
+    if (questBoard.active.length > 0 && !acceptedQuest) {
+      openSystemNotice('먼저 의뢰를 수락해 주세요.', '의뢰 안내')
+      return
+    }
+
+    if (!selectedSlots[0] || !selectedSlots[1] || !selectedSlots[2]) return
+
+    const orderedMaterialIds = [selectedSlots[0], selectedSlots[1], selectedSlots[2]] as [string, string, string]
     const recipe = buildOrderedRecipe(orderedMaterialIds)
     const targetQuest = acceptedQuest
     setIsCraftStartPending(true)
@@ -142,14 +411,32 @@ export default function CraftScreen() {
         consumeItem(id, craftCost.requiredPerMaterial)
       })
 
+      const craftedRecipe = RECIPES.find((entry) => entry.ingredientIds.join('>') === recipe.recipeKey)
+      const craftedSpiritId = craftedRecipe?.resultItemId ?? null
+
       if (targetQuest) {
-        alert(`${targetQuest.spiritName} 제작이 시작되었습니다! 의뢰가 완료되었습니다.`)
-        setQuestPages((prev) => prev.filter((q) => q.id !== targetQuest.id))
-        setAcceptedQuestId(null)
+        const isSuccess = craftedSpiritId !== null && targetQuest.candidateSpiritIds.includes(craftedSpiritId)
+        if (isSuccess) {
+          removeQuestAndFill(targetQuest.id)
+          setAcceptedQuestId(null)
+        }
+        openCraftResult({
+          spiritId: craftedSpiritId,
+          requestText: targetQuest.text,
+          success: isSuccess,
+          candidateSpiritIds: targetQuest.candidateSpiritIds,
+          materialIds: orderedMaterialIds,
+        })
       } else {
-        alert('프로토타입: 정령 제작이 시작되었습니다!')
+        openCraftResult({
+          spiritId: craftedSpiritId,
+          requestText: '',
+          success: craftedSpiritId !== null,
+          candidateSpiritIds: [],
+          materialIds: orderedMaterialIds,
+        })
       }
-      setSelected([])
+      setSelectedSlots([null, null, null])
     } catch {
       // do not consume materials when start request fails
     } finally {
@@ -168,51 +455,62 @@ export default function CraftScreen() {
   }
 
   const goPrevQuest = () => {
-    if (questPages.length === 0) return
+    if (!canNavigateQuests) return
     playPaperSfx()
-    setQuestIndex((i) => (i - 1 + questPages.length) % questPages.length)
+    setQuestIndex((i) => (i - 1 + questBoard.active.length) % questBoard.active.length)
   }
 
   const goNextQuest = () => {
-    if (questPages.length === 0) return
+    if (!canNavigateQuests) return
     playPaperSfx()
-    setQuestIndex((i) => (i + 1) % questPages.length)
+    setQuestIndex((i) => (i + 1) % questBoard.active.length)
   }
 
   const acceptQuest = () => {
     if (!activeQuest) return
     playPaperSfx()
     setAcceptedQuestId(activeQuest.id)
-    alert(`의뢰 수락: ${activeQuest.spiritName} 제작을 시작하세요.`)
+    openSystemNotice('의뢰가 수락되었습니다. 제작을 시작하세요.', '의뢰 수락')
   }
 
   const rejectQuest = () => {
     if (!activeQuest) return
     playPaperSfx()
     const rejected = activeQuest
-    setQuestPages((prev) => prev.filter((q) => q.id !== rejected.id))
+    removeQuestAndFill(rejected.id)
+    clearHintStateForQuest(rejected.id)
     if (acceptedQuestId === rejected.id) {
       setAcceptedQuestId(null)
     }
     const spent = spendCoins(QUEST_REJECT_PENALTY_GOLD)
-    try {
-      const audio = new Audio(a(COIN_PENALTY_SFX_PATH))
-      audio.volume = 0.86
-      void audio.play()
-    } catch {
-      // ignore audio failures
-    }
-    alert(`의뢰를 거절했습니다. 코인 -${spent.toLocaleString()}`)
+    playCoinSfx()
+    openSystemNotice(`의뢰를 거절했습니다. (코인 -${spent.toLocaleString()})`, '의뢰 거절')
+  }
+
+  const cancelAcceptedQuest = () => {
+    if (!acceptedQuest) return
+    playPaperSfx()
+    setAcceptedQuestId(null)
+    openSystemNotice('의뢰 수락을 취소했습니다.', '의뢰 취소')
   }
 
   useEffect(() => {
-    if (questPages.length === 0) {
+    if (questBoard.active.length === 0) {
       setQuestIndex(0)
       setAcceptedQuestId(null)
       return
     }
-    setQuestIndex((prev) => Math.min(prev, questPages.length - 1))
-  }, [questPages])
+    setQuestIndex((prev) => Math.min(prev, questBoard.active.length - 1))
+  }, [questBoard.active])
+
+  useEffect(() => {
+    saveCraftBoardState({
+      activeQuestIds: questBoard.active.map((quest) => quest.id),
+      queueQuestIds: questBoard.queue.map((quest) => quest.id),
+      questIndex,
+      acceptedQuestId,
+    })
+  }, [acceptedQuestId, questBoard.active, questBoard.queue, questIndex])
 
   useEffect(() => {
     const audio = new Audio(`${import.meta.env.BASE_URL}${BUBBLING_SFX_PATH}`)
@@ -299,16 +597,18 @@ export default function CraftScreen() {
               <button
                 type="button"
                 onClick={goPrevQuest}
-                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
+                disabled={!canNavigateQuests}
+                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center disabled:opacity-45 disabled:cursor-not-allowed"
                 aria-label="이전 의뢰"
               >
                 {'<'}
               </button>
-              <div className="text-[14px] font-extrabold">정령 의뢰서 ({questPages.length === 0 ? 0 : questIndex + 1}/{questPages.length})</div>
+              <div className="text-[14px] font-extrabold">정령 의뢰서 ({questBoard.active.length === 0 ? 0 : questIndex + 1}/{questBoard.active.length})</div>
               <button
                 type="button"
                 onClick={goNextQuest}
-                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center"
+                disabled={!canNavigateQuests}
+                className="w-5 h-5 translate-y-[1px] rounded border border-[#d4bb8e] bg-[#41333d] text-[#d4bb8e] text-[15px] font-extrabold leading-none flex items-center justify-center disabled:opacity-45 disabled:cursor-not-allowed"
                 aria-label="다음 의뢰"
               >
                 {'>'}
@@ -318,35 +618,31 @@ export default function CraftScreen() {
             <p className="relative z-[1] text-[14px] leading-5 whitespace-pre-line [word-break:keep-all]">
               {activeQuest ? activeQuest.text : '현재 진행 가능한 의뢰가 없습니다.'}
             </p>
-            <div className="relative z-[1] mt-1 text-[12px] font-semibold text-[rgb(95,76,67)] flex items-center justify-center gap-1.5">
-              <span>목표 정령</span>
-              <span className="inline-flex items-center justify-center px-2.5 h-[22px] rounded-full border border-[rgb(95,76,67)] text-[rgb(95,76,67)] text-[12px] font-bold">
-                {visibleTargetSpiritName}
-              </span>
-            </div>
             <div className="relative z-[1] mt-[17px] px-2 py-1 rounded-md border border-[rgb(95,76,67)]/35 bg-[rgba(95,76,67,0.12)] text-[11px] text-[rgb(95,76,67)] font-semibold text-center">
-              {acceptedQuest ? `수락됨: ${acceptedQuest.spiritName} (제작 시 완료)` : '수락 후 제작 시 완료'}
+              {acceptedQuest ? '의뢰 수락됨 (제작 시 완료 처리)' : '수락 후 제작 시 완료 처리'}
             </div>
 
             <div className="relative z-[1] mt-[17px] flex items-start justify-center gap-2">
               <div className="relative">
-                <div className="absolute z-[30] left-1/2 -translate-x-1/2 -top-[12px] h-[18px] px-2 rounded-md border border-red-300/40 bg-[rgb(90,22,28)] text-[11px] font-semibold text-[#ffd6d9] inline-flex items-center justify-center gap-1 whitespace-nowrap">
-                  <img src={a('assets/particle/money.png')} alt="coin" className="w-3.5 h-3.5 object-contain" draggable={false} />
-                  -{QUEST_REJECT_PENALTY_GOLD}
-                </div>
+                {!hasAcceptedQuest && (
+                  <div className="absolute z-[30] left-1/2 -translate-x-1/2 -top-[12px] h-[18px] px-2 rounded-md border border-red-300/40 bg-[rgb(90,22,28)] text-[11px] font-semibold text-[#ffd6d9] inline-flex items-center justify-center gap-1 whitespace-nowrap">
+                    <img src={a('assets/particle/money.png')} alt="coin" className="w-3.5 h-3.5 object-contain" draggable={false} />
+                    -{QUEST_REJECT_PENALTY_GOLD}
+                  </div>
+                )}
                 <button
                   type="button"
-                  onClick={rejectQuest}
-                  disabled={!activeQuest}
-                  className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-red-300/45 bg-[rgba(160,36,44,0.55)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={hasAcceptedQuest ? cancelAcceptedQuest : rejectQuest}
+                  disabled={!activeQuest && !acceptedQuest}
+                  className={`relative h-8 w-[92px] rounded-lg overflow-hidden text-white disabled:opacity-60 disabled:cursor-not-allowed ${hasAcceptedQuest ? 'border border-slate-200/45 bg-[rgba(130,140,150,0.35)]' : 'border border-red-300/45 bg-[rgba(160,36,44,0.55)]'}`}
                 >
                   <img
-                    src={a('assets/particle/btn_bg_red.png')}
-                    alt="거절 버튼 배경"
-                    className="absolute inset-0 w-full h-full object-cover opacity-65"
+                    src={a(hasAcceptedQuest ? 'assets/particle/btn_bg_sliver.png' : 'assets/particle/btn_bg_red.png')}
+                    alt={hasAcceptedQuest ? '취소 버튼 배경' : '거절 버튼 배경'}
+                    className={`absolute inset-0 w-full h-full object-cover ${hasAcceptedQuest ? 'opacity-60' : 'opacity-65'}`}
                     draggable={false}
                   />
-                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#e4b4b4]">거절</span>
+                  <span className={`relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide ${hasAcceptedQuest ? 'text-[#d5dae6]' : 'text-[#e4b4b4]'}`}>{hasAcceptedQuest ? '취소' : '거절'}</span>
                 </button>
               </div>
               <div className="relative">
@@ -357,7 +653,7 @@ export default function CraftScreen() {
                 <button
                   type="button"
                   onClick={acceptQuest}
-                  disabled={!activeQuest || !!acceptedQuest}
+                  disabled={!activeQuest || hasAcceptedQuest}
                   className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <img
@@ -398,6 +694,25 @@ export default function CraftScreen() {
         <div className="absolute left-1/2 -translate-x-1/2 top-[43%] translate-y-[19px] relative w-[390px]">
           <button
             type="button"
+            onClick={handleUseHint}
+            disabled={!activeQuest || !activeQuestRecipe || activeHintState.hintCount >= CRAFT_HINT_COSTS.length || isHintApplyPending}
+            className={`absolute left-0 -top-[40px] inline-flex h-8 items-center gap-2 rounded-full border border-[#d6b88f]/45 px-3 text-[12px] font-semibold text-[#f5e2c7] disabled:cursor-not-allowed disabled:opacity-60 ${canUseHint ? 'bg-[rgb(90,66,34)] opacity-100' : 'bg-[rgba(90,66,34,0.55)]'}`}
+          >
+            {activeHintState.hintCount >= CRAFT_HINT_COSTS.length ? (
+              <span>힌트 모두 확인</span>
+            ) : (
+              <>
+                <span>힌트 보기</span>
+                <span className="inline-flex items-center gap-1">
+                  <img src={a('assets/particle/money.png')} alt="coin" className="h-3.5 w-3.5 object-contain" draggable={false} />
+                  <span>{nextHintCost ?? 0}</span>
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={resetSelected}
             className="absolute right-0 -top-[40px] w-8 h-8 rounded-full overflow-hidden border-[2px] border-[#caa56e]/70 shadow-[0_8px_20px_rgba(0,0,0,0.35)] active:scale-95"
             aria-label="선택 재료 초기화"
@@ -415,10 +730,11 @@ export default function CraftScreen() {
               {matItems.map((it) => {
                 const itemCount = inventory[it.id] ?? 0
                 const isSelectable = itemCount > 0
-                const active = isSelectable && selected.includes(it.id)
+                const active = isSelectable && selectedMaterialIds.includes(it.id)
                 const isShortage = active && itemCount < craftCost.requiredPerMaterial
                 const shortageAmount = Math.max(0, craftCost.requiredPerMaterial - itemCount)
                 const itemState = itemCount <= 0 ? 'dis' : active ? 'on' : 'off'
+                const activeOrder = selectedSlots.findIndex((slotId) => slotId === it.id)
                 return (
                   <motion.button
                     key={it.id}
@@ -455,7 +771,7 @@ export default function CraftScreen() {
                       {itemCount}
                     </span>
                     {active && (
-                      <span className="absolute z-30 -top-[2px] right-[1px] w-[23px] h-[23px] rounded-full bg-[#A894FF] text-[14px] text-black font-black flex items-center justify-center">{selected.indexOf(it.id) + 1}</span>
+                      <span className="absolute z-30 -top-[2px] right-[1px] w-[23px] h-[23px] rounded-full bg-[#A894FF] text-[14px] text-black font-black flex items-center justify-center">{activeOrder + 1}</span>
                     )}
                   </motion.button>
                 )
@@ -469,6 +785,12 @@ export default function CraftScreen() {
             <div className="flex items-center justify-center gap-2">
             {slots.map((s, i) => (
               <div key={i} className="relative w-12 h-[64px] flex flex-col items-center">
+                {isSlotLocked(i, lockedSlots) && (
+                  <>
+                    <span className="pointer-events-none absolute -inset-2 rounded-full bg-[radial-gradient(closest-side,rgba(206,181,124,0.42),rgba(206,181,124,0)_72%)] blur-[10px]" />
+                    <span className="absolute z-30 -top-[6px] right-0 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-[#e2c792]/55 bg-[rgba(66,48,22,0.92)] px-1 text-[10px] font-extrabold text-[#f7ddb2]">🔒</span>
+                  </>
+                )}
                 {s ? (
                   <>
                     {(() => {
@@ -538,6 +860,22 @@ export default function CraftScreen() {
           </motion.button>
         </div>
       </div>
+
+      {systemNotice && (
+        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/55 px-6">
+          <div className="w-full max-w-[320px] rounded-2xl border border-[#e3cfa9]/35 bg-[rgba(14,12,18,0.94)] px-5 py-5 text-center shadow-[0_18px_45px_rgba(0,0,0,0.55)]">
+            <div className="text-[13px] tracking-[0.15em] text-[#e8d5b3]/80">{systemNotice.title}</div>
+            <p className="mt-3 whitespace-pre-line text-[14px] leading-[1.65] text-[#f1e4cd]">{systemNotice.message}</p>
+            <button
+              type="button"
+              onClick={() => setSystemNotice(null)}
+              className="mt-5 inline-flex h-10 min-w-[110px] items-center justify-center rounded-full border border-[#d6b88f]/45 bg-[rgba(104,78,44,0.56)] px-5 text-[13px] font-semibold text-[#f8e4c3]"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

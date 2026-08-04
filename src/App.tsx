@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import LoadingScreen from './components/LoadingScreen'
 import MainScreen from './components/MainScreen'
 import ExpeditionScreen from './components/ExpeditionScreen'
 import CraftScreen from './components/CraftScreen'
+import CraftResultScreen from './components/CraftResultScreen'
 import BookScreen from './components/BookScreen'
 import InventoryScreen from './components/InventoryScreen'
 import ProfileScreen from './components/ProfileScreen'
@@ -13,6 +14,7 @@ import Map2Screen from './components/Map2Screen'
 import Map3Screen from './components/Map3Screen'
 import Map4Screen from './components/Map4Screen'
 import Map5Screen from './components/Map5Screen'
+import SpiritDetailScreen from './components/SpiritDetailScreen'
 import DevRemote from './components/DevRemote'
 import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
@@ -53,65 +55,71 @@ export default function App() {
   }, [setProgress])
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      {/* Mobile viewport (9:20) */}
-      <div className="aspect-[9/20] w-[min(45dvh,calc(100vw-2rem))] max-h-[92dvh] rounded-3xl overflow-hidden shadow-soft border border-white/5 relative">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={screen}
-            className="absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: 'easeInOut' }}
-          >
-            {screen === 'loading' ? (
-              <LoadingScreen />
-            ) : screen === 'expedition' ? (
-              <ExpeditionScreen />
-            ) : screen === 'book' ? (
-              <BookScreen />
-            ) : screen === 'craft' ? (
-              <CraftScreen />
-            ) : screen === 'bag' ? (
-              <InventoryScreen />
-            ) : screen === 'profile' ? (
-              <ProfileScreen />
-            ) : screen === 'license' ? (
-              <LicenseScreen />
-            ) : screen === 'map1' ? (
-              <Map1Screen />
-            ) : screen === 'map2' ? (
-              <Map2Screen />
-            ) : screen === 'map3' ? (
-              <Map3Screen />
-            ) : screen === 'map4' ? (
-              <Map4Screen />
-            ) : screen === 'map5' ? (
-              <Map5Screen />
-            ) : (
-              <MainScreen />
-            )}
-          </motion.div>
-        </AnimatePresence>
+    <MotionConfig reducedMotion="never">
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        {/* Mobile viewport (9:20) */}
+        <div className="aspect-[9/20] w-[min(45dvh,calc(100vw-2rem))] max-h-[92dvh] rounded-3xl overflow-hidden shadow-soft border border-white/5 relative">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={screen}
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
+            >
+              {screen === 'loading' ? (
+                <LoadingScreen />
+              ) : screen === 'expedition' ? (
+                <ExpeditionScreen />
+              ) : screen === 'book' ? (
+                <BookScreen />
+              ) : screen === 'craft' ? (
+                <CraftScreen />
+              ) : screen === 'craftResult' ? (
+                <CraftResultScreen />
+              ) : screen === 'bag' ? (
+                <InventoryScreen />
+              ) : screen === 'profile' ? (
+                <ProfileScreen />
+              ) : screen === 'license' ? (
+                <LicenseScreen />
+              ) : screen === 'map1' ? (
+                <Map1Screen />
+              ) : screen === 'map2' ? (
+                <Map2Screen />
+              ) : screen === 'map3' ? (
+                <Map3Screen />
+              ) : screen === 'map4' ? (
+                <Map4Screen />
+              ) : screen === 'map5' ? (
+                <Map5Screen />
+              ) : screen === 'spiritDetail' ? (
+                <SpiritDetailScreen />
+              ) : (
+                <MainScreen />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* DEV floating remote (temporarily visible in production per request) */}
+        <DevRemote screen={screen} onSelect={setScreen} />
+
+        {/* Background music player (DEV toggle visible; plays on user gesture) */}
+        <BgmPlayer />
+
+        {/* Global tap SFX (plays on pointerdown / Enter / Space) */}
+        <TapSfx />
+
+        {showLevelUpPopup && pendingLevelUp && (
+          <LevelUpPopup levelUp={pendingLevelUp} onClose={claimPendingLevelUpRewards} />
+        )}
+
+        {/* Resolution guard overlay (height <= 874px) */}
+        <ResolutionOverlay />
       </div>
-
-      {/* DEV floating remote (temporarily visible in production per request) */}
-      <DevRemote screen={screen} onSelect={setScreen} />
-
-      {/* Background music player (DEV toggle visible; plays on user gesture) */}
-      <BgmPlayer />
-
-      {/* Global tap SFX (plays on pointerdown / Enter / Space) */}
-      <TapSfx />
-
-      {showLevelUpPopup && pendingLevelUp && (
-        <LevelUpPopup levelUp={pendingLevelUp} onClose={claimPendingLevelUpRewards} />
-      )}
-
-      {/* Resolution guard overlay (height <= 874px) */}
-      <ResolutionOverlay />
-    </div>
+    </MotionConfig>
   )
 }
 

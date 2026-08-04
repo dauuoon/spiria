@@ -173,10 +173,17 @@ def build_items(item_rows: list[dict[str, Any]]) -> str:
     others = [
         {'item_id': 'fragment_spirit_soyo', '이름': '소요의 조각'},
         {'item_id': 'fragment_spirit_rua', '이름': '루아의 조각'},
+        {'item_id': 'fragment_spirit_tera', '이름': '테라의 조각'},
         {'item_id': 'fragment_spirit_pleo', '이름': '플레오의 조각'},
         {'item_id': 'fragment_spirit_stellio', '이름': '스텔리오의 조각'},
         {'item_id': 'fragment_spirit_porina', '이름': '포리나의 조각'},
+        {'item_id': 'fragment_spirit_igni', '이름': '이그니의 조각'},
+        {'item_id': 'fragment_spirit_nova', '이름': '노바의 조각'},
+        {'item_id': 'fragment_spirit_lumen', '이름': '루멘의 조각'},
+        {'item_id': 'fragment_spirit_solaris', '이름': '솔라스의 조각'},
         {'item_id': 'fragment_spirit_nubi', '이름': '누비의 조각'},
+        {'item_id': 'fragment_spirit_erion', '이름': '에리온의 조각'},
+        {'item_id': 'fragment_spirit_orvis', '이름': '오르비스의 조각'},
         {'item_id': 'forest_trace', '이름': '숲의 잔향'},
         {'item_id': 'wind_trace', '이름': '바람의 메아리'},
         {'item_id': 'lake_trace', '이름': '설원의 기억'},
@@ -200,10 +207,17 @@ def build_items(item_rows: list[dict[str, Any]]) -> str:
     icon_map = {
         'fragment_spirit_soyo': 'assets/item/it/it_soul.png',
         'fragment_spirit_rua': 'assets/item/it/it_soul.png',
+        'fragment_spirit_tera': 'assets/item/it/it_soul.png',
         'fragment_spirit_pleo': 'assets/item/it/it_soul.png',
         'fragment_spirit_stellio': 'assets/item/it/it_soul.png',
         'fragment_spirit_porina': 'assets/item/it/it_soul.png',
+        'fragment_spirit_igni': 'assets/item/it/it_soul.png',
+        'fragment_spirit_nova': 'assets/item/it/it_soul.png',
+        'fragment_spirit_lumen': 'assets/item/it/it_soul.png',
+        'fragment_spirit_solaris': 'assets/item/it/it_soul.png',
         'fragment_spirit_nubi': 'assets/item/it/it_soul.png',
+        'fragment_spirit_erion': 'assets/item/it/it_soul.png',
+        'fragment_spirit_orvis': 'assets/item/it/it_soul.png',
         'forest_trace': 'assets/item/it/it_forestmap.png',
         'wind_trace': 'assets/item/it/it_windmap.png',
         'lake_trace': 'assets/item/it/it_lakemap.png',
@@ -327,6 +341,7 @@ def build_drops(exploration_rows: list[dict[str, Any]], drop_rows: list[dict[str
 def build_economy(economy_rows: list[dict[str, Any]]) -> str:
     tiers = [row for row in economy_rows if row['카테고리'] == '제작티어']
     tier_ranges = [(1, 19), (20, 49), (50, 79), (80, 99)]
+    lookup = {row['키']: row['value'] for row in economy_rows if row.get('키')}
     return '\n'.join([
         "import type { CraftingCostTier, CraftingMaterialCost, EconomySettings } from '../types/game'",
         "import { MAIN_COLOR, TOTAL_EXP_TO_MAX } from './constants'",
@@ -337,6 +352,30 @@ def build_economy(economy_rows: list[dict[str, Any]]) -> str:
         '',
         'export const TOTAL_EXP_REQUIRED = TOTAL_EXP_TO_MAX',
         f"export const QUEST_REJECT_PENALTY_GOLD = {int(next(row['value'] for row in economy_rows if row['키'] == 'quest_reject_penalty_gold'))} as const",
+        f"export const CRAFT_SUCCESS_EXP_MIN = {int(lookup['craft_success_exp_min'])} as const",
+        f"export const CRAFT_SUCCESS_EXP_MAX = {int(lookup['craft_success_exp_max'])} as const",
+        f"export const CRAFT_SUCCESS_GOLD_MIN = {int(lookup['craft_success_gold_min'])} as const",
+        f"export const CRAFT_SUCCESS_GOLD_MAX = {int(lookup['craft_success_gold_max'])} as const",
+        f"export const CRAFT_SUCCESS_FIRST_DISCOVERY_GEM = {int(lookup['craft_success_first_discovery_gem'])} as const",
+        f"export const CRAFT_FAILURE_FRAGMENT_AMOUNT = {int(lookup['craft_failure_fragment_amount'])} as const",
+        f"export const CRAFT_FAILURE_EXP = {int(lookup['craft_failure_exp'])} as const",
+        f"export const CRAFT_FAILURE_GOLD_MIN = {int(lookup['craft_failure_gold_min'])} as const",
+        f"export const CRAFT_FAILURE_GOLD_MAX = {int(lookup['craft_failure_gold_max'])} as const",
+        f"export const CRAFT_HINT_COSTS = [{int(lookup['craft_hint_gold_lv1'])}, {int(lookup['craft_hint_gold_lv2'])}, {int(lookup['craft_hint_gold_lv3'])}] as const",
+        '',
+        'export const LEVEL_UP_REWARD_TIERS = [',
+        f"  {{ minLevel: 1, maxLevel: 19, gold: {int(lookup['levelup_gold_lv1_19'])}, mana: {int(lookup['levelup_mana_lv1_19'])} }},",
+        f"  {{ minLevel: 20, maxLevel: 49, gold: {int(lookup['levelup_gold_lv20_49'])}, mana: {int(lookup['levelup_mana_lv20_49'])} }},",
+        f"  {{ minLevel: 50, maxLevel: 79, gold: {int(lookup['levelup_gold_lv50_79'])}, mana: {int(lookup['levelup_mana_lv50_79'])} }},",
+        f"  {{ minLevel: 80, maxLevel: 99, gold: {int(lookup['levelup_gold_lv80_99'])}, mana: {int(lookup['levelup_mana_lv80_99'])} }},",
+        '] as const',
+        '',
+        'export function getLevelUpRewardsForLevel(level: number): { gold: number; mana: number } {',
+        '  const lv = Math.max(1, Math.min(99, Math.floor(level)))',
+        '  const fallback = LEVEL_UP_REWARD_TIERS[LEVEL_UP_REWARD_TIERS.length - 1]',
+        '  const range = LEVEL_UP_REWARD_TIERS.find((r) => lv >= r.minLevel && lv <= r.maxLevel) ?? fallback',
+        '  return { gold: range.gold, mana: range.mana }',
+        '}',
         '',
         'export const CRAFTING_COST_TIERS: readonly CraftingCostTier[] = [',
         *[
@@ -425,8 +464,6 @@ def main() -> int:
     quest_rows = read_sheet_rows(workbook, '04_Quest')
     item_rows = read_sheet_rows(workbook, '05_Item')
     drop_rows = read_sheet_rows(workbook, '06_Drop')
-    spirit_rows = read_sheet_rows(workbook, '07_Spirit')
-    recipe_rows = read_sheet_rows(workbook, '08_Recipe')
     economy_rows = read_sheet_rows(workbook, '09_Economy')
 
     files = {
@@ -434,8 +471,6 @@ def main() -> int:
         ROOT / 'src' / 'data' / 'levels.ts': build_levels(level_rows),
         ROOT / 'src' / 'data' / 'quests.ts': build_quests(quest_rows),
         ROOT / 'src' / 'data' / 'items.ts': build_items(item_rows),
-        ROOT / 'src' / 'data' / 'spirits.ts': build_spirits(spirit_rows),
-        ROOT / 'src' / 'data' / 'recipes.ts': build_recipes(recipe_rows),
         ROOT / 'src' / 'data' / 'drops.ts': build_drops(exploration_rows, drop_rows),
         ROOT / 'src' / 'data' / 'economy.ts': build_economy(economy_rows),
     }

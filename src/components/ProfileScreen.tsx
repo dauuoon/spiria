@@ -52,7 +52,7 @@ export default function ProfileScreen() {
   const illustrationSrc = a(getProfileIllustrationSrc(level))
   const levelColor = LEVEL_COLORS[level] || '#A894FF'
   const discoveredSpiritCount = 6
-  const totalSpiritCount = 220
+  const totalSpiritCount = 80
   const totalItemCount = useMemo(() => Object.values(inventory).reduce((sum, count) => sum + Math.max(0, count), 0), [inventory])
 
   const openNicknameModal = () => {

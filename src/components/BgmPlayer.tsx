@@ -21,6 +21,7 @@ export default function BgmPlayer() {
   const ambMap5Ref = useRef<HTMLAudioElement | null>(null)
   const interactionHooked = useRef(false)
   const [enabled, setEnabled] = useState(true)
+  const [temporarilyPaused, setTemporarilyPaused] = useState(false)
   const screen = useAppStore(s => s.screen)
 
   const getMapAmbientRef = () => {
@@ -160,7 +161,7 @@ export default function BgmPlayer() {
     const am5 = ambMap5Ref.current
     if (!a1 && !a2 && !ae && !am1 && !am2 && !am3 && !am4 && !am5) return
 
-    if (!enabled) {
+    if (!enabled || temporarilyPaused) {
       a1?.pause(); a2?.pause(); ae?.pause(); am1?.pause(); am2?.pause(); am3?.pause(); am4?.pause(); am5?.pause()
       return
     }
@@ -180,7 +181,20 @@ export default function BgmPlayer() {
         a2?.play() ?? Promise.resolve(),
       ])
     }
-  }, [enabled, screen])
+  }, [enabled, screen, temporarilyPaused])
+
+  useEffect(() => {
+    const onPauseTemp = () => setTemporarilyPaused(true)
+    const onResumeTemp = () => setTemporarilyPaused(false)
+
+    window.addEventListener('spiria:pause-bgm-temp', onPauseTemp as EventListener)
+    window.addEventListener('spiria:resume-bgm-temp', onResumeTemp as EventListener)
+
+    return () => {
+      window.removeEventListener('spiria:pause-bgm-temp', onPauseTemp as EventListener)
+      window.removeEventListener('spiria:resume-bgm-temp', onResumeTemp as EventListener)
+    }
+  }, [])
 
   if (!import.meta.env.DEV) return null
 

@@ -1,29 +1,42 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useState } from 'react'
 import useAppStore from '../lib/store'
+import { DEFAULT_SPIRIT_DETAIL_META, SPIRIT_DETAIL_META } from '../data/spiritDetails'
+import { getSpiritArtworkPath, sortSpiritsByDiscoveryOrder, SPIRITS } from '../data/spirits'
+import type { SpiritRarity } from '../types/game'
 import SoftGlow from './SoftGlow'
 import ParticlesCanvas from './ParticlesCanvas'
 import TopBar from './TopBar'
 
 export default function BookScreen() {
   const setScreen = useAppStore(s => s.setScreen)
+  const openSpiritDetail = useAppStore(s => s.openSpiritDetail)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
-  const filters = ['전체','발견','미발견'] as const
-  const [tab, setTab] = useState<(typeof filters)[number]>('전체')
+  const tabs = ['전체', '발견', '미발견'] as const
+  const [tab, setTab] = useState<(typeof tabs)[number]>('전체')
 
-  type Card = { id: string; name: string; img: string; discovered: boolean }
+  const cardFrameByRarity: Record<SpiritRarity, string> = {
+    common: 'assets/codex/card_common.png',
+    rare: 'assets/codex/card_rare.png',
+    epic: 'assets/codex/card_epic.png',
+    legendary: 'assets/codex/card_lezendary.png',
+  }
+
+  type Card = { id: string; name: string; img: string; discovered: boolean; rarity?: SpiritRarity }
+  const discoveredSpirits: Card[] = sortSpiritsByDiscoveryOrder(SPIRITS).map((spirit) => ({
+    rarity: (SPIRIT_DETAIL_META[spirit.id] ?? DEFAULT_SPIRIT_DETAIL_META).rarityKey,
+    id: spirit.id,
+    name: spirit.name,
+    img: getSpiritArtworkPath(spirit.id),
+    discovered: true,
+  }))
   const baseDiscovered: readonly Card[] = [
-    { id: 'spirit_soyo', name: '소요', img: 'assets/codex/soyo.png', discovered: true },
-    { id: 'spirit_rua', name: '루아', img: 'assets/codex/rua.png', discovered: true },
-    { id: 'spirit_pleo', name: '플레오', img: 'assets/codex/pleo.png', discovered: true },
-    { id: 'spirit_stellio', name: '스텔리오', img: 'assets/codex/stellio.png', discovered: true },
-    { id: 'spirit_porina', name: '포리나', img: 'assets/codex/porina.png', discovered: true },
-    { id: 'spirit_nubi', name: '누비', img: 'assets/codex/nubi.png', discovered: true },
+    ...discoveredSpirits,
     { id: 'spirit_unknown_1', name: '???', img: '', discovered: false },
     { id: 'spirit_unknown_2', name: '???', img: '', discovered: false },
     { id: 'spirit_unknown_3', name: '???', img: '', discovered: false },
   ] as const
-  const totalCount = 220
+  const totalCount = 80
   const fillers: Card[] = Array.from({ length: totalCount - baseDiscovered.length }, (_, idx) => ({
     id: `spirit_unknown_filler_${idx + 1}`,
     name: '???',
@@ -33,9 +46,11 @@ export default function BookScreen() {
   const allCards: Card[] = [...baseDiscovered, ...fillers]
   const discoveredCount = allCards.reduce((acc, c) => acc + (c.discovered ? 1 : 0), 0)
   const undiscoveredCount = allCards.length - discoveredCount
-  const filteredCards: Card[] = tab === '발견' ? allCards.filter(c => c.discovered)
-    : tab === '미발견' ? allCards.filter(c => !c.discovered)
-    : allCards
+  const filteredCards: Card[] = tab === '발견'
+    ? allCards.filter((c) => c.discovered)
+    : tab === '미발견'
+      ? allCards.filter((c) => !c.discovered)
+      : allCards
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -89,9 +104,8 @@ export default function BookScreen() {
             </div>
           </div>
         </div>
-        {/* filters row */}
         <div className="mt-[20px] mb-2 flex items-center gap-2">
-          {filters.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               type="button"
@@ -104,12 +118,9 @@ export default function BookScreen() {
                   : 'text-[#E3BD87]/80 bg-white/[0.04] border-[#6A59A8]/30 hover:bg-white/[0.08]')
               }
             >
-              {t}{'('}{t === '전체' ? allCards.length : t === '발견' ? discoveredCount : undiscoveredCount}{')'}
+              {t}({t === '전체' ? allCards.length : t === '발견' ? discoveredCount : undiscoveredCount})
             </button>
           ))}
-          <button className="ml-auto px-2.5 py-1.5 rounded-full border bg-white/10 text-white/80 hover:bg-white/15 border-white/20 text-[12px]">
-            필터
-          </button>
         </div>
       </div>
 
@@ -121,72 +132,126 @@ export default function BookScreen() {
         {/* top overlay image moved outside scroll; keep spacer if needed */}
 
         {/* 3-col grid placeholder: positioned well under the top overlay */}
-        <motion.div layout className="grid grid-cols-3 gap-3 mt-[10px] pb-6 relative z-[1]">
-          <AnimatePresence initial={false} mode="popLayout">
-            {filteredCards.map((c) => (
+        <div className="grid grid-cols-3 gap-3 mt-[10px] pb-6 relative z-[1]">
+          {filteredCards.map((c) => (
               <motion.button
                 key={c.id}
-                layout
                 type="button"
+                onClick={() => {
+                  if (!c.discovered) return
+                  openSpiritDetail(c.id)
+                }}
                 whileTap={{ scale: 0.96, y: 1 }}
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
                 className="relative rounded-xl aspect-[3/4] overflow-hidden block w-full bg-transparent border-0 p-0 select-none focus:outline-none cursor-pointer"
                 aria-label={c.discovered ? c.name : '미발견 슬롯'}
               >
               {/* card frame background */}
               <img
                 aria-hidden
-                src={a('assets/codex/card.PNG')}
+                src={a(c.discovered && c.rarity ? cardFrameByRarity[c.rarity] : 'assets/codex/card.PNG')}
                 className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
                 draggable={false}
               />
 
               {/* creature artwork */}
-              {c.discovered ? (
-                <img
-                  src={a(c.img)}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain select-none"
-                  draggable={false}
-                  onError={(e) => {
-                    const el = e.currentTarget as HTMLImageElement
-                    // fallback to placeholder once
-                    if (!el.dataset.fallback) {
-                      el.dataset.fallback = '1'
-                      el.src = a('assets/codex/unknown.png')
-                      el.className = 'absolute left-1/2 top-1/2 w-[70%] h-[70%] -translate-x-1/2 -translate-y-1/2 object-contain select-none'
-                    } else {
-                      el.style.display = 'none'
-                    }
-                  }}
-                />
+              {c.discovered ? c.id === 'spirit_soyo' ? (
+                <div className="absolute inset-[8%]">
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    animate={{ scale: [1, 1.06, 1], opacity: [0.2, 0.3, 0.2] }}
+                    transition={{ duration: 3.4, ease: 'easeInOut', repeat: Infinity }}
+                    style={{
+                      background: 'radial-gradient(circle, rgba(255,229,176,0.36) 0%, rgba(255,229,176,0.08) 52%, rgba(255,229,176,0) 74%)',
+                    }}
+                  />
+
+                  <motion.div
+                    className="relative z-[1] w-full h-full"
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
+                  >
+                    <motion.img
+                      src={a('assets/spirt/soyo1.png')}
+                      alt="소요 기본상태 1"
+                      className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+                      draggable={false}
+                      animate={{ opacity: [1, 0, 0, 0, 1] }}
+                      transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
+                    />
+                    <motion.img
+                      src={a('assets/spirt/soyo2.png')}
+                      alt="소요 기본상태 2"
+                      className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+                      draggable={false}
+                      animate={{ opacity: [0, 1, 0, 1, 0] }}
+                      transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
+                    />
+                    <motion.img
+                      src={a('assets/spirt/soyo3.png')}
+                      alt="소요 입벌림"
+                      className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+                      draggable={false}
+                      animate={{ opacity: [0, 0, 1, 0, 0] }}
+                      transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
+                    />
+                  </motion.div>
+                </div>
+              ) : (
+                <motion.div
+                  className="absolute inset-[8%]"
+                  animate={{ y: [0, -9, 0], scale: [1, 1.02, 1] }}
+                  transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
+                >
+                  <img
+                    src={a(c.img)}
+                    alt=""
+                    className="absolute left-1/2 top-1/2 w-[90%] h-[90%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+                    draggable={false}
+                    onError={(e) => {
+                      const el = e.currentTarget as HTMLImageElement
+                      // fallback to placeholder once
+                      if (!el.dataset.fallback) {
+                        el.dataset.fallback = '1'
+                        el.src = a('assets/codex/unknown.png')
+                        el.className = 'absolute left-1/2 top-1/2 w-[78%] h-[78%] -translate-x-1/2 -translate-y-1/2 object-contain select-none'
+                      } else {
+                        el.style.display = 'none'
+                      }
+                    }}
+                  />
+                </motion.div>
               ) : (
                 <img
                   src={a('assets/codex/unknown.png')}
                   alt=""
-                  className="absolute left-1/2 top-1/2 w-[70%] h-[70%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+                  className="absolute left-1/2 top-1/2 w-[78%] h-[78%] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
                   draggable={false}
                 />
               )}
 
+              <div
+                aria-hidden
+                className="absolute left-[1px] right-[1px] bottom-0 h-[37%] z-[1] pointer-events-none"
+                style={{
+                  opacity: 0.75,
+                  background: 'linear-gradient(to bottom, rgba(72,53,74,0) 0%, rgba(72,53,74,1) 100%)',
+                }}
+              />
+
               {/* name label */}
-              <div className="absolute bottom-[18px] left-0 right-0 text-center">
+              <div className="absolute bottom-[18px] left-0 right-0 z-[2] text-center">
                 <span
                   className={
                     `inline-block text-[17px] font-semibold drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] ` +
-                    (c.discovered ? 'text-[#b78960]' : 'text-[#695369]')
+                    (c.discovered ? 'text-[#feecbd]' : 'text-[#695369]')
                   }
                 >
                   {c.discovered ? c.name : '???'}
                 </span>
               </div>
               </motion.button>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+          ))}
+        </div>
       </div>
 
       {/* particles layer like main */}

@@ -2708,13 +2708,21 @@ function FortuneChoiceGame({
 }) {
   const defaultLabels: [string, string, string] = ['별빛', '달빛', '햇빛']
   const labels = choiceLabels ?? defaultLabels
-  const iconPaths = ['assets/item/it/it_star.png', 'assets/item/it/it_moon.png', 'assets/item/it/it_light.png']
+  const fallbackIconPaths = ['assets/item/it/it_star.png', 'assets/item/it/it_moon.png', 'assets/item/it/it_light.png']
+
+  const resolveIconPathByLabel = useCallback((label: string, idx: number) => {
+    const normalized = label.replace(/\s+/g, '')
+    if (normalized.includes('별')) return 'assets/item/it/it_star.png'
+    if (normalized.includes('달')) return 'assets/item/it/it_moon.png'
+    if (normalized.includes('햇빛') || normalized.includes('태양') || normalized.includes('sun')) return 'assets/item/it/it_light.png'
+    return fallbackIconPaths[idx] ?? fallbackIconPaths[0]
+  }, [])
 
   const choices = useMemo(() => labels.map((name, idx) => ({
     id: `choice-${idx}`,
     name,
-    iconPath: iconPaths[idx] ?? iconPaths[0],
-  })), [labels])
+    iconPath: resolveIconPathByLabel(name, idx),
+  })), [labels, resolveIconPathByLabel])
 
   const choiceTheme = useMemo(() => {
     if (stage === 2) return { bg: '#1B1B2A', border: '#634A6E' }
@@ -2898,13 +2906,13 @@ function ResultModal({
       >
         <img
           src={a('assets/background/paper_bg_dark_v.png')}
-          alt="탐색 결과 배경"
+          alt="탐험 결과 배경"
           className="block w-full h-auto"
           draggable={false}
         />
 
         <div className="absolute inset-0 p-5 flex flex-col items-center justify-center">
-          <div className="relative z-[1] text-[#efd8ab] text-[18px] font-extrabold tracking-wide">탐색 결과</div>
+          <div className="relative z-[1] text-[#efd8ab] text-[18px] font-extrabold tracking-wide">탐험 결과</div>
 
           <div className="relative z-[1] mt-[10px] w-full max-w-[360px] space-y-2 text-[14px]">
             {rows.map((row: { label: string; value: number; iconSrc?: string; rarity?: SpiritRarity }, idx) => (
@@ -2927,7 +2935,6 @@ function ResultModal({
                   key={`${loot.id}`}
                   type="button"
                   onClick={() => {
-                    playSfx(TAP_SFX_PATH, 0.78)
                     setSelectedLootId((current) => (current === loot.id ? null : loot.id))
                   }}
                   className={`relative aspect-square rounded-sm px-1 py-1 flex items-center justify-center bg-center bg-cover bg-no-repeat ${RESULT_RARITY_UI[loot.rarity].lootClass}`}

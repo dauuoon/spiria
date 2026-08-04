@@ -3,10 +3,20 @@ import { DUNGEONS } from '../data/dungeons'
 import { ITEMS } from '../data/items'
 import { INITIAL_MANA, LEGACY_ENERGY_STORAGE_KEY, MANA_REGEN_MS, MANA_STORAGE_KEY, MAX_MANA, MANA_PER_EXPLORE } from '../data/constants'
 import { EXP_TO_NEXT } from '../data/levels'
+import { getLevelUpRewardsForLevel } from '../data/economy'
 import { getLevelTitle } from '../data/levelTitles'
 import { REGIONS } from '../data/regions'
+import { clearSpiritSummonHistory } from './spiritSummonHistory'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail'
+
+type CraftResult = {
+  spiritId: string | null
+  requestText: string
+  success: boolean
+  candidateSpiritIds: string[]
+  materialIds: [string, string, string]
+}
 
 type PersistedGameState = {
   level: number
@@ -45,6 +55,13 @@ type AppState = {
   setProgress: (v: number) => void
   screen: Screen
   setScreen: (s: Screen) => void
+  selectedSpiritId: string | null
+  openSpiritDetail: (id: string) => void
+  discoveredSpiritIds: string[]
+  markSpiritDiscovered: (id: string) => boolean
+  craftResult: CraftResult | null
+  openCraftResult: (payload: CraftResult) => void
+  clearCraftResult: () => void
   pendingLevelUp: PendingLevelUp | null
   showLevelUpPopup: boolean
   dismissLevelUpPopup: () => void
@@ -103,6 +120,7 @@ const saveMana = (mana: number, manaUpdatedAt: number | null) => {
 }
 
 const GAME_STATE_STORAGE_KEY = 'spiria.game-state.v1'
+const DISCOVERED_SPIRITS_STORAGE_KEY = 'spiria.discovered-spirits.v1'
 const INITIAL_LEVEL = 1
 const INITIAL_COINS = 1250
 
@@ -128,6 +146,26 @@ const loadGameState = (): PersistedGameState | null => {
 const saveGameState = (state: PersistedGameState) => {
   try {
     localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore
+  }
+}
+
+const loadDiscoveredSpiritIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(DISCOVERED_SPIRITS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is string => typeof item === 'string')
+  } catch {
+    return []
+  }
+}
+
+const saveDiscoveredSpiritIds = (spiritIds: string[]) => {
+  try {
+    localStorage.setItem(DISCOVERED_SPIRITS_STORAGE_KEY, JSON.stringify(spiritIds))
   } catch {
     // ignore
   }
@@ -178,6 +216,7 @@ const createInitialExplorationProgressByStage = (): ExplorationProgressByStage =
 })
 
 const persistedGameState = loadGameState()
+const persistedDiscoveredSpiritIds = loadDiscoveredSpiritIds()
 const persistedInventory = persistedGameState?.inventory ?? {}
 const initialInventory = createInitialInventory()
 const initialInventoryWithPersisted = { ...initialInventory, ...persistedInventory }
@@ -190,6 +229,20 @@ const useAppStore = create<AppState>((set, get) => ({
     screen: s,
     showLevelUpPopup: state.pendingLevelUp !== null && s !== state.screen && !state.showLevelUpPopup ? true : state.showLevelUpPopup,
   })),
+  selectedSpiritId: null,
+  openSpiritDetail: (id) => set({ selectedSpiritId: id, screen: 'spiritDetail' }),
+  discoveredSpiritIds: persistedDiscoveredSpiritIds,
+  markSpiritDiscovered: (id) => {
+    const current = get().discoveredSpiritIds
+    if (current.includes(id)) return false
+    const next = [...current, id]
+    saveDiscoveredSpiritIds(next)
+    set({ discoveredSpiritIds: next })
+    return true
+  },
+  craftResult: null,
+  openCraftResult: (payload) => set({ craftResult: payload, screen: 'craftResult' }),
+  clearCraftResult: () => set({ craftResult: null }),
   pendingLevelUp: null,
   showLevelUpPopup: false,
   dismissLevelUpPopup: () => set({ pendingLevelUp: null, showLevelUpPopup: false }),
@@ -295,10 +348,19 @@ const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
-      const crossedThresholds = Array.from({ length: currentLevel - nextLevel }, (_, idx) => nextLevel + idx + 1)
-        .filter((level) => level > 0 && level % 10 === 0)
-      const rewardGold = crossedThresholds.reduce((sum, level) => sum + (level / 10) * 100, 0)
-      const rewardMana = 1
+      const crossedLevels = Array.from({ length: currentLevel - nextLevel }, (_, idx) => nextLevel + idx + 1)
+      const rewardSummary = crossedLevels.reduce(
+        (sum, reachedLevel) => {
+          const reward = getLevelUpRewardsForLevel(reachedLevel)
+          return {
+            gold: sum.gold + reward.gold,
+            mana: sum.mana + reward.mana,
+          }
+        },
+        { gold: 0, mana: 0 },
+      )
+      const rewardGold = rewardSummary.gold
+      const rewardMana = rewardSummary.mana
       const titleChanged = getLevelTitle(nextLevel) !== getLevelTitle(currentLevel)
       const unlockedRegions = [
         ...DUNGEONS.filter((dungeon) => nextLevel < dungeon.unlockLv && currentLevel >= dungeon.unlockLv).map((dungeon) => dungeon.name),
@@ -437,14 +499,19 @@ const useAppStore = create<AppState>((set, get) => ({
       localStorage.removeItem(GAME_STATE_STORAGE_KEY)
       localStorage.removeItem(MANA_STORAGE_KEY)
       localStorage.removeItem(LEGACY_ENERGY_STORAGE_KEY)
+      localStorage.removeItem(DISCOVERED_SPIRITS_STORAGE_KEY)
+      localStorage.removeItem('spiria.craft-hint-state.v1')
+      localStorage.removeItem('spiria.craft-board-state.v1')
     } catch {
       // ignore storage errors
     }
+    clearSpiritSummonHistory()
     saveMana(fresh.mana, fresh.manaUpdatedAt)
     saveGameState(fresh)
     set({
       progress: 0,
       screen: 'loading',
+      craftResult: null,
       pendingLevelUp: null,
       showLevelUpPopup: false,
       level: fresh.level,
@@ -453,6 +520,7 @@ const useAppStore = create<AppState>((set, get) => ({
       inventory: fresh.inventory,
       mana: fresh.mana,
       manaUpdatedAt: fresh.manaUpdatedAt,
+      discoveredSpiritIds: [],
       explorationProgressByStage: createInitialExplorationProgressByStage(),
     })
   },

@@ -8,12 +8,6 @@ import { getRarityByItemId, INVENTORY_RARITY_UI, SPIRIT_RARITY_TOKENS } from '..
 import type { SpiritRarity } from '../types/game'
 
 const ITEM_DESCRIPTION_BY_ID: Record<string, string> = {
-  fragment_spirit_soyo: '소요 정령을 해금하기 위한 조각입니다.',
-  fragment_spirit_rua: '루아 정령을 해금하기 위한 조각입니다.',
-  fragment_spirit_pleo: '플레오 정령을 해금하기 위한 조각입니다.',
-  fragment_spirit_stellio: '스텔리오 정령을 해금하기 위한 조각입니다.',
-  fragment_spirit_porina: '포리나 정령을 해금하기 위한 조각입니다.',
-  fragment_spirit_nubi: '누비 정령을 해금하기 위한 조각입니다.',
   forest_trace: '숲 지역을 탐험하며 남긴 흔적입니다.',
   wind_trace: '바람 지역의 정령 기운이 담긴 흔적입니다.',
   lake_trace: '설원 지역에서 발견되는 차가운 기억의 흔적입니다.',
@@ -33,13 +27,15 @@ export default function InventoryScreen() {
   const getDescription = (id: string): string => {
     const fixed = ITEM_DESCRIPTION_BY_ID[id]
     if (fixed) {
-      if (id.startsWith('fragment_spirit_')) {
-        return `${fixed}\n100개가 모이면 잠든 정령이 깨어납니다.`
-      }
       if (id.endsWith('_trace')) {
         return `${fixed}\n20개가 모이면 숨겨진 흔적이 이어집니다.`
       }
       return fixed
+    }
+    if (id.startsWith('fragment_spirit_')) {
+      const itemName = ITEMS.find((item) => item.id === id)?.name ?? '정령의 조각'
+      const spiritName = itemName.replace(/의 조각$/, '')
+      return `${spiritName} 정령을 해금하기 위한 조각입니다.\n100개가 모이면 잠든 정령이 깨어납니다.`
     }
     return getCategory(id) === '재료'
       ? '정령 제작에 사용하는 기본 재료입니다.'

@@ -1,7 +1,8 @@
 import useAppStore from '../lib/store'
 import { EXP_TO_NEXT } from '../data/levels'
+import { CRAFTING_MATERIALS, ETC_ITEMS } from '../data/items'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail'
 
 type Props = {
   screen: Screen
@@ -13,7 +14,44 @@ export default function DevRemote({ screen, onSelect }: Props) {
   const setLevel = useAppStore(s => s.setLevel)
   const expInLevel = useAppStore(s => s.expInLevel)
   const setExpInLevel = useAppStore(s => s.setExpInLevel)
+  const coins = useAppStore(s => s.coins)
+  const addCoins = useAppStore(s => s.addCoins)
+  const spendCoins = useAppStore(s => s.spendCoins)
+  const mana = useAppStore(s => s.mana)
+  const addMana = useAppStore(s => s.addMana)
+  const spendMana = useAppStore(s => s.spendMana)
+  const setItemCount = useAppStore(s => s.setItemCount)
   const expToNext = EXP_TO_NEXT[level] ?? 0
+
+  const applyMaxPreset = () => {
+    const targetLevel = 90
+    const targetCoins = 8000
+    const targetMana = 5
+
+    setLevel(targetLevel)
+    setExpInLevel(0)
+
+    const coinDiff = targetCoins - coins
+    if (coinDiff > 0) addCoins(coinDiff)
+    if (coinDiff < 0) spendCoins(-coinDiff)
+
+    const manaDiff = targetMana - mana
+    if (manaDiff > 0) addMana(manaDiff)
+    if (manaDiff < 0) void spendMana(-manaDiff)
+
+    for (const material of CRAFTING_MATERIALS) {
+      setItemCount(material.id, 99)
+    }
+
+    for (const item of ETC_ITEMS) {
+      if (item.id.startsWith('fragment_spirit_')) {
+        setItemCount(item.id, 99)
+      }
+      if (item.id.endsWith('_trace')) {
+        setItemCount(item.id, 19)
+      }
+    }
+  }
 
   return (
     <div className="fixed top-1/2 right-0 -translate-y-1/2 z-[60] select-none group">
@@ -59,6 +97,13 @@ export default function DevRemote({ screen, onSelect }: Props) {
               EXP +10
             </button>
           </div>
+          <button
+            type="button"
+            onClick={applyMaxPreset}
+            className="mt-2 w-full px-2 py-1 rounded text-[11px] border bg-[#A894FF]/20 text-[#EDE2FF] hover:bg-[#A894FF]/30 border-[#A894FF]/45"
+          >
+            Max
+          </button>
         </div>
         <button
           type="button"
@@ -114,6 +159,17 @@ export default function DevRemote({ screen, onSelect }: Props) {
           }`}
         >
           Craft
+        </button>
+        <button
+          type="button"
+          onClick={() => onSelect('craftResult')}
+          className={`px-3 py-1 rounded text-[11px] border transition ${
+            screen === 'craftResult'
+              ? 'bg-white/20 text-white border-white/30'
+              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
+          }`}
+        >
+          Craft Result
         </button>
         <button
           type="button"
