@@ -22,12 +22,19 @@ export default function SideActions() {
   const setScreen = useAppStore(s => s.setScreen)
   const discoveredSpiritIds = useAppStore(s => s.discoveredSpiritIds)
   const seenDiscoveredSpiritCount = useAppStore(s => s.seenDiscoveredSpiritCount)
+  const seenDiscoveredSpiritIds = useAppStore(s => s.seenDiscoveredSpiritIds)
   const inventory = useAppStore(s => s.inventory)
   const seenOwnedItemTypeCount = useAppStore(s => s.seenOwnedItemTypeCount)
+  const seenOwnedItemIds = useAppStore(s => s.seenOwnedItemIds)
   const level = useAppStore(s => s.level)
   const seenUnlockedStageCount = useAppStore(s => s.seenUnlockedStageCount)
 
   const ownedItemTypeCount = ITEMS.reduce((count, item) => count + ((inventory[item.id] ?? 0) > 0 ? 1 : 0), 0)
+  const ownedItemIds = ITEMS.filter((item) => (inventory[item.id] ?? 0) > 0).map((item) => item.id)
+  const seenDiscoveredSpiritIdSet = new Set(seenDiscoveredSpiritIds)
+  const seenOwnedItemIdSet = new Set(seenOwnedItemIds)
+  const hasNewDiscoveredSpirit = discoveredSpiritIds.some((id) => !seenDiscoveredSpiritIdSet.has(id))
+  const hasNewOwnedItemType = ownedItemIds.some((id) => !seenOwnedItemIdSet.has(id))
   const unlockedStageCount = DUNGEONS.reduce((count, dungeon) => count + (level >= dungeon.unlockLv ? 1 : 0), 0)
   const hasHiddenReadyStage = ([1, 2, 3, 4, 5] as const).some((stage) => {
     const region = REGIONS[stage - 1]
@@ -39,8 +46,8 @@ export default function SideActions() {
 
   const badges: Record<string, boolean> = {
     order: true,
-    book: discoveredSpiritIds.length > seenDiscoveredSpiritCount,
-    bag: ownedItemTypeCount > seenOwnedItemTypeCount,
+    book: hasNewDiscoveredSpirit || discoveredSpiritIds.length > seenDiscoveredSpiritCount,
+    bag: hasNewOwnedItemType || ownedItemTypeCount > seenOwnedItemTypeCount,
     expedition: unlockedStageCount > seenUnlockedStageCount || hasHiddenReadyStage,
   }
 

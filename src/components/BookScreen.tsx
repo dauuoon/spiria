@@ -12,10 +12,12 @@ export default function BookScreen() {
   const setScreen = useAppStore(s => s.setScreen)
   const openSpiritDetail = useAppStore(s => s.openSpiritDetail)
   const discoveredSpiritIds = useAppStore(s => s.discoveredSpiritIds)
+  const seenDiscoveredSpiritIds = useAppStore(s => s.seenDiscoveredSpiritIds)
   const acknowledgeBookNotifications = useAppStore(s => s.acknowledgeBookNotifications)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const tabs = ['전체', '발견', '미발견'] as const
   const [tab, setTab] = useState<(typeof tabs)[number]>('전체')
+  const [entrySeenDiscoveredSpiritIds] = useState<string[]>(() => seenDiscoveredSpiritIds)
 
   useEffect(() => {
     acknowledgeBookNotifications()
@@ -60,6 +62,8 @@ export default function BookScreen() {
     { id: 'spirit_unknown_3', name: '???', img: '', discovered: false },
   ] as const
   const totalCount = 80
+  const seenDiscoveredSpiritIdSet = new Set(entrySeenDiscoveredSpiritIds)
+  const newlyDiscoveredSpiritIds = new Set(discoveredSpiritIds.filter((id) => !seenDiscoveredSpiritIdSet.has(id)))
   const fillers: Card[] = Array.from({ length: totalCount - baseDiscovered.length }, (_, idx) => ({
     id: `spirit_unknown_filler_${idx + 1}`,
     name: '???',
@@ -172,6 +176,14 @@ export default function BookScreen() {
                 className="relative rounded-xl aspect-[3/4] overflow-hidden block w-full bg-transparent border-0 p-0 select-none focus:outline-none cursor-pointer"
                 aria-label={c.discovered ? c.name : '미발견 슬롯'}
               >
+              {c.discovered && newlyDiscoveredSpiritIds.has(c.id) && (
+                <span
+                  aria-hidden
+                  className="absolute top-[4px] right-[4px] z-[5] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#DE4E57] px-[5px] text-[10px] font-extrabold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+                >
+                  N
+                </span>
+              )}
               {/* card frame background */}
               <img
                 aria-hidden

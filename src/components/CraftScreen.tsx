@@ -483,6 +483,7 @@ export default function CraftScreen() {
           materialIds: orderedMaterialIds,
           matchRate: resolvedMatchRate,
           resultMode: 'craft',
+          questRewardGold: activeQuestRewardGold,
         })
       } else {
         openCraftResult({
@@ -493,6 +494,7 @@ export default function CraftScreen() {
           materialIds: orderedMaterialIds,
           matchRate: craftedSpiritId !== null ? 100 : 0,
           resultMode: 'craft',
+          questRewardGold: 0,
         })
       }
       setSelectedSlots([null, null, null])
@@ -678,7 +680,7 @@ export default function CraftScreen() {
               {activeQuest ? activeQuest.text : '현재 진행 가능한 의뢰가 없습니다.'}
             </p>
             <div className="relative z-[1] mt-[17px] px-2 py-1 rounded-md border border-[rgb(95,76,67)]/35 bg-[rgba(95,76,67,0.12)] text-[11px] text-[rgb(95,76,67)] font-semibold text-center">
-              {acceptedQuest ? '의뢰 수락됨 (제작 시 완료 처리)' : '수락 후 제작 시 완료 처리'}
+              {acceptedQuest ? '의뢰 수락됨 (제작 시 지급)' : '수락 후 제작 시 지급'}
             </div>
 
             <div className="relative z-[1] mt-[17px] flex items-start justify-center gap-2">
@@ -693,12 +695,12 @@ export default function CraftScreen() {
                   type="button"
                   onClick={hasAcceptedQuest ? cancelAcceptedQuest : rejectQuest}
                   disabled={!activeQuest && !acceptedQuest}
-                  className={`relative h-8 w-[92px] rounded-lg overflow-hidden text-white disabled:opacity-60 disabled:cursor-not-allowed ${hasAcceptedQuest ? 'border border-slate-200/45 bg-[rgba(130,140,150,0.35)]' : 'border border-red-300/45 bg-[rgba(160,36,44,0.55)]'}`}
+                  className={`relative h-8 w-[92px] rounded-lg overflow-hidden text-white disabled:opacity-60 disabled:cursor-not-allowed ${hasAcceptedQuest ? 'border border-slate-200/45 bg-[rgb(130,140,150)]' : 'border border-red-300/45 bg-[rgb(160,36,44)]'}`}
                 >
                   <img
                     src={a(hasAcceptedQuest ? 'assets/particle/btn_bg_sliver.png' : 'assets/particle/btn_bg_red.png')}
                     alt={hasAcceptedQuest ? '취소 버튼 배경' : '거절 버튼 배경'}
-                    className={`absolute inset-0 w-full h-full object-cover ${hasAcceptedQuest ? 'opacity-60' : 'opacity-65'}`}
+                    className="absolute inset-0 w-full h-full object-cover opacity-100"
                     draggable={false}
                   />
                   <span className={`relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide ${hasAcceptedQuest ? 'text-[#d5dae6]' : 'text-[#e4b4b4]'}`}>{hasAcceptedQuest ? '취소' : '거절'}</span>
@@ -713,15 +715,15 @@ export default function CraftScreen() {
                   type="button"
                   onClick={acceptQuest}
                   disabled={!activeQuest || hasAcceptedQuest}
-                  className="relative h-8 w-[92px] rounded-lg overflow-hidden border border-[#e4cda1]/40 bg-[rgba(132,99,56,0.45)] text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`relative h-8 w-[92px] rounded-lg overflow-hidden text-white disabled:cursor-not-allowed ${hasAcceptedQuest ? 'border border-slate-200/45 bg-[rgb(130,140,150)]' : 'border border-[#e4cda1]/40 bg-[rgb(132,99,56)]'} ${!activeQuest ? 'opacity-60' : 'opacity-100'}`}
                 >
                   <img
-                    src={a('assets/particle/btn_bg_brown.png')}
+                    src={a(hasAcceptedQuest ? 'assets/particle/btn_bg_sliver.png' : 'assets/particle/btn_bg_brown.png')}
                     alt="수락 버튼 배경"
-                    className="absolute inset-0 w-full h-full object-cover opacity-62"
+                    className="absolute inset-0 w-full h-full object-cover opacity-100"
                     draggable={false}
                   />
-                  <span className="relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide text-[#f9e0b5]">수락</span>
+                  <span className={`relative z-[1] inline-block -translate-y-[3px] text-[13px] font-bold tracking-wide ${hasAcceptedQuest ? 'text-[#d5dae6]' : 'text-[#f9e0b5]'}`}>수락</span>
                 </button>
               </div>
             </div>

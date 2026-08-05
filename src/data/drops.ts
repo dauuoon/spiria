@@ -25,6 +25,6 @@ export const EXPEDITION_REWARD_DRAFT = {
     regional: 0.14,
     treasure: 0.1,
     trace: 0.04,
-    none: 0.08,
+    none: 0.09,
   },
 } as const

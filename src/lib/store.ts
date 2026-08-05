@@ -61,6 +61,7 @@ type CraftResult = {
   materialIds: [string, string, string]
   matchRate?: number | null
   resultMode?: 'craft' | 'awakening'
+  questRewardGold?: number
 }
 
 type PersistedGameState = {
@@ -76,6 +77,8 @@ type PersistedNotificationSeenState = {
   seenDiscoveredSpiritCount: number
   seenOwnedItemTypeCount: number
   seenUnlockedStageCount: number
+  seenDiscoveredSpiritIds: string[]
+  seenOwnedItemIds: string[]
 }
 
 type PendingLevelUp = {
@@ -122,6 +125,8 @@ type AppState = {
   seenDiscoveredSpiritCount: number
   seenOwnedItemTypeCount: number
   seenUnlockedStageCount: number
+  seenDiscoveredSpiritIds: string[]
+  seenOwnedItemIds: string[]
   acknowledgeBookNotifications: () => void
   acknowledgeBagNotifications: () => void
   acknowledgeExpeditionMapUnlockNotifications: () => void
@@ -202,6 +207,10 @@ const INITIAL_COINS = 1250
 
 const countOwnedItemType = (inventory: Record<string, number>) => (
   ITEMS.reduce((count, item) => count + ((inventory[item.id] ?? 0) > 0 ? 1 : 0), 0)
+)
+
+const getOwnedItemIds = (inventory: Record<string, number>) => (
+  ITEMS.filter((item) => (inventory[item.id] ?? 0) > 0).map((item) => item.id)
 )
 
 const getUnlockedStageCount = (level: number) => (
@@ -337,10 +346,21 @@ const loadNotificationSeenState = (defaults: PersistedNotificationSeenState): Pe
     if (!raw) return defaults
     const parsed = JSON.parse(raw) as Partial<PersistedNotificationSeenState>
     if (!parsed || typeof parsed !== 'object') return defaults
+
+    const parsedSeenDiscoveredSpiritIds = Array.isArray(parsed.seenDiscoveredSpiritIds)
+      ? parsed.seenDiscoveredSpiritIds.filter((value): value is string => typeof value === 'string')
+      : defaults.seenDiscoveredSpiritIds
+
+    const parsedSeenOwnedItemIds = Array.isArray(parsed.seenOwnedItemIds)
+      ? parsed.seenOwnedItemIds.filter((value): value is string => typeof value === 'string')
+      : defaults.seenOwnedItemIds
+
     return {
       seenDiscoveredSpiritCount: Math.max(0, Math.floor(parsed.seenDiscoveredSpiritCount ?? defaults.seenDiscoveredSpiritCount)),
       seenOwnedItemTypeCount: Math.max(0, Math.floor(parsed.seenOwnedItemTypeCount ?? defaults.seenOwnedItemTypeCount)),
       seenUnlockedStageCount: Math.max(0, Math.floor(parsed.seenUnlockedStageCount ?? defaults.seenUnlockedStageCount)),
+      seenDiscoveredSpiritIds: parsedSeenDiscoveredSpiritIds,
+      seenOwnedItemIds: parsedSeenOwnedItemIds,
     }
   } catch {
     return defaults
@@ -544,6 +564,8 @@ const initialNotificationSeenState = loadNotificationSeenState({
   seenDiscoveredSpiritCount: persistedDiscoveredSpiritIds.length,
   seenOwnedItemTypeCount: countOwnedItemType(initialInventoryWithPersisted),
   seenUnlockedStageCount: getUnlockedStageCount(persistedGameState?.level ?? INITIAL_LEVEL),
+  seenDiscoveredSpiritIds: [...persistedDiscoveredSpiritIds],
+  seenOwnedItemIds: getOwnedItemIds(initialInventoryWithPersisted),
 })
 
 const useAppStore = create<AppState>((set, get) => ({
@@ -584,24 +606,38 @@ const useAppStore = create<AppState>((set, get) => ({
   seenDiscoveredSpiritCount: initialNotificationSeenState.seenDiscoveredSpiritCount,
   seenOwnedItemTypeCount: initialNotificationSeenState.seenOwnedItemTypeCount,
   seenUnlockedStageCount: initialNotificationSeenState.seenUnlockedStageCount,
+  seenDiscoveredSpiritIds: initialNotificationSeenState.seenDiscoveredSpiritIds,
+  seenOwnedItemIds: initialNotificationSeenState.seenOwnedItemIds,
   acknowledgeBookNotifications: () => set((state) => {
     const nextSeenDiscoveredSpiritCount = state.discoveredSpiritIds.length
-    if (nextSeenDiscoveredSpiritCount === state.seenDiscoveredSpiritCount) return state
+    const nextSeenDiscoveredSpiritIds = [...state.discoveredSpiritIds]
+    if (
+      nextSeenDiscoveredSpiritCount === state.seenDiscoveredSpiritCount
+      && nextSeenDiscoveredSpiritIds.length === state.seenDiscoveredSpiritIds.length
+    ) return state
     const nextSeenState = {
       seenDiscoveredSpiritCount: nextSeenDiscoveredSpiritCount,
       seenOwnedItemTypeCount: state.seenOwnedItemTypeCount,
       seenUnlockedStageCount: state.seenUnlockedStageCount,
+      seenDiscoveredSpiritIds: nextSeenDiscoveredSpiritIds,
+      seenOwnedItemIds: state.seenOwnedItemIds,
     }
     saveNotificationSeenState(nextSeenState)
     return nextSeenState
   }),
   acknowledgeBagNotifications: () => set((state) => {
     const nextSeenOwnedItemTypeCount = countOwnedItemType(state.inventory)
-    if (nextSeenOwnedItemTypeCount === state.seenOwnedItemTypeCount) return state
+    const nextSeenOwnedItemIds = getOwnedItemIds(state.inventory)
+    if (
+      nextSeenOwnedItemTypeCount === state.seenOwnedItemTypeCount
+      && nextSeenOwnedItemIds.length === state.seenOwnedItemIds.length
+    ) return state
     const nextSeenState = {
       seenDiscoveredSpiritCount: state.seenDiscoveredSpiritCount,
       seenOwnedItemTypeCount: nextSeenOwnedItemTypeCount,
       seenUnlockedStageCount: state.seenUnlockedStageCount,
+      seenDiscoveredSpiritIds: state.seenDiscoveredSpiritIds,
+      seenOwnedItemIds: nextSeenOwnedItemIds,
     }
     saveNotificationSeenState(nextSeenState)
     return nextSeenState
@@ -613,6 +649,8 @@ const useAppStore = create<AppState>((set, get) => ({
       seenDiscoveredSpiritCount: state.seenDiscoveredSpiritCount,
       seenOwnedItemTypeCount: state.seenOwnedItemTypeCount,
       seenUnlockedStageCount: nextSeenUnlockedStageCount,
+      seenDiscoveredSpiritIds: state.seenDiscoveredSpiritIds,
+      seenOwnedItemIds: state.seenOwnedItemIds,
     }
     saveNotificationSeenState(nextSeenState)
     return nextSeenState
@@ -1003,6 +1041,8 @@ const useAppStore = create<AppState>((set, get) => ({
       seenDiscoveredSpiritCount: 0,
       seenOwnedItemTypeCount: countOwnedItemType(fresh.inventory),
       seenUnlockedStageCount: getUnlockedStageCount(fresh.level),
+      seenDiscoveredSpiritIds: [] as string[],
+      seenOwnedItemIds: getOwnedItemIds(fresh.inventory),
     }
     saveNotificationSeenState(freshNotificationSeenState)
     set({
@@ -1024,6 +1064,8 @@ const useAppStore = create<AppState>((set, get) => ({
       seenDiscoveredSpiritCount: freshNotificationSeenState.seenDiscoveredSpiritCount,
       seenOwnedItemTypeCount: freshNotificationSeenState.seenOwnedItemTypeCount,
       seenUnlockedStageCount: freshNotificationSeenState.seenUnlockedStageCount,
+      seenDiscoveredSpiritIds: freshNotificationSeenState.seenDiscoveredSpiritIds,
+      seenOwnedItemIds: freshNotificationSeenState.seenOwnedItemIds,
       hiddenStageFirstClearByRegion: createInitialHiddenStageFirstClearByRegion(),
       explorationProgressByStage: createInitialExplorationProgressByStage(),
     })

@@ -1,6 +1,7 @@
 import useAppStore from '../lib/store'
 import { EXP_TO_NEXT } from '../data/levels'
 import { CRAFTING_MATERIALS, ETC_ITEMS } from '../data/items'
+import { SPIRITS } from '../data/spirits'
 
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
 
@@ -21,6 +22,7 @@ export default function DevRemote({ screen, onSelect }: Props) {
   const addMana = useAppStore(s => s.addMana)
   const spendMana = useAppStore(s => s.spendMana)
   const setItemCount = useAppStore(s => s.setItemCount)
+  const markSpiritDiscovered = useAppStore(s => s.markSpiritDiscovered)
   const expToNext = EXP_TO_NEXT[level] ?? 0
 
   const applyMaxPreset = () => {
@@ -50,6 +52,10 @@ export default function DevRemote({ screen, onSelect }: Props) {
       if (item.id.endsWith('_trace')) {
         setItemCount(item.id, 19)
       }
+    }
+
+    for (const spirit of SPIRITS) {
+      markSpiritDiscovered(spirit.id)
     }
   }
 

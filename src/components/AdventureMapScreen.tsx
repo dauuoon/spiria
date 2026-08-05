@@ -89,6 +89,7 @@ const ALL_MAPS_100_SFX_PATH = 'assets/sound/percent.mp3'
 const CARD_FLIP_SFX_PATH = 'assets/sound/cardsw.mp3'
 const GAME_SUCCESS_SFX_PATH = 'assets/sound/gamesuccess.mp3'
 const GAME_FAIL_SFX_PATH = 'assets/sound/gamefail.mp3'
+const MATCHING_MAX_MISTAKES = 5
 const EXPLORE_TAP_COOLDOWN_MS = 400
 const EMPTY_EVENT_DISMISS_MS = 4000
 const FLOATING_TOAST_LIFETIME_MS = 450
@@ -2328,7 +2329,7 @@ function SpiritMiniGameModal({
               animate={{ opacity: [0.35, 1, 0.35] }}
               transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              카드를 뒤집어 짝을 맞춰주세요.
+              카드를 뒤집어 짝을 맞춰주세요. (오답 5회 시 실패)
             </motion.div>
           )}
 
@@ -2422,6 +2423,7 @@ function SpiritMiniGameModal({
                   disabled={status !== 'playing'}
                   onStatusText={setFeedbackText}
                   onClear={() => resolveSuccess(spec.clearText)}
+                  onFail={() => resolveFailure(spec.failText)}
                 />
               ) : (
                 <div className="mt-3 flex items-center justify-center">
@@ -2646,12 +2648,14 @@ function MatchingCardGame({
   disabled,
   onStatusText,
   onClear,
+  onFail,
 }: {
   a: (path: string) => string
   stage: 1 | 2 | 3 | 4 | 5
   disabled: boolean
   onStatusText: (text: string) => void
   onClear: () => void
+  onFail: () => void
 }) {
   const cardBackPath = useMemo(() => {
     if (stage === 2) return 'assets/map/wind_cardback.png'
@@ -2708,6 +2712,7 @@ function MatchingCardGame({
   const [matchedIds, setMatchedIds] = useState<number[]>([])
   const [isJudging, setIsJudging] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [mistakeCount, setMistakeCount] = useState(0)
   const judgeTimerRef = useRef<number | null>(null)
   const clearTimerRef = useRef<number | null>(null)
 
@@ -2734,10 +2739,20 @@ function MatchingCardGame({
           onClear()
         }
       } else {
+        const nextMistakeCount = mistakeCount + 1
+        const remainingChances = MATCHING_MAX_MISTAKES - nextMistakeCount
         setFirstSelectedId(null)
         setSecondSelectedId(null)
         setIsJudging(false)
-        onStatusText('문양이 달라 빛이 흩어졌어요.')
+        setMistakeCount(nextMistakeCount)
+
+        if (remainingChances <= 0) {
+          setIsCompleted(true)
+          onStatusText(`문양이 모두 흐려졌어요. (${MATCHING_MAX_MISTAKES}회 실패)`)
+          onFail()
+        } else {
+          onStatusText(`문양이 달라 빛이 흩어졌어요. (남은 기회 ${remainingChances}/${MATCHING_MAX_MISTAKES})`)
+        }
       }
 
       judgeTimerRef.current = null
@@ -2749,7 +2764,7 @@ function MatchingCardGame({
         judgeTimerRef.current = null
       }
     }
-  }, [cards, firstSelectedId, matchedIds, onClear, onStatusText, secondSelectedId])
+  }, [cards, firstSelectedId, matchedIds, mistakeCount, onClear, onFail, onStatusText, secondSelectedId])
 
   useEffect(() => {
     return () => {

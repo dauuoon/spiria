@@ -26,10 +26,12 @@ export default function InventoryScreen() {
   const openCraftResult = useAppStore(s => s.openCraftResult)
   const setScreen = useAppStore(s => s.setScreen)
   const requestHiddenStageJump = useAppStore(s => s.requestHiddenStageJump)
+  const seenOwnedItemIds = useAppStore(s => s.seenOwnedItemIds)
   const acknowledgeBagNotifications = useAppStore(s => s.acknowledgeBagNotifications)
   const filters = ['전체','재료','기타'] as const
   const [tab, setTab] = useState<(typeof filters)[number]>('전체')
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [entrySeenOwnedItemIds] = useState<string[]>(() => seenOwnedItemIds)
   const detailSheetRef = useRef<HTMLDivElement | null>(null)
   const getCategory = (id: string): '재료' | '기타' => ITEMS.find((it) => it.id === id)?.category ?? '재료'
   const getRarity = (id: string): SpiritRarity => getRarityByItemId(id, getCategory(id))
@@ -144,6 +146,15 @@ export default function InventoryScreen() {
     return { total, '재료': mat, '기타': etc } as const
   }, [inventory])
 
+  const ownedItemIds = useMemo(() => {
+    return ITEMS.filter((it) => (inventory[it.id] ?? 0) > 0).map((it) => it.id)
+  }, [inventory])
+
+  const newlyOwnedItemIds = useMemo(() => {
+    const seenOwnedItemIdSet = new Set(entrySeenOwnedItemIds)
+    return new Set(ownedItemIds.filter((id) => !seenOwnedItemIdSet.has(id)))
+  }, [ownedItemIds, entrySeenOwnedItemIds])
+
   return (
     <div className="relative w-full h-full bg-black">
       {/* background (match Book) */}
@@ -233,6 +244,14 @@ export default function InventoryScreen() {
                     className="relative w-full h-[86px] overflow-visible bg-center bg-cover bg-no-repeat flex items-center justify-center"
                     style={{ backgroundImage: `url(${a(INVENTORY_RARITY_UI[rarity].bgImage)})` }}
                   >
+                    {newlyOwnedItemIds.has(it.id) && (
+                      <span
+                        aria-hidden
+                        className="absolute top-[-2px] right-[-2px] z-[3] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#DE4E57] px-[5px] text-[10px] font-extrabold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+                      >
+                        N
+                      </span>
+                    )}
                     <img
                       src={iconSrc}
                       alt={it.name}

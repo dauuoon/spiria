@@ -274,6 +274,7 @@ export default function CraftResultScreen() {
   }, [])
 
   const canClaimFirstDiscoveryMana = craftedSpirit && !discoveredSpiritIds.includes(craftedSpirit.id)
+  const questRewardGold = Math.max(0, Math.floor(craftResult.questRewardGold ?? 0))
 
   const claimRewards = () => {
     if (rewardClaimed) return
@@ -283,16 +284,17 @@ export default function CraftResultScreen() {
       const fragmentItemId = `fragment_${fragmentSpirit.id}`
       const fragmentItem = ITEMS.find((item) => item.id === fragmentItemId)
       const goldGain = randomIntInclusive(CRAFT_FAILURE_GOLD_MIN, CRAFT_FAILURE_GOLD_MAX)
+      const totalGoldGain = goldGain + questRewardGold
 
       gainExp(CRAFT_FAILURE_EXP)
-      addCoins(goldGain)
+      addCoins(totalGoldGain)
       if (fragmentItem) addItem(fragmentItem.id, CRAFT_FAILURE_FRAGMENT_AMOUNT)
 
       // 실패 보상 수령 시 별도 실패 효과음은 재생하지 않음 (요구사항)
       setRewardSummary({
         spiritRevealLabel: null,
         exp: CRAFT_FAILURE_EXP,
-        gold: goldGain,
+        gold: totalGoldGain,
         mana: 0,
         itemRewards: fragmentItem
           ? [{
@@ -311,10 +313,11 @@ export default function CraftResultScreen() {
 
     const expGain = randomIntInclusive(CRAFT_SUCCESS_EXP_MIN, CRAFT_SUCCESS_EXP_MAX)
     const goldGain = randomIntInclusive(CRAFT_SUCCESS_GOLD_MIN, CRAFT_SUCCESS_GOLD_MAX)
+    const totalGoldGain = goldGain + questRewardGold
     const manaGain = canClaimFirstDiscoveryMana ? CRAFT_SUCCESS_FIRST_DISCOVERY_GEM : 0
 
     gainExp(expGain)
-    addCoins(goldGain)
+    addCoins(totalGoldGain)
     if (manaGain > 0) addMana(manaGain)
     if (craftedSpirit) markSpiritDiscovered(craftedSpirit.id)
 
@@ -324,7 +327,7 @@ export default function CraftResultScreen() {
         ? `[${SPIRIT_RARITY_TOKENS[spiritRarity].ko}] ${craftedSpirit.name} 등장!`
         : null,
       exp: expGain,
-      gold: goldGain,
+      gold: totalGoldGain,
       mana: manaGain,
       itemRewards: [],
     })

@@ -176,7 +176,7 @@ export default function SpiritDetailScreen() {
 
             <motion.div
               className="relative z-10 w-[260px] h-[260px]"
-              animate={{ y: [20, 12, 20] }}
+              animate={{ y: [20, 17, 20] }}
               transition={{ duration: 2.8, ease: 'easeInOut', repeat: Infinity }}
             >
               {hasAnimatedFrames ? (
@@ -186,7 +186,7 @@ export default function SpiritDetailScreen() {
                     alt={`${spirit.name} 프레임 1`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
-                    animate={{ opacity: [1, 0, 0, 0, 1] }}
+                    animate={{ opacity: [1, 0.15, 0.15, 0.15, 1] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
@@ -194,7 +194,7 @@ export default function SpiritDetailScreen() {
                     alt={`${spirit.name} 프레임 2`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
-                    animate={{ opacity: [0, 1, 0, 1, 0] }}
+                    animate={{ opacity: [0.15, 1, 0.15, 1, 0.15] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                   <motion.img
@@ -202,7 +202,7 @@ export default function SpiritDetailScreen() {
                     alt={`${spirit.name} 프레임 3`}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
                     draggable={false}
-                    animate={{ opacity: [0, 0, 1, 0, 0] }}
+                    animate={{ opacity: [0.15, 0.15, 1, 0.15, 0.15] }}
                     transition={{ duration: 2.8, ease: 'linear', repeat: Infinity, times: [0, 0.25, 0.5, 0.75, 1] }}
                   />
                 </>
@@ -251,7 +251,7 @@ export default function SpiritDetailScreen() {
             </AnimatePresence>
           </div>
 
-          <div className="mt-[20px] text-center">
+          <div className="mt-[12px] text-center">
             <div
               className="rounded-[16px] px-6 py-3"
               style={{ backgroundColor: meta.storyBoxColor || 'rgba(8,10,20,0.5)' }}

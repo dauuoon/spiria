@@ -79,6 +79,7 @@ export default function ExchangeScreen() {
   }
 
   const onRefresh = () => {
+    playExchangeSfx()
     const result = refreshExchangeOffers()
     if (result.ok) {
       setMessage({ id: Date.now(), text: `새로고침 완료 (-${result.cost ?? 0}G)` })
