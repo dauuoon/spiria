@@ -22,8 +22,8 @@ export const DUNGEONS: DungeonDef[] = [
   {
     id: 'wind_canyon',
     name: '바람의 협곡',
-    unlockLv: 10,
-    recommendedLv: 10,
+    unlockLv: 5,
+    recommendedLv: 5,
     manaCost: 1,
     baseExp: 35,
     goldReward: 28,
@@ -33,8 +33,8 @@ export const DUNGEONS: DungeonDef[] = [
   {
     id: 'frozen_lake',
     name: '얼어붙은 설원',
-    unlockLv: 25,
-    recommendedLv: 25,
+    unlockLv: 10,
+    recommendedLv: 10,
     manaCost: 1,
     baseExp: 50,
     goldReward: 40,
@@ -44,8 +44,8 @@ export const DUNGEONS: DungeonDef[] = [
   {
     id: 'flame_ruins',
     name: '화염의 산맥',
-    unlockLv: 50,
-    recommendedLv: 50,
+    unlockLv: 15,
+    recommendedLv: 15,
     manaCost: 1,
     baseExp: 70,
     goldReward: 56,
@@ -55,8 +55,8 @@ export const DUNGEONS: DungeonDef[] = [
   {
     id: 'dark_swamp',
     name: '어둠의 습지',
-    unlockLv: 80,
-    recommendedLv: 80,
+    unlockLv: 20,
+    recommendedLv: 20,
     manaCost: 1,
     baseExp: 100,
     goldReward: 80,

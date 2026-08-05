@@ -2539,8 +2539,16 @@ function TimingTapGame({
     return () => window.clearInterval(interval)
   }, [disabled])
 
-  const successStart = 0.42
-  const successEnd = 0.58
+  const successWindowWidthByStage: Record<1 | 2 | 3 | 4 | 5, number> = {
+    1: 0.24,
+    2: 0.20,
+    3: 0.16,
+    4: 0.13,
+    5: 0.10,
+  }
+  const successWindowWidth = successWindowWidthByStage[stage]
+  const successStart = 0.5 - (successWindowWidth / 2)
+  const successEnd = 0.5 + (successWindowWidth / 2)
 
   const stageTheme = useMemo(() => {
     if (stage === 2) {
@@ -2690,12 +2698,39 @@ function MatchingCardGame({
     return '#A7C8A3'
   }, [stage])
 
+  const matchingMaterialItemIds = useMemo(() => {
+    const fallback = ['flower', 'leaf', 'star', 'magic']
+    const targetRegion = REGIONS[stage - 1]
+    if (!targetRegion) return fallback
+
+    const topMaterialIds = [...targetRegion.dropTable]
+      .filter((entry) => MATERIAL_ITEM_IDS.includes(entry.itemId))
+      .sort((left, right) => right.weight - left.weight)
+      .map((entry) => entry.itemId)
+      .filter((itemId, index, array) => array.indexOf(itemId) === index)
+      .slice(0, 4)
+
+    if (topMaterialIds.length < 4) {
+      const padded = [...topMaterialIds]
+      for (const itemId of fallback) {
+        if (!padded.includes(itemId)) padded.push(itemId)
+        if (padded.length >= 4) break
+      }
+      return padded.slice(0, 4)
+    }
+
+    return topMaterialIds
+  }, [stage])
+
   const cards = useMemo<MatchingCard[]>(() => {
-    const symbols = ['flower', 'leaf', 'star', 'magic']
-    const raw = symbols.flatMap((key) => ([
-      { id: 0, key, iconPath: `assets/item/it/it_${key}.png` },
-      { id: 0, key, iconPath: `assets/item/it/it_${key}.png` },
-    ]))
+    const raw = matchingMaterialItemIds.flatMap((itemId) => {
+      const itemDef = ITEMS.find((item) => item.id === itemId)
+      const iconPath = itemDef?.icon ?? `assets/item/it/it_${itemId}.png`
+      return ([
+        { id: 0, key: itemId, iconPath },
+        { id: 0, key: itemId, iconPath },
+      ])
+    })
 
     const shuffled = [...raw]
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -2706,7 +2741,7 @@ function MatchingCardGame({
     }
 
     return shuffled.map((card, idx) => ({ ...card, id: idx }))
-  }, [])
+  }, [matchingMaterialItemIds])
 
   const [firstSelectedId, setFirstSelectedId] = useState<number | null>(null)
   const [secondSelectedId, setSecondSelectedId] = useState<number | null>(null)

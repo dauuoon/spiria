@@ -38,6 +38,8 @@ const LEVEL_UP_PARTICLES = [
   { x: 0, y: -118, size: 11, delay: 0.33 },
 ] as const
 
+const TAB_SESSION_RESET_FLAG_KEY = 'spiria.tab-session-reset.v1'
+
 export default function App() {
   const setProgress = useAppStore(s => s.setProgress)
   const screen = useAppStore(s => s.screen)
@@ -49,7 +51,21 @@ export default function App() {
   const warmedUpScreenChunksRef = useRef(false)
 
   useEffect(() => {
+    let shouldReset = true
+    try {
+      shouldReset = sessionStorage.getItem(TAB_SESSION_RESET_FLAG_KEY) !== '1'
+    } catch {
+      shouldReset = true
+    }
+
+    if (!shouldReset) return
+
     resetGameData()
+    try {
+      sessionStorage.setItem(TAB_SESSION_RESET_FLAG_KEY, '1')
+    } catch {
+      // ignore storage errors
+    }
   }, [resetGameData])
 
   // Preload critical startup assets and reflect real progress on loading screen.
