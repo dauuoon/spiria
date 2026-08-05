@@ -87,6 +87,7 @@ export default function SpiritDetailScreen() {
   const todayClaimedCount = spiritCommunicationRewards.dayKey === todayKey
     ? spiritCommunicationRewards.claimedCount
     : 0
+  const isDailyTalkLimitReached = todayClaimedCount >= SPIRIT_COMMUNICATION_DAILY_LIMIT
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -113,6 +114,12 @@ export default function SpiritDetailScreen() {
   }, [activeTalkLine, isTalkOpen])
 
   const triggerSpiritTalk = () => {
+    if (isDailyTalkLimitReached) {
+      setIsTalkOpen(true)
+      setTalkFeedback('오늘의 정령 소통 보상은 전체 합산 3회를 모두 받았습니다.')
+      return
+    }
+
     let nextIndex = 0
     if (conversationLines.length > 1) {
       do {
@@ -224,9 +231,10 @@ export default function SpiritDetailScreen() {
             <button
               type="button"
               onClick={triggerSpiritTalk}
-              title={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
-              aria-label={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
-              className="relative z-10 inline-flex h-12 w-12 items-center justify-center"
+              disabled={isDailyTalkLimitReached}
+              title={`말풍선 소통 (전체 ${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              aria-label={`말풍선 소통 (전체 ${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              className={`relative z-10 inline-flex h-12 w-12 items-center justify-center transition-opacity ${isDailyTalkLimitReached ? 'opacity-45 cursor-not-allowed' : 'opacity-100'}`}
             >
               <img src={a('assets/particle/talk.png')} alt="" aria-hidden className="h-12 w-12 object-contain" draggable={false} />
             </button>

@@ -140,9 +140,12 @@ export default function CraftResultScreen() {
     gem: '보석',
   }
   const recipeMaterials = craftResult.materialIds.map((id) => materialLabelById[id] ?? id)
+  const discoveredSpiritIdSet = new Set(discoveredSpiritIds)
   const candidateSpiritNames = craftResult.candidateSpiritIds
-    .map((id) => SPIRITS.find((spiritItem) => spiritItem.id === id)?.name)
-    .filter((name): name is string => Boolean(name))
+    .map((id) => {
+      if (!discoveredSpiritIdSet.has(id)) return '???'
+      return SPIRITS.find((spiritItem) => spiritItem.id === id)?.name ?? '???'
+    })
   const themePalette: Record<string, { overlay: string; glow: string }> = {
     '따뜻한 골드': {
       overlay: 'radial-gradient(circle at 50% 35%, rgba(255, 215, 150, 0.26), rgba(11, 11, 11, 0.72) 60%)',
@@ -242,11 +245,6 @@ export default function CraftResultScreen() {
   }, [craftResult])
 
   useEffect(() => {
-    if (!craftResult.success || !craftedSpirit) return
-    recordSpiritSummon(craftedSpirit.id)
-  }, [craftResult, craftedSpirit])
-
-  useEffect(() => {
     if (introStage !== 'video') return
     window.dispatchEvent(new Event('spiria:pause-bgm-temp'))
     playSfx(RESULT_ING_SFX_PATH, 0.84)
@@ -319,7 +317,10 @@ export default function CraftResultScreen() {
     gainExp(expGain)
     addCoins(totalGoldGain)
     if (manaGain > 0) addMana(manaGain)
-    if (craftedSpirit) markSpiritDiscovered(craftedSpirit.id)
+    if (craftedSpirit) {
+      recordSpiritSummon(craftedSpirit.id)
+      markSpiritDiscovered(craftedSpirit.id)
+    }
 
     playSfx(GAME_SUCCESS_SFX_PATH, 0.88)
     setRewardSummary({

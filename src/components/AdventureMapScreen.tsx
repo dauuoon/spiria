@@ -89,7 +89,7 @@ const ALL_MAPS_100_SFX_PATH = 'assets/sound/percent.mp3'
 const CARD_FLIP_SFX_PATH = 'assets/sound/cardsw.mp3'
 const GAME_SUCCESS_SFX_PATH = 'assets/sound/gamesuccess.mp3'
 const GAME_FAIL_SFX_PATH = 'assets/sound/gamefail.mp3'
-const MATCHING_MAX_MISTAKES = 5
+const MATCHING_MAX_MISTAKES = 4
 const EXPLORE_TAP_COOLDOWN_MS = 400
 const EMPTY_EVENT_DISMISS_MS = 4000
 const FLOATING_TOAST_LIFETIME_MS = 450
@@ -458,6 +458,7 @@ export default function AdventureMapScreen({
     return Math.round(rate)
   }, [explorationProgress, region])
   const mapTitle = dungeon?.name ?? region?.name ?? `Map${stage}`
+  const displayMapTitle = isHiddenStage ? `${mapTitle}(히든맵)` : mapTitle
   const getItemDef = useCallback((id: string) => ITEMS.find((it) => it.id === id), [])
 
   const isAllMapsExplorationComplete = useMemo(() => {
@@ -1636,7 +1637,7 @@ export default function AdventureMapScreen({
 
       <div className="absolute inset-0 bg-black/20" />
 
-      <TopBar onBack={() => setShowExitConfirm(true)} title={mapTitle} />
+      <TopBar onBack={() => setShowExitConfirm(true)} title={displayMapTitle} />
 
       <div className="absolute inset-0 z-[3] opacity-60 pointer-events-none">
         <ParticlesCanvas density={0.00007} baseAlpha={0.2} swingAlpha={0.7} sizeScale={1.35} />
@@ -2329,7 +2330,7 @@ function SpiritMiniGameModal({
               animate={{ opacity: [0.35, 1, 0.35] }}
               transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              카드를 뒤집어 짝을 맞춰주세요. (오답 5회 시 실패)
+              카드를 뒤집어 짝을 맞춰주세요. (오답 4회 시 실패)
             </motion.div>
           )}
 
