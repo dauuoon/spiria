@@ -1,5 +1,5 @@
 export const PROFILE_NICKNAME_STORAGE_KEY = 'spiria.profile.nickname' as const
-export const DEFAULT_NICKNAME = '오늘도 가보자' as const
+export const DEFAULT_NICKNAME = '스피리아홧팅' as const
 
 const ASCII_WEIGHT = 1
 const NON_ASCII_WEIGHT = 5 / 3

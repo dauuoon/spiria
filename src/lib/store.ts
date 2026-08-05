@@ -9,6 +9,7 @@ import { getLevelTitle } from '../data/levelTitles'
 import { REGIONS } from '../data/regions'
 import { SPIRITS } from '../data/spirits'
 import { clearSpiritSummonHistory } from './spiritSummonHistory'
+import { PROFILE_NICKNAME_STORAGE_KEY } from './profile'
 
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
 
@@ -797,10 +798,37 @@ const useAppStore = create<AppState>((set, get) => ({
         popupKey: `${nextLevel}-${currentLevel}-${Date.now()}`,
       }
 
+      const nextPendingLevelUp = state.pendingLevelUp
+        ? {
+            previousLevel: state.pendingLevelUp.previousLevel,
+            newLevel: levelUpInfo.newLevel,
+            title: getLevelTitle(levelUpInfo.newLevel),
+            titleChanged:
+              state.pendingLevelUp.titleChanged
+              || getLevelTitle(state.pendingLevelUp.previousLevel) !== getLevelTitle(levelUpInfo.newLevel),
+            rewards: {
+              gold: state.pendingLevelUp.rewards.gold + levelUpInfo.rewards.gold,
+              mana: state.pendingLevelUp.rewards.mana + levelUpInfo.rewards.mana,
+              newTitle:
+                (state.pendingLevelUp.titleChanged
+                  || getLevelTitle(state.pendingLevelUp.previousLevel) !== getLevelTitle(levelUpInfo.newLevel))
+                  ? getLevelTitle(levelUpInfo.newLevel)
+                  : undefined,
+              unlockedRegions: Array.from(new Set([
+                ...state.pendingLevelUp.rewards.unlockedRegions,
+                ...levelUpInfo.rewards.unlockedRegions,
+              ])),
+            },
+            popupKey: `${state.pendingLevelUp.previousLevel}-${levelUpInfo.newLevel}-${Date.now()}`,
+          }
+        : levelUpInfo
+
+      levelUpInfo = nextPendingLevelUp
+
       const nextState = {
         level: currentLevel,
         expInLevel: currentLevel >= 99 ? 0 : currentExp,
-        pendingLevelUp: levelUpInfo,
+        pendingLevelUp: nextPendingLevelUp,
       }
       saveGameState({
         level: nextState.level,
@@ -1024,6 +1052,7 @@ const useAppStore = create<AppState>((set, get) => ({
       localStorage.removeItem('spiria.craft-board-state.v1')
       localStorage.removeItem(EXCHANGE_STORAGE_KEY)
       localStorage.removeItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
+      localStorage.removeItem(PROFILE_NICKNAME_STORAGE_KEY)
     } catch {
       // ignore storage errors
     }

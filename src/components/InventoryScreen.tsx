@@ -9,7 +9,8 @@ import type { SpiritRarity } from '../types/game'
 import { SPIRITS } from '../data/spirits'
 import { TRACE_ITEM_BY_STAGE } from '../data/items'
 
-const AWAKEN_FRAGMENT_REQUIRED = 100
+const AWAKEN_FRAGMENT_REQUIRED = 50
+const HIDDEN_TRACE_REQUIRED = 10
 
 const ITEM_DESCRIPTION_BY_ID: Record<string, string> = {
   forest_trace: '숲 지역을 탐험하며 남긴 흔적입니다.',
@@ -39,14 +40,14 @@ export default function InventoryScreen() {
     const fixed = ITEM_DESCRIPTION_BY_ID[id]
     if (fixed) {
       if (id.endsWith('_trace')) {
-        return `${fixed}\n20개가 모이면 숨겨진 흔적이 이어집니다.`
+        return `${fixed}\n10개가 모이면 숨겨진 흔적이 이어집니다.`
       }
       return fixed
     }
     if (id.startsWith('fragment_spirit_')) {
       const itemName = ITEMS.find((item) => item.id === id)?.name ?? '정령의 조각'
       const spiritName = itemName.replace(/의 조각$/, '')
-      return `${spiritName} 정령을 해금하기 위한 조각입니다.\n100개가 모이면 잠든 정령이 깨어납니다.`
+      return `${spiritName} 정령을 해금하기 위한 조각입니다.\n50개가 모이면 잠든 정령이 깨어납니다.`
     }
     return getCategory(id) === '재료'
       ? '정령 제작에 사용하는 기본 재료입니다.'
@@ -98,7 +99,7 @@ export default function InventoryScreen() {
     } as const
   }, [])
   const selectedTraceStage = selectedItem ? traceStageByItemId[selectedItem.id as keyof typeof traceStageByItemId] ?? null : null
-  const canGoHiddenPlace = Boolean(selectedTraceStage && selectedCount >= 20)
+  const canGoHiddenPlace = Boolean(selectedTraceStage && selectedCount >= HIDDEN_TRACE_REQUIRED)
 
   const awakenSpiritFromFragment = () => {
     if (!selectedItem || !awakenSpirit) return
@@ -119,7 +120,7 @@ export default function InventoryScreen() {
 
   const moveToHiddenStageFromTrace = () => {
     if (!selectedTraceStage) return
-    if (selectedCount < 20) return
+    if (selectedCount < HIDDEN_TRACE_REQUIRED) return
 
     requestHiddenStageJump(selectedTraceStage)
     setSelectedItemId(null)

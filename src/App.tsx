@@ -42,10 +42,15 @@ export default function App() {
   const setProgress = useAppStore(s => s.setProgress)
   const screen = useAppStore(s => s.screen)
   const setScreen = useAppStore(s => s.setScreen)
+  const resetGameData = useAppStore(s => s.resetGameData)
   const pendingLevelUp = useAppStore(s => s.pendingLevelUp)
   const showLevelUpPopup = useAppStore(s => s.showLevelUpPopup)
   const claimPendingLevelUpRewards = useAppStore(s => s.claimPendingLevelUpRewards)
   const warmedUpScreenChunksRef = useRef(false)
+
+  useEffect(() => {
+    resetGameData()
+  }, [resetGameData])
 
   // Preload critical startup assets and reflect real progress on loading screen.
   useEffect(() => {

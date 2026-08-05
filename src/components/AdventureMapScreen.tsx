@@ -2847,6 +2847,10 @@ function MatchingCardGame({
         })}
       </div>
 
+      <div className="mt-2 text-center text-[12px] font-medium text-white/75">
+        실수 {mistakeCount}/{MATCHING_MAX_MISTAKES}
+      </div>
+
     </div>
   )
 }

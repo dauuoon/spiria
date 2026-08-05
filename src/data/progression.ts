@@ -1,8 +1,8 @@
 import type { HiddenStageReward, RegionTrace, SpiritFragment } from '../types/game'
 import { SPIRITS } from './spirits'
 
-export const SPIRIT_FRAGMENT_REQUIRED_AMOUNT = 100 as const
-export const HIDDEN_STAGE_TRACE_REQUIRED_AMOUNT = 20 as const
+export const SPIRIT_FRAGMENT_REQUIRED_AMOUNT = 50 as const
+export const HIDDEN_STAGE_TRACE_REQUIRED_AMOUNT = 10 as const
 
 export const SPIRIT_FRAGMENTS: readonly SpiritFragment[] = SPIRITS.map((spirit) => ({
   fragmentId: `fragment_${spirit.id}`,

@@ -10,19 +10,19 @@ export type HiddenStageClearReward = {
 }
 
 export const HIDDEN_STAGE_BALANCE = {
-  entryTraceCost: 20,
+  entryTraceCost: 10,
   manaBonusAmount: 1,
   manaBonusChance: 0.05,
   firstClear: {
     fragmentAmount: 30,
-    exp: 200,
+    exp: 230,
     gold: 200,
     materialTotalMin: 5,
     materialTotalMax: 5,
   },
   repeatClear: {
     fragmentAmount: 20,
-    exp: 100,
+    exp: 120,
     gold: 100,
     materialTotalMin: 3,
     materialTotalMax: 5,
