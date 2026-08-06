@@ -52,9 +52,9 @@ export default function SideActions() {
   }
 
   return (
-    <div className="absolute left-[13px] top-[109px] z-10 pointer-events-none">
-      <div className="rounded-2xl bg-[rgba(10,12,30,0.50)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_32px_rgba(0,0,0,0.45)] px-3 py-3.5">
-        <div className="flex flex-col items-center gap-3">
+    <div className="absolute left-[13px] top-[109px] z-10 pointer-events-none max-[360px]:left-[10px] max-[360px]:top-[100px]">
+      <div className="rounded-2xl bg-[rgba(10,12,30,0.50)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_32px_rgba(0,0,0,0.45)] px-3 py-3.5 max-[360px]:px-2.5 max-[360px]:py-3">
+        <div className="flex flex-col items-center gap-3 max-[360px]:gap-2.5">
           {items.map((it) => (
             <motion.button
               key={it.id}
@@ -74,7 +74,7 @@ export default function SideActions() {
                   : undefined
               }
             >
-              <span className="relative w-[46px] h-[46px] rounded-full bg-transparent flex items-center justify-center">
+              <span className="relative w-[46px] h-[46px] rounded-full bg-transparent flex items-center justify-center max-[360px]:w-[42px] max-[360px]:h-[42px]">
                 <span
                   aria-hidden
                   className="pointer-events-none absolute -inset-1 rounded-full bg-[radial-gradient(closest-side,rgba(8,10,22,0.95),rgba(8,10,22,0)_70%)] blur-[12px]"
@@ -90,11 +90,11 @@ export default function SideActions() {
                 <img
                   src={a(it.icon)}
                   alt={it.label}
-                  className="w-9 h-9 object-contain drop-shadow-[0_0_14px_rgba(8,10,22,0.6)]"
+                  className="w-9 h-9 object-contain drop-shadow-[0_0_14px_rgba(8,10,22,0.6)] max-[360px]:w-8 max-[360px]:h-8"
                   draggable={false}
                 />
               </span>
-              <span className="text-[#ac8a7a] text-[14px] font-semibold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
+              <span className="text-[#ac8a7a] text-[14px] font-semibold leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] max-[360px]:text-[13px]">
                 {it.label}
               </span>
             </motion.button>

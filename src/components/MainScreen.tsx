@@ -118,7 +118,7 @@ export default function MainScreen() {
       <div className="absolute inset-0 bg-black/20" />
 
       {/* Top-right currency badges (coin + mana), no plus button */}
-      <div className="absolute top-[32px] right-[17px] z-10 flex items-center gap-2">
+      <div className="absolute top-[32px] right-[17px] z-10 flex items-center gap-2 max-[360px]:top-[28px] max-[360px]:right-[14px]">
         <motion.button
           type="button"
           whileTap={{ scale: 0.96 }}
@@ -129,7 +129,7 @@ export default function MainScreen() {
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(255,214,99,0.55),rgba(255,214,99,0)_70%)] blur-[6px]" />
             <img src={a('assets/particle/money.png')} alt="coin" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(227,189,135,0.35)]" />
           </span>
-          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{coins.toLocaleString()}</span>
+          <span className="text-white/90 text-[14px] font-semibold tabular-nums max-[360px]:text-[12px]">{coins.toLocaleString()}</span>
         </motion.button>
 
         <motion.button
@@ -142,7 +142,7 @@ export default function MainScreen() {
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(155,203,255,0.5),rgba(155,203,255,0)_70%)] blur-[6px]" />
             <img src={a('assets/particle/gem.png')} alt="mana" className="relative w-5 h-5 drop-shadow-[0_0_8px_rgba(155,203,255,0.35)]" />
           </span>
-          <span className="text-white/90 text-[14px] font-semibold tabular-nums">{mana}</span>
+          <span className="text-white/90 text-[14px] font-semibold tabular-nums max-[360px]:text-[12px]">{mana}</span>
         </motion.button>
       </div>
 
@@ -161,7 +161,7 @@ export default function MainScreen() {
           type="button"
           aria-label="공방"
           whileTap={{ scale: 0.9, y: 2 }}
-          className="absolute left-[calc(2%-70px)] bottom-[calc(18%-505px)] w-[70%] max-w-none z-[8] cursor-pointer relative overflow-visible"
+          className="absolute left-[calc(2%-70px)] bottom-[calc(18%-505px)] w-[70%] max-w-none z-[8] cursor-pointer relative overflow-visible max-[360px]:left-[calc(3%-54px)] max-[360px]:w-[66%] max-[360px]:bottom-[calc(18%-470px)]"
           onClick={() => setScreen('exchange')}
         >
           <Wiggly>
@@ -185,7 +185,7 @@ export default function MainScreen() {
                 draggable={false}
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="-translate-y-[2px] inline-block text-[min(3.2vw,15px)] font-semibold tracking-wide text-[#ac8a7a]">
+                <span className="-translate-y-[2px] inline-block text-[clamp(12px,3vw,15px)] font-semibold tracking-wide text-[#ac8a7a] max-[360px]:text-[12px]">
                   교환소 가기
                 </span>
               </div>
@@ -198,7 +198,7 @@ export default function MainScreen() {
           type="button"
           aria-label="던전"
           whileTap={{ scale: 0.9, y: 2 }}
-          className="absolute right-[calc(3%-238px)] bottom-[calc(20%-166px)] w-[72%] max-w-none z-[9] cursor-pointer relative overflow-visible"
+          className="main-dungeon-cta absolute right-[calc(3%-238px)] bottom-[calc(20%-166px)] w-[72%] max-w-none z-[9] cursor-pointer relative overflow-visible max-[360px]:right-[calc(4%-190px)] max-[360px]:w-[66%] max-[360px]:bottom-[calc(20%-154px)]"
           onClick={() => setScreen('expedition')}
         >
           <Wiggly>
@@ -222,7 +222,7 @@ export default function MainScreen() {
                 draggable={false}
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="-translate-y-[2px] inline-block text-[min(3.2vw,15px)] font-semibold tracking-wide text-[#ac8a7a]">
+                <span className="-translate-y-[2px] inline-block text-[clamp(12px,3vw,15px)] font-semibold tracking-wide text-[#ac8a7a] max-[360px]:text-[12px]">
                   탐험 가기
                 </span>
               </div>
@@ -231,7 +231,7 @@ export default function MainScreen() {
         </motion.button>
 
         {/* 솥 (가운데, 최상단) - 래퍼로 위치 고정하여 클릭 시 이동 버그 방지 */}
-        <div className="absolute left-1/2 -translate-x-1/2 ml-0 bottom-[calc(12%+30px)] w-[calc(54%+35px)] z-[12]">
+        <div className="absolute left-1/2 -translate-x-1/2 ml-0 bottom-[calc(12%+30px)] w-[calc(54%+35px)] z-[12] max-[360px]:w-[calc(52%+24px)] max-[360px]:bottom-[calc(12%+20px)]">
           <motion.button
             type="button"
             aria-label="솥"
@@ -260,7 +260,7 @@ export default function MainScreen() {
                   draggable={false}
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="-translate-y-[2px] inline-block text-[min(3.4vw,16px)] font-semibold tracking-wide text-[#fff1b3]">
+                  <span className="-translate-y-[2px] inline-block text-[clamp(13px,3.2vw,16px)] font-semibold tracking-wide text-[#fff1b3] max-[360px]:text-[13px]">
                     정령 빚기
                   </span>
                 </div>

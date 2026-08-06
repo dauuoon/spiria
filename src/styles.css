@@ -148,3 +148,15 @@ body {
 .book-scroll::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #4a4e6b, #2b2e45);
 }
+
+/* Main screen fine-tuning only for viewport height exactly 800px */
+@media (height: 800px) {
+  .main-dungeon-cta {
+    bottom: calc(20% - 194px) !important;
+  }
+
+  .main-profile-avatar {
+    width: 46px !important;
+    height: 46px !important;
+  }
+}

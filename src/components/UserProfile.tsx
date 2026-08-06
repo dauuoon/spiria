@@ -32,7 +32,7 @@ export default function UserProfile({
   const resolvedName = name ?? loadStoredNickname()
 
   return (
-    <div className="absolute top-[32px] left-[16px] z-10 pointer-events-auto">
+    <div className="absolute top-[32px] left-[16px] z-10 pointer-events-auto max-[360px]:top-[28px] max-[360px]:left-[12px]">
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <motion.button
@@ -41,7 +41,7 @@ export default function UserProfile({
           onClick={() => setScreen('profile')}
           aria-label="프로필 열기"
           title="프로필 열기"
-          className="relative w-[52px] h-[52px] rounded-full overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)] cursor-pointer"
+          className="main-profile-avatar relative w-[52px] h-[52px] rounded-full overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)] cursor-pointer"
         >
           {avatar ? (
             <img
@@ -61,9 +61,9 @@ export default function UserProfile({
         </motion.button>
 
         {/* Name + XP */}
-        <div className="min-w-[180px] max-w-[64vw]">
+        <div className="min-w-[180px] max-w-[64vw] max-[360px]:min-w-[150px]">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-[#ac8a7a] text-[16px] leading-tight font-semibold truncate">{resolvedName}</h2>
+            <h2 className="text-[#ac8a7a] text-[16px] leading-tight font-semibold truncate max-[360px]:text-[14px]">{resolvedName}</h2>
           </div>
 
           {/* XP level indicator + bar (reduced size, bar overlaps under level) */}

@@ -47,6 +47,7 @@ export default function ExpeditionScreen() {
   const clearPendingHiddenStageJump = useAppStore(s => s.clearPendingHiddenStageJump)
   const acknowledgeExpeditionMapUnlockNotifications = useAppStore(s => s.acknowledgeExpeditionMapUnlockNotifications)
   const [entryTarget, setEntryTarget] = useState<EntryTarget | null>(null)
+  const [isViewportHeight800, setIsViewportHeight800] = useState(false)
   const entryActionLockRef = useRef(false)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const isUnlocked = (stage: number) => level >= DUNGEONS[stage - 1]?.unlockLv
@@ -143,6 +144,17 @@ export default function ExpeditionScreen() {
   }, [acknowledgeExpeditionMapUnlockNotifications])
 
   useEffect(() => {
+    const check = () => setIsViewportHeight800(window.innerHeight === 800)
+    check()
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    return () => {
+      window.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', check)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!entryTarget) {
       entryActionLockRef.current = false
     }
@@ -232,7 +244,7 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="2단계"
           className="absolute right-[8%] top-[30%] w-[51%] max-w-none cursor-pointer"
-          style={{ x: 65, y: -30 }}
+          style={{ x: isViewportHeight800 ? 26 : 65, y: isViewportHeight800 ? -14 : -30 }}
           data-suppress-tap-sfx="true"
           onClick={() => {
             requestEnter(2, 'map2')
@@ -261,7 +273,7 @@ export default function ExpeditionScreen() {
           type="button"
           aria-label="3단계"
           className="absolute left-[6%] top-[56%] w-[56%] max-w-none cursor-pointer"
-          style={{ x: 200, y: -95 }}
+          style={{ x: isViewportHeight800 ? 146 : 200, y: isViewportHeight800 ? -74 : -95 }}
           data-suppress-tap-sfx="true"
           onClick={() => {
             requestEnter(3, 'map3')
@@ -350,6 +362,7 @@ export default function ExpeditionScreen() {
         maxMana={maxMana}
         manaUpdatedAt={manaUpdatedAt}
         onTick={recomputeMana}
+        isViewportHeight800={isViewportHeight800}
       />
 
       {entryTarget && (
@@ -533,12 +546,13 @@ function MapEntryModal({
   )
 }
 
-function EnergyOverlays({ a, mana, maxMana, manaUpdatedAt, onTick }: {
+function EnergyOverlays({ a, mana, maxMana, manaUpdatedAt, onTick, isViewportHeight800 }: {
   a: (p: string) => string
   mana: number
   maxMana: number
   manaUpdatedAt: number | null
   onTick: () => void
+  isViewportHeight800: boolean
 }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -570,10 +584,10 @@ function EnergyOverlays({ a, mana, maxMana, manaUpdatedAt, onTick }: {
         <div className="relative">
           <img src={a('assets/particle/possiblenum.png')} alt="탐험 가능 횟수 패널" className="w-full h-auto" />
           <div className="absolute inset-0 flex flex-col justify-center pl-20 pr-8 translate-y-[17px] rotate-[8deg] origin-left">
-            <div className="text-[#000000] drop-shadow-sm text-[14px] leading-none opacity-90">탐험 가능 횟수</div>
+            <div className={`text-[#000000] drop-shadow-sm leading-none opacity-90 ${isViewportHeight800 ? 'text-[12px]' : 'text-[14px]'}`}>탐험 가능 횟수</div>
             <div className="mt-1 flex items-center gap-1">
               <img src={a('assets/particle/gem.png')} alt="마나" className="w-4 h-4" draggable={false} />
-              <div className="text-black text-xl font-semibold tracking-wide">{mana}/{maxMana}</div>
+              <div className={`text-black font-semibold tracking-wide ${isViewportHeight800 ? 'text-[18px]' : 'text-xl'}`}>{mana}/{maxMana}</div>
             </div>
           </div>
         </div>
@@ -584,8 +598,8 @@ function EnergyOverlays({ a, mana, maxMana, manaUpdatedAt, onTick }: {
         <div className="relative">
           <img src={a('assets/particle/time.png')} alt="마력 회복 타이머" className="w-full h-auto" />
           <div className="absolute inset-0 flex flex-col items-center justify-center pb-0.9">
-            <div className="text-[#EDE7FF] text-[14px] opacity-90">마력 회복까지</div>
-            <div className="mt-0.5 text-white text-xl font-semibold tracking-wide">
+            <div className={`text-[#EDE7FF] opacity-90 ${isViewportHeight800 ? 'text-[12px]' : 'text-[14px]'}`}>마력 회복까지</div>
+            <div className={`mt-0.5 text-white font-semibold tracking-wide ${isViewportHeight800 ? 'text-[18px]' : 'text-xl'}`}>
               {mana >= maxMana ? 'MAX' : fmt(timeLeftMs)}
             </div>
           </div>

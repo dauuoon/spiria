@@ -403,7 +403,7 @@ function CountUpNumber({
 function ResolutionOverlay() {
   const [tooSmall, setTooSmall] = useState(false)
   useEffect(() => {
-    const check = () => setTooSmall(window.innerHeight <= 874)
+    const check = () => setTooSmall(window.innerHeight < 800)
     check()
     window.addEventListener('resize', check)
     window.addEventListener('orientationchange', check)
