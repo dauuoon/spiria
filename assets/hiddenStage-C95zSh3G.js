@@ -1,0 +1,1 @@
+const a={entryTraceCost:10,manaBonusAmount:1,manaBonusChance:.05,firstClear:{fragmentAmount:30,exp:230,gold:200,materialTotalMin:5,materialTotalMax:5},repeatClear:{fragmentAmount:20,exp:120,gold:100,materialTotalMin:3,materialTotalMax:5}};export{a as H};
