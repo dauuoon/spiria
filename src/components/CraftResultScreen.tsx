@@ -120,7 +120,6 @@ export default function CraftResultScreen() {
   const meta = craftedSpirit ? SPIRIT_DETAIL_META[craftedSpirit.id] ?? DEFAULT_SPIRIT_DETAIL_META : DEFAULT_SPIRIT_DETAIL_META
   const craftedSpiritFrames = craftedSpirit ? getSpiritAnimationFrames(craftedSpirit.id) : []
   const hasAnimatedCraftedSpirit = craftedSpiritFrames.length === 3
-  const isSoyo = craftedSpirit?.id === 'spirit_soyo'
   const isFailure = !craftResult.success
   const isAwakening = craftResult.resultMode === 'awakening'
   const spiritRarity = craftedSpirit?.rarity ?? 'common'
@@ -313,6 +312,27 @@ export default function CraftResultScreen() {
     const goldGain = randomIntInclusive(CRAFT_SUCCESS_GOLD_MIN, CRAFT_SUCCESS_GOLD_MAX)
     const totalGoldGain = goldGain + questRewardGold
     const manaGain = canClaimFirstDiscoveryMana ? CRAFT_SUCCESS_FIRST_DISCOVERY_GEM : 0
+    const duplicateDiscoveryBonusCount = 10
+    const bonusFragmentReward = (() => {
+      if (!craftedSpirit || canClaimFirstDiscoveryMana) return null
+      const undiscoveredSpirits = SPIRITS.filter((spiritItem) => !discoveredSpiritIds.includes(spiritItem.id))
+      if (undiscoveredSpirits.length <= 0) return null
+
+      const randomSpirit = undiscoveredSpirits[Math.floor(Math.random() * undiscoveredSpirits.length)]
+      const fragmentItemId = `fragment_${randomSpirit.id}`
+      const fragmentItem = ITEMS.find((item) => item.id === fragmentItemId)
+      if (!fragmentItem) return null
+
+      addItem(fragmentItem.id, duplicateDiscoveryBonusCount)
+      return {
+        id: fragmentItem.id,
+        name: fragmentItem.name,
+        count: duplicateDiscoveryBonusCount,
+        iconSrc: a(fragmentItem.icon ?? 'assets/item/it/it_soul.png'),
+        category: fragmentItem.category,
+        rarity: getRarityByItemId(fragmentItem.id, fragmentItem.category),
+      } satisfies RewardItem
+    })()
 
     gainExp(expGain)
     addCoins(totalGoldGain)
@@ -330,7 +350,7 @@ export default function CraftResultScreen() {
       exp: expGain,
       gold: totalGoldGain,
       mana: manaGain,
-      itemRewards: [],
+      itemRewards: bonusFragmentReward ? [bonusFragmentReward] : [],
     })
     setRewardClaimed(true)
   }
@@ -548,7 +568,7 @@ export default function CraftResultScreen() {
             <motion.div variants={resultSectionVariants} className="mt-5 text-center">
               <div
                 className="rounded-[16px] px-6 py-3"
-                style={{ backgroundColor: isSoyo ? 'rgba(69, 47, 44, 0.5)' : 'rgba(8,10,20,0.5)' }}
+                style={{ backgroundColor: meta.storyBoxColor || 'rgba(8,10,20,0.5)' }}
               >
                 <p className="whitespace-pre-line text-[15px] leading-[1.7] text-white/90 break-words overflow-wrap-anywhere">
                   {isFailure && failureHint ? `${failureHint.firstLine}\n${failureHint.secondLine}` : meta.story}

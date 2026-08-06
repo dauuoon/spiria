@@ -915,11 +915,12 @@ export default function AdventureMapScreen({
     const selectedSpiritId = candidateSpiritIds[Math.floor(Math.random() * candidateSpiritIds.length)]
     const selectedFragmentItem = selectedSpiritId ? fragmentItemBySpiritId.get(selectedSpiritId) ?? null : null
 
-    const materialTotal = randomIntInclusive(profile.materialTotalMin, profile.materialTotalMax)
+    const materialTypeCount = randomIntInclusive(profile.materialTotalMin, profile.materialTotalMax)
+    const materialAmountPerType = 5
     const materialCounts = new Map<string, number>()
-    for (let i = 0; i < materialTotal; i += 1) {
+    for (let i = 0; i < materialTypeCount; i += 1) {
       const randomMaterialId = MATERIAL_ITEM_IDS[Math.floor(Math.random() * MATERIAL_ITEM_IDS.length)]
-      materialCounts.set(randomMaterialId, (materialCounts.get(randomMaterialId) ?? 0) + 1)
+      materialCounts.set(randomMaterialId, (materialCounts.get(randomMaterialId) ?? 0) + materialAmountPerType)
     }
 
     const materialRewards: ExploreResult['itemRewards'] = Array.from(materialCounts.entries()).map(([materialId, count]) => {
@@ -946,6 +947,7 @@ export default function AdventureMapScreen({
       : []
 
     const mana = Math.random() < HIDDEN_STAGE_BALANCE.manaBonusChance ? HIDDEN_STAGE_BALANCE.manaBonusAmount : 0
+    const materialTotal = Array.from(materialCounts.values()).reduce((sum, count) => sum + count, 0)
 
     return {
       exp: profile.exp,
@@ -1133,12 +1135,51 @@ export default function AdventureMapScreen({
       for (const reward of hiddenResult.itemRewards) {
         addItem(reward.id, reward.count)
         if (reward.category === '재료') markExplorationDiscovery(stage, 'material')
-        if (reward.id.startsWith('fragment_')) markExplorationDiscovery(stage, 'spirit')
       }
 
       if (isFirstClear && regionId) {
         markHiddenStageFirstClear(regionId)
       }
+
+      const hiddenToastEntries: FloatingRewardToastEntry[] = [
+        {
+          text: `경험치 +${hiddenResult.exp}`,
+          iconPath: 'assets/particle/exp.png',
+          colors: FLOATING_TOAST_COLORS.exp,
+        },
+        {
+          text: `골드 +${hiddenResult.gold}`,
+          iconPath: 'assets/particle/money.png',
+          colors: FLOATING_TOAST_COLORS.gold,
+        },
+      ]
+
+      if (hiddenResult.mana > 0) {
+        hiddenToastEntries.push({
+          text: `마나 +${hiddenResult.mana}`,
+          iconPath: 'assets/particle/gem.png',
+          colors: FLOATING_TOAST_COLORS.mana,
+        })
+      }
+
+      for (const reward of hiddenResult.itemRewards) {
+        hiddenToastEntries.push({
+          text: `${reward.name} +${reward.count}`,
+          iconSrc: reward.iconSrc,
+          colors: getRarityToastColors(reward.rarity),
+        })
+      }
+
+      const pendingToastCountBeforeResult = floatingToastQueueRef.current.length + (floatingToastRunningRef.current ? 1 : 0)
+      if (hiddenToastEntries.length > 0) {
+        showFloatingRewardToasts(hiddenToastEntries)
+      }
+
+      const totalToastCountBeforeResultModal = pendingToastCountBeforeResult + hiddenToastEntries.length
+      const toastSequenceMs = totalToastCountBeforeResultModal > 0
+        ? totalToastCountBeforeResultModal * (FLOATING_TOAST_LIFETIME_MS + FLOATING_TOAST_GAP_MS)
+        : 0
+      const revealDelayMs = Math.max(EXPEDITION_REWARD_DRAFT.resultRevealDelayMs, toastSequenceMs + 180)
 
       if (resultTimerRef.current !== null) {
         window.clearTimeout(resultTimerRef.current)
@@ -1148,7 +1189,7 @@ export default function AdventureMapScreen({
         setShowResult(true)
         explorationRewardPlanRef.current = null
         resultTimerRef.current = null
-      }, EXPEDITION_REWARD_DRAFT.resultRevealDelayMs)
+      }, revealDelayMs)
       return
     }
 
@@ -1169,7 +1210,6 @@ export default function AdventureMapScreen({
         iconSrc: item.iconSrc,
         colors: getRarityToastColors(item.rarity),
       })
-      if (item.id.includes('fragment_')) markExplorationDiscovery(stage, 'spirit')
       if (item.id.includes('trace')) markExplorationDiscovery(stage, 'regional')
     }
 
@@ -2858,7 +2898,7 @@ function MatchingCardGame({
                   setSecondSelectedId(card.id)
                 }
               }}
-              className={`relative aspect-square w-full rounded-lg transition ${isMatched ? 'opacity-0 pointer-events-none scale-90' : !isOpen ? 'border border-black/15 bg-black/5' : 'border-0'}`}
+              className={`relative aspect-square w-full rounded-lg transition ${isMatched ? 'opacity-45 pointer-events-none saturate-75' : !isOpen ? 'border border-black/15 bg-black/5' : 'border-0'}`}
               style={isOpen
                 ? {
                     backgroundColor: cardFaceTheme.bg,
@@ -2912,11 +2952,28 @@ function FortuneChoiceGame({
 
   const resolveIconPathByLabel = useCallback((label: string, idx: number) => {
     const normalized = label.replace(/\s+/g, '')
+
+    if (stage === 3) {
+      return 'assets/item/it/it_wind.png'
+    }
+
+    if (stage === 4) {
+      if (normalized === '새벽의빛') return 'assets/item/it/it_moon.png'
+      if (normalized === '한낮의빛') return 'assets/item/it/it_light.png'
+      if (normalized === '황혼의빛') return 'assets/item/it/it_star.png'
+    }
+
+    if (stage === 5) {
+      if (normalized === '달의그림자') return 'assets/item/it/it_moon.png'
+      if (normalized === '고대의속삭임') return 'assets/item/it/it_ether.png'
+      if (normalized === '푸름불빛') return 'assets/item/it/it_fire.png'
+    }
+
     if (normalized.includes('별')) return 'assets/item/it/it_star.png'
     if (normalized.includes('달')) return 'assets/item/it/it_moon.png'
     if (normalized.includes('햇빛') || normalized.includes('태양') || normalized.includes('sun')) return 'assets/item/it/it_light.png'
     return fallbackIconPaths[idx] ?? fallbackIconPaths[0]
-  }, [])
+  }, [stage])
 
   const choices = useMemo(() => labels.map((name, idx) => ({
     id: `choice-${idx}`,

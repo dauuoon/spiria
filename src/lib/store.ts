@@ -13,7 +13,7 @@ import { PROFILE_NICKNAME_STORAGE_KEY } from './profile'
 
 type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
 
-export const EXCHANGE_CYCLE_MS = 60 * 60 * 1000
+export const EXCHANGE_CYCLE_MS = 20 * 60 * 1000
 export const EXCHANGE_REFRESH_COSTS = [30, 60, 90] as const
 export const EXCHANGE_MAX_REFRESH_PER_CYCLE = EXCHANGE_REFRESH_COSTS.length
 export const SPIRIT_COMMUNICATION_DAILY_LIMIT = 3
@@ -44,12 +44,12 @@ export type ExchangeActionResult = {
 
 type SpiritCommunicationRewardState = {
   dayKey: string
-  claimedCount: number
+  claimedCountBySpiritId: Record<string, number>
 }
 
 export type SpiritCommunicationRewardResult = {
   granted: boolean
-  rewardType: 'gold' | 'mana' | null
+  rewardType: 'gold' | 'mana' | 'exp' | null
   amount: number
   remaining: number
 }
@@ -164,7 +164,7 @@ type AppState = {
   refreshExchangeOffers: () => ExchangeActionResult
   buyExchangeOffer: (offerId: string) => ExchangeActionResult
   spiritCommunicationRewards: SpiritCommunicationRewardState
-  claimSpiritCommunicationReward: () => SpiritCommunicationRewardResult
+  claimSpiritCommunicationReward: (spiritId: string) => SpiritCommunicationRewardResult
   resetGameData: () => void
 }
 
@@ -527,17 +527,26 @@ const ensureExchangeStateFresh = (state: ExchangeState, now = Date.now()): Excha
 const loadSpiritCommunicationRewardState = (): SpiritCommunicationRewardState => {
   const defaultState: SpiritCommunicationRewardState = {
     dayKey: getTodayLocalKey(),
-    claimedCount: 0,
+    claimedCountBySpiritId: {},
   }
   try {
     const raw = localStorage.getItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
     if (!raw) return defaultState
-    const parsed = JSON.parse(raw) as Partial<SpiritCommunicationRewardState>
+    const parsed = JSON.parse(raw) as Partial<SpiritCommunicationRewardState & { claimedCount?: number }>
     if (!parsed || typeof parsed !== 'object' || typeof parsed.dayKey !== 'string') return defaultState
     if (parsed.dayKey !== defaultState.dayKey) return defaultState
+
+    const nextClaimedCountBySpiritId: Record<string, number> = {}
+    const rawCounts = parsed.claimedCountBySpiritId
+    if (rawCounts && typeof rawCounts === 'object') {
+      for (const [spiritId, count] of Object.entries(rawCounts)) {
+        nextClaimedCountBySpiritId[spiritId] = Math.max(0, Math.min(SPIRIT_COMMUNICATION_DAILY_LIMIT, Math.floor(Number(count) || 0)))
+      }
+    }
+
     return {
       dayKey: parsed.dayKey,
-      claimedCount: Math.max(0, Math.min(SPIRIT_COMMUNICATION_DAILY_LIMIT, Math.floor(parsed.claimedCount ?? 0))),
+      claimedCountBySpiritId: nextClaimedCountBySpiritId,
     }
   } catch {
     return defaultState
@@ -995,17 +1004,29 @@ const useAppStore = create<AppState>((set, get) => ({
     return { ok: true }
   },
   spiritCommunicationRewards: initialSpiritCommunicationRewards,
-  claimSpiritCommunicationReward: () => {
+  claimSpiritCommunicationReward: (spiritId) => {
+    const normalizedSpiritId = String(spiritId ?? '').trim()
+    if (!normalizedSpiritId) {
+      return {
+        granted: false,
+        rewardType: null,
+        amount: 0,
+        remaining: 0,
+      }
+    }
+
     const today = getTodayLocalKey()
     const current = get().spiritCommunicationRewards
     const normalized = current.dayKey === today
       ? current
       : {
         dayKey: today,
-        claimedCount: 0,
+        claimedCountBySpiritId: {},
       }
 
-    if (normalized.claimedCount >= SPIRIT_COMMUNICATION_DAILY_LIMIT) {
+    const claimedCountForSpirit = normalized.claimedCountBySpiritId[normalizedSpiritId] ?? 0
+
+    if (claimedCountForSpirit >= SPIRIT_COMMUNICATION_DAILY_LIMIT) {
       if (normalized !== current) {
         saveSpiritCommunicationRewardState(normalized)
         set({ spiritCommunicationRewards: normalized })
@@ -1018,17 +1039,33 @@ const useAppStore = create<AppState>((set, get) => ({
       }
     }
 
-    const rewardType: 'gold' | 'mana' = Math.random() < 0.5 ? 'gold' : 'mana'
-    const amount = rewardType === 'gold' ? randomInt(40, 120) : randomInt(1, 3)
+    const rewardRoll = Math.random()
+    const rewardType: 'gold' | 'mana' | 'exp' = rewardRoll < (1 / 3)
+      ? 'gold'
+      : rewardRoll < (2 / 3)
+        ? 'mana'
+        : 'exp'
+    const amount = rewardType === 'gold'
+      ? randomInt(40, 120)
+      : rewardType === 'mana'
+        ? randomInt(1, 3)
+        : randomInt(10, 50)
+
     if (rewardType === 'gold') {
       get().addCoins(amount)
-    } else {
+    } else if (rewardType === 'mana') {
       get().addMana(amount)
+    } else {
+      get().gainExp(amount)
     }
 
+    const nextCount = claimedCountForSpirit + 1
     const next = {
       dayKey: today,
-      claimedCount: normalized.claimedCount + 1,
+      claimedCountBySpiritId: {
+        ...normalized.claimedCountBySpiritId,
+        [normalizedSpiritId]: nextCount,
+      },
     }
     saveSpiritCommunicationRewardState(next)
     set({ spiritCommunicationRewards: next })
@@ -1036,7 +1073,7 @@ const useAppStore = create<AppState>((set, get) => ({
       granted: true,
       rewardType,
       amount,
-      remaining: Math.max(0, SPIRIT_COMMUNICATION_DAILY_LIMIT - next.claimedCount),
+      remaining: Math.max(0, SPIRIT_COMMUNICATION_DAILY_LIMIT - nextCount),
     }
   },
   resetGameData: () => {
@@ -1060,7 +1097,7 @@ const useAppStore = create<AppState>((set, get) => ({
     const refreshedExchange = createExchangeState()
     const refreshedCommunicationRewards = {
       dayKey: getTodayLocalKey(),
-      claimedCount: 0,
+      claimedCountBySpiritId: {},
     }
     saveMana(fresh.mana, fresh.manaUpdatedAt)
     saveGameState(fresh)

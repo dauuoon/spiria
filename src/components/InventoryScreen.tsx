@@ -8,6 +8,7 @@ import { getRarityByItemId, INVENTORY_RARITY_UI, SPIRIT_RARITY_TOKENS } from '..
 import type { SpiritRarity } from '../types/game'
 import { SPIRITS } from '../data/spirits'
 import { TRACE_ITEM_BY_STAGE } from '../data/items'
+import { REGIONS } from '../data/regions'
 
 const AWAKEN_FRAGMENT_REQUIRED = 50
 const HIDDEN_TRACE_REQUIRED = 10
@@ -82,6 +83,39 @@ export default function InventoryScreen() {
   const selectedCategory = selectedItem ? getCategory(selectedItem.id) : null
   const selectedRarity = selectedItem ? getRarity(selectedItem.id) : null
   const selectedDescription = selectedItem ? getDescription(selectedItem.id) : null
+  const selectedHighDropRegions = useMemo(() => {
+    if (!selectedItem) return [] as Array<{ stage: 1 | 2 | 3 | 4 | 5; name: string; weight: number }>
+
+    const topByDropTable = REGIONS
+      .map((region, index) => {
+        const matchedEntry = region.dropTable.find((entry) => entry.itemId === selectedItem.id)
+        if (!matchedEntry) return null
+        return {
+          stage: (index + 1) as 1 | 2 | 3 | 4 | 5,
+          name: region.name,
+          weight: matchedEntry.weight,
+        }
+      })
+      .filter((entry): entry is { stage: 1 | 2 | 3 | 4 | 5; name: string; weight: number } => Boolean(entry))
+      .sort((left, right) => right.weight - left.weight || left.stage - right.stage)
+
+    if (topByDropTable.length > 0) {
+      return topByDropTable.slice(0, 2)
+    }
+
+    const traceStageById: Record<string, 1 | 2 | 3 | 4 | 5> = {
+      [TRACE_ITEM_BY_STAGE[1]]: 1,
+      [TRACE_ITEM_BY_STAGE[2]]: 2,
+      [TRACE_ITEM_BY_STAGE[3]]: 3,
+      [TRACE_ITEM_BY_STAGE[4]]: 4,
+      [TRACE_ITEM_BY_STAGE[5]]: 5,
+    }
+    const traceStage = traceStageById[selectedItem.id]
+    if (!traceStage) return []
+    const traceRegion = REGIONS[traceStage - 1]
+    if (!traceRegion) return []
+    return [{ stage: traceStage, name: traceRegion.name, weight: 0 }]
+  }, [selectedItem])
   const awakenSpirit = useMemo(() => {
     if (!selectedItem) return null
     if (!selectedItem.id.startsWith('fragment_spirit_')) return null
@@ -123,6 +157,11 @@ export default function InventoryScreen() {
     if (selectedCount < HIDDEN_TRACE_REQUIRED) return
 
     requestHiddenStageJump(selectedTraceStage)
+    setSelectedItemId(null)
+    setScreen('expedition')
+  }
+
+  const moveToExpeditionFromHint = () => {
     setSelectedItemId(null)
     setScreen('expedition')
   }
@@ -329,6 +368,23 @@ export default function InventoryScreen() {
                   <p className="mt-3 whitespace-pre-line text-[13px] leading-relaxed text-white/80">
                     {selectedDescription}
                   </p>
+                  {selectedHighDropRegions.length > 0 && (
+                    <div className="mt-2 text-[12px] leading-relaxed text-white/72">
+                      {selectedHighDropRegions.map((region, index) => (
+                        <span key={`${selectedItem.id}-drop-region-${region.stage}`}>
+                          <button
+                            type="button"
+                            onClick={moveToExpeditionFromHint}
+                            className="underline underline-offset-2 text-[#d5b486] hover:text-[#efd2a7]"
+                          >
+                            {region.name}
+                          </button>
+                          {index < selectedHighDropRegions.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                      <span className="text-white">에서 높은 확률로 볼 수 있다.</span>
+                    </div>
+                  )}
                   {canAwakenSpirit && (
                     <button
                       type="button"

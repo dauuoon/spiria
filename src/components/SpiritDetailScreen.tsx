@@ -85,7 +85,7 @@ export default function SpiritDetailScreen() {
   const [todayKey, setTodayKey] = useState(() => getTodayLocalKey())
   const activeTalkLine = conversationLines[talkLineIndex] ?? ''
   const todayClaimedCount = spiritCommunicationRewards.dayKey === todayKey
-    ? spiritCommunicationRewards.claimedCount
+    ? (spiritCommunicationRewards.claimedCountBySpiritId[spirit.id] ?? 0)
     : 0
   const isDailyTalkLimitReached = todayClaimedCount >= SPIRIT_COMMUNICATION_DAILY_LIMIT
 
@@ -116,7 +116,7 @@ export default function SpiritDetailScreen() {
   const triggerSpiritTalk = () => {
     if (isDailyTalkLimitReached) {
       setIsTalkOpen(true)
-      setTalkFeedback('오늘의 정령 소통 보상은 전체 합산 3회를 모두 받았습니다.')
+      setTalkFeedback('이 정령과의 오늘 소통 보상 3회를 모두 받았습니다.')
       return
     }
 
@@ -129,14 +129,18 @@ export default function SpiritDetailScreen() {
     setTalkLineIndex(nextIndex)
     setIsTalkOpen(true)
 
-    const reward = claimSpiritCommunicationReward()
+    const reward = claimSpiritCommunicationReward(spirit.id)
     if (reward.granted) {
       playRewardSfx()
-      const rewardLabel = reward.rewardType === 'gold' ? `골드 +${reward.amount}` : `마나 +${reward.amount}`
-      setTalkFeedback(`${rewardLabel} · 오늘 남은 소통 ${reward.remaining}회`)
+      const rewardLabel = reward.rewardType === 'gold'
+        ? `골드 +${reward.amount}`
+        : reward.rewardType === 'mana'
+          ? `마나 +${reward.amount}`
+          : `경험치 +${reward.amount}`
+      setTalkFeedback(`${rewardLabel} · 이 정령 남은 소통 ${reward.remaining}회`)
       return
     }
-    setTalkFeedback('오늘의 소통 보상은 모두 받았습니다.')
+    setTalkFeedback('이 정령의 오늘 소통 보상은 모두 받았습니다.')
   }
 
   return (
@@ -232,8 +236,8 @@ export default function SpiritDetailScreen() {
               type="button"
               onClick={triggerSpiritTalk}
               disabled={isDailyTalkLimitReached}
-              title={`말풍선 소통 (전체 ${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
-              aria-label={`말풍선 소통 (전체 ${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              title={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
+              aria-label={`말풍선 소통 (${todayClaimedCount}/${SPIRIT_COMMUNICATION_DAILY_LIMIT})`}
               className={`relative z-10 inline-flex h-12 w-12 items-center justify-center transition-opacity ${isDailyTalkLimitReached ? 'opacity-45 cursor-not-allowed' : 'opacity-100'}`}
             >
               <img src={a('assets/particle/talk.png')} alt="" aria-hidden className="h-12 w-12 object-contain" draggable={false} />

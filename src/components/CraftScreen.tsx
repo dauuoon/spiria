@@ -128,6 +128,28 @@ function resolveQuestMatchRate(quest: SpiritRequestPage, craftedSpiritId: string
 }
 
 function resolveBestHintSpiritId(quest: SpiritRequestPage): string | null {
+  const explicitRates = quest.candidateMatchRates
+  if (explicitRates) {
+    let bestByExplicitRate: string | null = null
+    let bestExplicitRate = -1
+
+    for (const candidateId of quest.candidateSpiritIds) {
+      const rate = explicitRates[candidateId]
+      if (typeof rate !== 'number' || Number.isNaN(rate)) continue
+      if (rate > bestExplicitRate) {
+        bestExplicitRate = rate
+        bestByExplicitRate = candidateId
+      }
+    }
+
+    if (bestByExplicitRate) return bestByExplicitRate
+  }
+
+  // If explicit per-quest rates are not provided, use the representative spirit as the primary hint target.
+  if (quest.candidateSpiritIds.includes(quest.spiritId)) {
+    return quest.spiritId
+  }
+
   let bestSpiritId: string | null = null
   let bestRate = -1
 
