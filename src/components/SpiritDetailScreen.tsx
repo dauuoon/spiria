@@ -75,18 +75,24 @@ export default function SpiritDetailScreen() {
     legendary: '#F6E7A8',
   }
   const detailRarityColor = detailRarityColorByKey[meta.rarityKey]
-  const conversationLines = meta.conversationLines?.length === 3
-    ? meta.conversationLines
+  const conversationLines = (meta.conversationLines ?? [])
+    .map((line) => String(line).trim())
+    .filter((line) => line.length > 0)
+  const effectiveConversationLines = conversationLines.length > 0
+    ? conversationLines
     : DEFAULT_SPIRIT_DETAIL_META.conversationLines
   const [isTalkOpen, setIsTalkOpen] = useState(false)
   const [talkLineIndex, setTalkLineIndex] = useState(0)
   const [typedTalkText, setTypedTalkText] = useState('')
   const [talkFeedback, setTalkFeedback] = useState<string | null>(null)
   const [todayKey, setTodayKey] = useState(() => getTodayLocalKey())
-  const activeTalkLine = conversationLines[talkLineIndex] ?? ''
+  const activeTalkLine = effectiveConversationLines[talkLineIndex] ?? ''
   const todayClaimedCount = spiritCommunicationRewards.dayKey === todayKey
     ? (spiritCommunicationRewards.claimedCountBySpiritId[spirit.id] ?? 0)
     : 0
+  const todayUsedTalkLineIndexes = spiritCommunicationRewards.dayKey === todayKey
+    ? (spiritCommunicationRewards.usedTalkLineIndexesBySpiritId[spirit.id] ?? [])
+    : []
   const isDailyTalkLimitReached = todayClaimedCount >= SPIRIT_COMMUNICATION_DAILY_LIMIT
 
   useEffect(() => {
@@ -120,16 +126,18 @@ export default function SpiritDetailScreen() {
       return
     }
 
-    let nextIndex = 0
-    if (conversationLines.length > 1) {
-      do {
-        nextIndex = Math.floor(Math.random() * conversationLines.length)
-      } while (conversationLines.length > 1 && nextIndex === talkLineIndex)
-    }
+    const availableLineIndexes = effectiveConversationLines
+      .map((_, index) => index)
+      .filter((index) => !todayUsedTalkLineIndexes.includes(index))
+    const randomPool = availableLineIndexes.length > 0
+      ? availableLineIndexes
+      : effectiveConversationLines.map((_, index) => index)
+    const nextIndex = randomPool[Math.floor(Math.random() * randomPool.length)] ?? 0
+
     setTalkLineIndex(nextIndex)
     setIsTalkOpen(true)
 
-    const reward = claimSpiritCommunicationReward(spirit.id)
+    const reward = claimSpiritCommunicationReward(spirit.id, nextIndex)
     if (reward.granted) {
       playRewardSfx()
       const rewardLabel = reward.rewardType === 'gold'

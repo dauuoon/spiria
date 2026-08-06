@@ -15,8 +15,8 @@ export const EXPEDITION_REWARD_DRAFT = {
   manaRewardMax: 1,
   resultRevealDelayMs: 700,
   exploreSteps: 10,
-  baseExpMin: 18,
-  baseExpMax: 30,
+  baseExpMin: 15,
+  baseExpMax: 25,
   baseGoldMin: 10,
   baseGoldMax: 25,
   eventProbabilities: {

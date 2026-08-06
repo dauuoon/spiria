@@ -166,12 +166,14 @@ export interface RegionDef {
     spirit: number
     regional: number
     treasure: number
+    merchant: number
   }
   discoveryTotals: {
     material: number
     spirit: number
     regional: number
     treasure: number
+    merchant: number
   }
   dropTable: RegionDropTableEntry[]
   eventTemplates: RegionEventTemplate[]

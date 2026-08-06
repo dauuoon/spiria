@@ -45,6 +45,7 @@ export type ExchangeActionResult = {
 type SpiritCommunicationRewardState = {
   dayKey: string
   claimedCountBySpiritId: Record<string, number>
+  usedTalkLineIndexesBySpiritId: Record<string, number[]>
 }
 
 export type SpiritCommunicationRewardResult = {
@@ -101,6 +102,7 @@ type ExplorationProgress = {
   spiritDiscovered: number
   regionalEventDiscovered: number
   treasureDiscovered: number
+  merchantDiscovered: number
 }
 
 type ExplorationProgressByStage = Record<1 | 2 | 3 | 4 | 5, ExplorationProgress>
@@ -144,7 +146,7 @@ type AppState = {
   setExpInLevel: (n: number) => void
   gainExp: (delta: number) => PendingLevelUp | null
   explorationProgressByStage: ExplorationProgressByStage
-  markExplorationDiscovery: (stage: 1 | 2 | 3 | 4 | 5, kind: 'material' | 'spirit' | 'regional' | 'treasure') => void
+  markExplorationDiscovery: (stage: 1 | 2 | 3 | 4 | 5, kind: 'material' | 'spirit' | 'regional' | 'treasure' | 'merchant') => void
   mana: number
   maxMana: number
   manaRegenMs: number
@@ -164,7 +166,7 @@ type AppState = {
   refreshExchangeOffers: () => ExchangeActionResult
   buyExchangeOffer: (offerId: string) => ExchangeActionResult
   spiritCommunicationRewards: SpiritCommunicationRewardState
-  claimSpiritCommunicationReward: (spiritId: string) => SpiritCommunicationRewardResult
+  claimSpiritCommunicationReward: (spiritId: string, talkedLineIndex?: number) => SpiritCommunicationRewardResult
   resetGameData: () => void
 }
 
@@ -299,6 +301,7 @@ const createEmptyExplorationProgress = (): ExplorationProgress => ({
   spiritDiscovered: 0,
   regionalEventDiscovered: 0,
   treasureDiscovered: 0,
+  merchantDiscovered: 0,
 })
 
 const createInitialExplorationProgressByStage = (): ExplorationProgressByStage => ({
@@ -528,6 +531,7 @@ const loadSpiritCommunicationRewardState = (): SpiritCommunicationRewardState =>
   const defaultState: SpiritCommunicationRewardState = {
     dayKey: getTodayLocalKey(),
     claimedCountBySpiritId: {},
+    usedTalkLineIndexesBySpiritId: {},
   }
   try {
     const raw = localStorage.getItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
@@ -544,9 +548,22 @@ const loadSpiritCommunicationRewardState = (): SpiritCommunicationRewardState =>
       }
     }
 
+    const nextUsedTalkLineIndexesBySpiritId: Record<string, number[]> = {}
+    const rawUsedLineIndexes = parsed.usedTalkLineIndexesBySpiritId
+    if (rawUsedLineIndexes && typeof rawUsedLineIndexes === 'object') {
+      for (const [spiritId, indexes] of Object.entries(rawUsedLineIndexes)) {
+        if (!Array.isArray(indexes)) continue
+        const normalized = indexes
+          .map((value) => Math.floor(Number(value)))
+          .filter((value, idx, arr) => Number.isFinite(value) && value >= 0 && arr.indexOf(value) === idx)
+        nextUsedTalkLineIndexesBySpiritId[spiritId] = normalized
+      }
+    }
+
     return {
       dayKey: parsed.dayKey,
       claimedCountBySpiritId: nextClaimedCountBySpiritId,
+      usedTalkLineIndexesBySpiritId: nextUsedTalkLineIndexesBySpiritId,
     }
   } catch {
     return defaultState
@@ -733,7 +750,9 @@ const useAppStore = create<AppState>((set, get) => ({
         ? 'spiritDiscovered'
         : kind === 'regional'
           ? 'regionalEventDiscovered'
-          : 'treasureDiscovered'
+          : kind === 'treasure'
+            ? 'treasureDiscovered'
+            : 'merchantDiscovered'
     const currentStage = state.explorationProgressByStage[stage]
     return {
       explorationProgressByStage: {
@@ -1004,7 +1023,7 @@ const useAppStore = create<AppState>((set, get) => ({
     return { ok: true }
   },
   spiritCommunicationRewards: initialSpiritCommunicationRewards,
-  claimSpiritCommunicationReward: (spiritId) => {
+  claimSpiritCommunicationReward: (spiritId, talkedLineIndex) => {
     const normalizedSpiritId = String(spiritId ?? '').trim()
     if (!normalizedSpiritId) {
       return {
@@ -1022,6 +1041,7 @@ const useAppStore = create<AppState>((set, get) => ({
       : {
         dayKey: today,
         claimedCountBySpiritId: {},
+        usedTalkLineIndexesBySpiritId: {},
       }
 
     const claimedCountForSpirit = normalized.claimedCountBySpiritId[normalizedSpiritId] ?? 0
@@ -1066,6 +1086,18 @@ const useAppStore = create<AppState>((set, get) => ({
         ...normalized.claimedCountBySpiritId,
         [normalizedSpiritId]: nextCount,
       },
+      usedTalkLineIndexesBySpiritId: {
+        ...normalized.usedTalkLineIndexesBySpiritId,
+        [normalizedSpiritId]: (() => {
+          const currentIndexes = normalized.usedTalkLineIndexesBySpiritId[normalizedSpiritId] ?? []
+          if (typeof talkedLineIndex !== 'number' || Number.isNaN(talkedLineIndex) || talkedLineIndex < 0) {
+            return currentIndexes
+          }
+          const normalizedIndex = Math.floor(talkedLineIndex)
+          if (currentIndexes.includes(normalizedIndex)) return currentIndexes
+          return [...currentIndexes, normalizedIndex]
+        })(),
+      },
     }
     saveSpiritCommunicationRewardState(next)
     set({ spiritCommunicationRewards: next })
@@ -1098,6 +1130,7 @@ const useAppStore = create<AppState>((set, get) => ({
     const refreshedCommunicationRewards = {
       dayKey: getTodayLocalKey(),
       claimedCountBySpiritId: {},
+      usedTalkLineIndexesBySpiritId: {},
     }
     saveMana(fresh.mana, fresh.manaUpdatedAt)
     saveGameState(fresh)

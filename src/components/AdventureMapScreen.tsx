@@ -47,13 +47,21 @@ type ExploreResult = {
 
 type ActiveEventState = {
   id: string
-  kind: 'spirit' | 'regional' | 'treasure' | 'empty'
+  kind: 'spirit' | 'regional' | 'treasure' | 'merchant' | 'empty'
   title: string
   description: string
   clickCount: number
   targetClicks: number
   resolved: boolean
   rewardText: string
+}
+
+type MerchantOfferState = {
+  sourceItemId: string
+  candidateItemIds: [string, string, string]
+  selectedTargetItemId: string | null
+  stepIndex: number
+  phase: 'intro' | 'select'
 }
 
 type FloatingRewardToast = {
@@ -89,6 +97,10 @@ const ALL_MAPS_100_SFX_PATH = 'assets/sound/percent.mp3'
 const CARD_FLIP_SFX_PATH = 'assets/sound/cardsw.mp3'
 const GAME_SUCCESS_SFX_PATH = 'assets/sound/gamesuccess.mp3'
 const GAME_FAIL_SFX_PATH = 'assets/sound/gamefail.mp3'
+const MERCHANT_APPEAR_SFX_PATH = 'assets/sound/merchant.mp3'
+const MERCHANT_OPEN_SFX_PATH = 'assets/sound/merchant_open.mp3'
+const MERCHANT_EXCHANGE_SFX_PATH = 'assets/sound/exchange.mp3'
+const MERCHANT_EVENT_CHANCE_MULTIPLIER = 1.3
 const MATCHING_MAX_MISTAKES = 4
 const EXPLORE_TAP_COOLDOWN_MS = 400
 const EMPTY_EVENT_DISMISS_MS = 4000
@@ -375,6 +387,15 @@ type ExplorationRewardPlan = {
   items: ExplorationRewardPlanItem[]
 }
 
+type PlannedMaterialReward = {
+  itemId: string
+  itemName: string
+  iconSrc: string
+  rarity: SpiritRarity
+  countsByStep: number[]
+  itemIndex: number
+}
+
 function playSfx(path: string, volume = 0.75) {
   try {
     const src = `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
@@ -395,6 +416,7 @@ export default function AdventureMapScreen({
   const setScreen = useAppStore((s) => s.setScreen)
   const activeHiddenStage = useAppStore((s) => s.activeHiddenStage)
   const addItem = useAppStore((s) => s.addItem)
+  const consumeItem = useAppStore((s) => s.consumeItem)
   const addCoins = useAppStore((s) => s.addCoins)
   const addMana = useAppStore((s) => s.addMana)
   const gainExp = useAppStore((s) => s.gainExp)
@@ -416,6 +438,7 @@ export default function AdventureMapScreen({
   const [treasureChestOpened, setTreasureChestOpened] = useState(false)
   const [isRegionalPressing, setIsRegionalPressing] = useState(false)
   const [activeSpiritMiniGameId, setActiveSpiritMiniGameId] = useState<string | null>(null)
+  const [merchantOffer, setMerchantOffer] = useState<MerchantOfferState | null>(null)
   const resultTimerRef = useRef<number | null>(null)
   const emptyEventDismissTimerRef = useRef<number | null>(null)
   const floatingToastQueueRef = useRef<FloatingRewardToast[]>([])
@@ -437,6 +460,7 @@ export default function AdventureMapScreen({
   const spiritPlanRef = useRef<ExplorationSpiritPlan | null>(null)
   const eventKindHistoryRef = useRef<ActiveEventState['kind'][]>([])
   const hiddenResultGrantLockRef = useRef(false)
+  const merchantEncounteredRef = useRef(false)
 
   const remaining = Math.max(0, TOTAL_EXPLORES - used)
   const isHiddenStage = activeHiddenStage === stage
@@ -448,14 +472,20 @@ export default function AdventureMapScreen({
   const region = REGIONS[stage - 1]
 
   const explorationRate = useMemo(() => {
-    const totals = region?.discoveryTotals ?? { material: 1, spirit: 1, regional: 1, treasure: 1 }
-    const weights = region?.explorationRateWeights ?? { material: 30, spirit: 30, regional: 30, treasure: 10 }
+    const totals = region?.discoveryTotals ?? { material: 1, spirit: 1, regional: 1, treasure: 1, merchant: 1 }
+    const weights = region?.explorationRateWeights ?? { material: 30, spirit: 30, regional: 30, treasure: 10, merchant: 10 }
     const materialRatio = Math.min(1, explorationProgress.materialDiscovered / Math.max(1, totals.material))
     const spiritRatio = Math.min(1, explorationProgress.spiritDiscovered / Math.max(1, totals.spirit))
     const regionalRatio = Math.min(1, explorationProgress.regionalEventDiscovered / Math.max(1, totals.regional))
     const treasureRatio = Math.min(1, explorationProgress.treasureDiscovered / Math.max(1, totals.treasure))
-    const rate = (materialRatio * weights.material) + (spiritRatio * weights.spirit) + (regionalRatio * weights.regional) + (treasureRatio * weights.treasure)
-    return Math.round(rate)
+    const merchantRatio = Math.min(1, explorationProgress.merchantDiscovered / Math.max(1, totals.merchant))
+    const totalWeight = weights.material + weights.spirit + weights.regional + weights.treasure + weights.merchant
+    const rate = (materialRatio * weights.material)
+      + (spiritRatio * weights.spirit)
+      + (regionalRatio * weights.regional)
+      + (treasureRatio * weights.treasure)
+      + (merchantRatio * weights.merchant)
+    return Math.round((rate / Math.max(1, totalWeight)) * 100)
   }, [explorationProgress, region])
   const mapTitle = dungeon?.name ?? region?.name ?? `Map${stage}`
   const displayMapTitle = isHiddenStage ? `${mapTitle}(히든맵)` : mapTitle
@@ -470,7 +500,8 @@ export default function AdventureMapScreen({
         progress.materialDiscovered >= totals.material &&
         progress.spiritDiscovered >= totals.spirit &&
         progress.regionalEventDiscovered >= totals.regional &&
-        progress.treasureDiscovered >= totals.treasure
+        progress.treasureDiscovered >= totals.treasure &&
+        progress.merchantDiscovered >= totals.merchant
       )
     })
   }, [explorationProgressByStage])
@@ -770,6 +801,14 @@ export default function AdventureMapScreen({
     return templates[Math.floor(Math.random() * templates.length)] ?? null
   }, [region])
 
+  const shouldTriggerMerchantEvent = useCallback((stepIndex: number) => {
+    if (merchantEncounteredRef.current || isHiddenStage) return false
+    const currentMaterial = getPlannedMaterialReward(stepIndex)
+    if (!currentMaterial) return false
+    const noneChance = EXPEDITION_REWARD_DRAFT.eventProbabilities.none
+    return Math.random() < (noneChance * MERCHANT_EVENT_CHANCE_MULTIPLIER)
+  }, [isHiddenStage])
+
   const buildEventState = useCallback((stepIndex: number): ActiveEventState => {
     if (!region) {
       return buildEmptyEventState()
@@ -787,6 +826,24 @@ export default function AdventureMapScreen({
     let template = null
     if (plannedSpiritTemplateMeta && !blockSpirit) {
       template = (region.eventTemplates ?? []).find((it) => it.id === plannedSpiritTemplateMeta.templateId) ?? null
+    }
+    if (!template && shouldTriggerMerchantEvent(stepIndex)) {
+      const nextMerchantOffer = createMerchantOffer(stepIndex)
+      if (nextMerchantOffer) {
+        playSfx(MERCHANT_APPEAR_SFX_PATH, 0.88)
+        setMerchantOffer(nextMerchantOffer)
+        merchantEncounteredRef.current = true
+        return {
+          id: `merchant-${stepIndex}`,
+          kind: 'merchant',
+          title: '떠돌이 상인을 만났습니다.',
+          description: '교환을 하면 이번 탐험에서 획득하는 재료가 변경됩니다.',
+          clickCount: 0,
+          targetClicks: 1,
+          resolved: false,
+          rewardText: '상인과의 거래를 마쳤습니다.',
+        }
+      }
     }
     if (!template) {
       template = pickNonSpiritEventTemplate(blockRegional ? ['regional'] : undefined)
@@ -812,11 +869,15 @@ export default function AdventureMapScreen({
           ? '상자를 2회 클릭해 열어보세요.'
           : '오브젝트를 3번 클릭해 지역의 기운을 모아보세요.',
     }
-  }, [buildEmptyEventState, ensureSpiritPlan, pickNonSpiritEventTemplate, region])
+  }, [buildEmptyEventState, ensureSpiritPlan, pickNonSpiritEventTemplate, region, shouldTriggerMerchantEvent])
 
   useEffect(() => {
     spiritPlanRef.current = buildExplorationSpiritPlan()
   }, [buildExplorationSpiritPlan])
+
+  useEffect(() => {
+    merchantEncounteredRef.current = false
+  }, [stage])
 
   const buildResult = useCallback((): ExploreResult => {
     const baseExp = dungeon?.baseExp ?? 25
@@ -999,6 +1060,108 @@ export default function AdventureMapScreen({
       })),
     }
   }, [buildResult, distributeAmountBySteps])
+
+  function ensureExplorationRewardPlan() {
+    if (!explorationRewardPlanRef.current) {
+      explorationRewardPlanRef.current = initializeExplorationRewardPlan()
+    }
+    return explorationRewardPlanRef.current
+  }
+
+  function getPlannedMaterialReward(stepIndex: number): PlannedMaterialReward | null {
+    const plan = ensureExplorationRewardPlan()
+    if (!plan) return null
+
+    for (let itemIndex = 0; itemIndex < plan.items.length; itemIndex += 1) {
+      const item = plan.items[itemIndex]
+      if (item.category !== '재료') continue
+      const remainingAmount = item.countsByStep.slice(stepIndex).reduce((sum, count) => sum + count, 0)
+      if (remainingAmount <= 0) continue
+      return {
+        itemId: item.id,
+        itemName: item.name,
+        iconSrc: item.iconSrc,
+        rarity: item.rarity,
+        countsByStep: item.countsByStep,
+        itemIndex,
+      }
+    }
+
+    return null
+  }
+
+  function createMerchantOffer(stepIndex: number): MerchantOfferState | null {
+    const currentMaterial = getPlannedMaterialReward(stepIndex)
+    if (!currentMaterial) return null
+
+    const candidatePool = MATERIAL_ITEM_IDS.filter((itemId) => itemId !== currentMaterial.itemId)
+    if (candidatePool.length < 3) return null
+
+    const shuffled = [...candidatePool]
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const temp = shuffled[i]
+      shuffled[i] = shuffled[j]
+      shuffled[j] = temp
+    }
+
+    return {
+      sourceItemId: currentMaterial.itemId,
+      candidateItemIds: [shuffled[0], shuffled[1], shuffled[2]],
+      selectedTargetItemId: null,
+      stepIndex,
+      phase: 'intro',
+    }
+  }
+
+  function applyMerchantMaterialSwap(offer: MerchantOfferState) {
+    const plan = ensureExplorationRewardPlan()
+    const sourceMaterial = getPlannedMaterialReward(offer.stepIndex)
+    const targetItemDef = getItemDef(offer.selectedTargetItemId ?? '')
+    if (!plan || !sourceMaterial || !offer.selectedTargetItemId || !targetItemDef) return null
+
+    const sourceItem = plan.items[sourceMaterial.itemIndex]
+    if (!sourceItem) return null
+
+    const priorCounts = sourceItem.countsByStep.slice(0, offer.stepIndex)
+    const transferCounts = [...sourceItem.countsByStep]
+    const transferAmount = transferCounts.reduce((sum, count) => sum + count, 0)
+    if (transferAmount <= 0) return null
+
+    const priorTransferAmount = priorCounts.reduce((sum, count) => sum + count, 0)
+    if (priorTransferAmount > 0) {
+      consumeItem(sourceItem.id, priorTransferAmount)
+      addItem(targetItemDef.id, priorTransferAmount)
+    }
+
+    for (let i = 0; i < sourceItem.countsByStep.length; i += 1) {
+      sourceItem.countsByStep[i] = 0
+    }
+
+    const targetIndex = plan.items.findIndex((item) => item.category === '재료' && item.id === offer.selectedTargetItemId)
+    if (targetIndex >= 0) {
+      const targetItem = plan.items[targetIndex]
+      for (let i = 0; i < targetItem.countsByStep.length; i += 1) {
+        targetItem.countsByStep[i] += transferCounts[i] ?? 0
+      }
+    } else {
+      plan.items.push({
+        id: targetItemDef.id,
+        name: targetItemDef.name,
+        count: transferAmount,
+        iconSrc: a(`assets/item/it/it_${targetItemDef.id}.png`),
+        category: '재료',
+        rarity: getRarityByItemId(targetItemDef.id, '재료'),
+        countsByStep: transferCounts,
+      })
+    }
+
+    return {
+      fromItemName: sourceMaterial.itemName,
+      toItemId: targetItemDef.id,
+      toItemName: targetItemDef.name,
+    }
+  }
 
   const applyExploreStepRewards = useCallback((stepIndex: number, options?: { skipAll?: boolean }) => {
     if (isHiddenStage) return
@@ -1312,6 +1475,14 @@ export default function AdventureMapScreen({
       }
     }
 
+    if (current.kind === 'merchant' && action === 'pass') {
+      const pendingMerchantStep = merchantOffer?.stepIndex ?? Math.max(0, used - 1)
+      applyExploreStepRewards(pendingMerchantStep)
+      markExplorationDiscovery(stage, 'merchant')
+      setMerchantOffer(null)
+      nextState = { ...current, resolved: true, rewardText: '상인은 미소를 남기고 떠났습니다.' }
+    }
+
     if (nextState.resolved && nextState.kind !== 'empty') {
       setActiveEvent(null)
     } else {
@@ -1322,7 +1493,7 @@ export default function AdventureMapScreen({
       pendingFinalResultRef.current = false
       finalizeExploreResult()
     }
-  }, [activeEvent, applyExploreStepRewards, finalizeExploreResult, markExplorationDiscovery, showFloatingRewardToasts, stage])
+  }, [activeEvent, applyExploreStepRewards, finalizeExploreResult, markExplorationDiscovery, merchantOffer, showFloatingRewardToasts, stage, used])
 
   const triggerRegionalPressFeedback = useCallback(() => {
     setIsRegionalPressing(true)
@@ -1429,6 +1600,10 @@ export default function AdventureMapScreen({
       pendingTreasureRewardStepRef.current = nextUsed - 1
       pendingSpiritRewardStepRef.current = null
       pendingRegionalRewardStepRef.current = null
+    } else if (nextEvent.kind === 'merchant' && !nextEvent.resolved) {
+      pendingSpiritRewardStepRef.current = null
+      pendingRegionalRewardStepRef.current = null
+      pendingTreasureRewardStepRef.current = null
     } else if (nextEvent.kind === 'empty') {
       applyExploreStepRewards(nextUsed - 1, { skipAll: true })
       pendingSpiritRewardStepRef.current = null
@@ -1691,7 +1866,7 @@ export default function AdventureMapScreen({
 
       <div className="absolute inset-0 z-[7] flex items-center justify-center pointer-events-none">
         <div className="flex flex-col items-center text-center">
-          {!activeSpiritMiniGameSpec && (
+          {!activeSpiritMiniGameSpec && !(activeEvent?.kind === 'merchant' && !activeEvent.resolved) && (
             <motion.div
               className="mt-5 text-white/85 text-[14px] tracking-wide"
               animate={{ opacity: [0.35, 1, 0.35] }}
@@ -1784,6 +1959,15 @@ export default function AdventureMapScreen({
                 style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
               />
               <span className="font-bold text-white/95">{Math.min(explorationProgress.treasureDiscovered, region?.discoveryTotals?.treasure ?? 0)}/{region?.discoveryTotals?.treasure ?? 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>상인</span>
+              <span
+                aria-hidden
+                className="flex-1 h-px mx-1"
+                style={{ backgroundImage: 'repeating-linear-gradient(to right, rgba(255,255,255,0.4) 0 2px, transparent 2px 5px)' }}
+              />
+              <span className="font-bold text-white/95">{Math.min(explorationProgress.merchantDiscovered, region?.discoveryTotals?.merchant ?? 0)}/{region?.discoveryTotals?.merchant ?? 0}</span>
             </div>
           </div>
         </div>
@@ -1910,6 +2094,190 @@ export default function AdventureMapScreen({
                   className="mt-2"
                 />
               </div>
+            </div>
+          </motion.div>
+        ) : activeEvent && activeEvent.kind === 'merchant' && merchantOffer ? (
+          <motion.div
+            key={`merchant-${activeEvent.id}`}
+            className="absolute inset-0 z-[11] flex items-center justify-center px-5 -translate-y-[40px]"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+          >
+            <div
+              className="pointer-events-auto w-full max-w-[420px] rounded-[24px] border-0 bg-no-repeat bg-top px-5 py-5 text-center shadow-none"
+              style={{ backgroundImage: `url(${a('assets/background/bag_bg.png')})`, backgroundSize: '100% auto' }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {merchantOffer.phase === 'intro' ? (
+                <>
+                  <div className="relative z-[1] mt-[30px] mb-6 flex items-center justify-center isolate">
+                    <motion.span
+                      className="pointer-events-none absolute z-[3] left-[calc(50%-108px)] top-[calc(50%-86px)] h-[7px] w-[7px] rounded-full"
+                      style={{ backgroundColor: '#f5df9a', boxShadow: '0 0 12px #f5df9a' }}
+                      animate={{ y: [0, -14, 0], opacity: [0.25, 1, 0.25], scale: [0.9, 1.15, 0.9] }}
+                      transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                    <motion.span
+                      className="pointer-events-none absolute z-[3] left-[calc(50%+86px)] top-[calc(50%-72px)] h-[6px] w-[6px] rounded-full"
+                      style={{ backgroundColor: '#f8e9b8', boxShadow: '0 0 10px #f8e9b8' }}
+                      animate={{ y: [0, -11, 0], opacity: [0.2, 0.95, 0.2], scale: [0.92, 1.12, 0.92] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
+                    />
+                    <motion.span
+                      className="pointer-events-none absolute z-[3] left-[calc(50%-24px)] top-[calc(50%+102px)] h-[5px] w-[5px] rounded-full"
+                      style={{ backgroundColor: '#f0d98a', boxShadow: '0 0 9px #f0d98a' }}
+                      animate={{ y: [0, -10, 0], opacity: [0.18, 0.9, 0.18], scale: [0.9, 1.1, 0.9] }}
+                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut', delay: 0.35 }}
+                    />
+                    <img
+                      src={a('assets/particle/merchant.png')}
+                      alt="떠돌이 상인"
+                      className="relative z-[1] h-[300px] w-[300px] object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.35)]"
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="relative z-[2] mx-auto -mt-[98px] w-full bg-[rgba(25,18,12,0.8)] px-2.5 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
+                    <div className="text-[20px] font-bold text-[#f5df9a]">떠돌이 상인을 만났습니다.</div>
+                    <p className="mt-0.5 whitespace-pre-line text-[13px] leading-relaxed text-[#f5df9a]">
+                      이번 탐험에서 얻는 재료를 다른 재료로 교환 가능
+                    </p>
+                  </div>
+                  <div className="relative z-[3] mt-8 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSfx(MERCHANT_EXCHANGE_SFX_PATH, 0.9)
+                        handleEventInteraction('pass')
+                      }}
+                      className="relative h-[52px] flex-1 overflow-hidden rounded-[14px] border border-[#6f6f6f] bg-[rgba(108,108,108,0.32)] text-[16px] font-semibold text-[#b8b8b8]"
+                    >
+                      <img
+                        src={a('assets/particle/btn_bg_sliver.png')}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 h-full w-full object-cover opacity-100"
+                        draggable={false}
+                      />
+                      <span className="relative z-[1]">지나가기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSfx(MERCHANT_EXCHANGE_SFX_PATH, 0.9)
+                        setMerchantOffer((current) => current ? { ...current, phase: 'select' } : current)
+                      }}
+                      className="relative h-[52px] flex-1 overflow-hidden rounded-[14px] border border-[#e9c46a]/45 bg-[rgba(201,145,32,0.22)] text-[16px] font-semibold text-[#f5df9a]"
+                    >
+                      <img
+                        src={a('assets/particle/btn_bg_brown.png')}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 h-full w-full object-cover opacity-100"
+                        draggable={false}
+                      />
+                      <span className="relative z-[1]">교환하기</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-[1rem] text-[20px] font-bold text-[#f5df9a]">
+                    <span className="block">{`'${getItemDef(merchantOffer.sourceItemId)?.name ?? merchantOffer.sourceItemId}'`}과(와)</span>
+                    <span className="block">어떤 재료와 교환할까요?</span>
+                  </div>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-[#f5df9a]">
+                    교환하면 탐험에서 획득하는 재료가 변경됩니다.
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 justify-items-center gap-3">
+                    {merchantOffer.candidateItemIds.map((candidateItemId) => {
+                      const item = getItemDef(candidateItemId)
+                      const isSelected = merchantOffer.selectedTargetItemId === candidateItemId
+                      const sourceItemName = getItemDef(merchantOffer.sourceItemId)?.name ?? merchantOffer.sourceItemId
+                      const targetItemName = item?.name ?? candidateItemId
+                      const isLightSource = sourceItemName === '에테르'
+                      const isBoldTarget = ['보석', '마법', '달'].includes(targetItemName)
+                      return (
+                        <button
+                          key={candidateItemId}
+                          type="button"
+                          onClick={() => setMerchantOffer((current) => current ? { ...current, selectedTargetItemId: candidateItemId } : current)}
+                          className={`flex w-full max-w-[310px] items-center gap-3 rounded-[16px] border bg-[rgba(11,9,7,0.55)] px-4 py-3 text-left transition ${isSelected ? 'border-2 border-[#f5df9a]' : 'border border-white/10'}`}
+                        >
+                          <img
+                            src={a(`assets/item/it/it_${candidateItemId}.png`)}
+                            alt={item?.name ?? candidateItemId}
+                            className="h-11 w-11 object-contain"
+                            draggable={false}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[16px] text-white">
+                              <span className={isLightSource ? 'font-light' : 'font-normal'}>{sourceItemName}</span>
+                              <span className="font-normal"> → </span>
+                              <span className={isBoldTarget ? 'font-bold' : 'font-normal'}>{targetItemName}</span>
+                            </div>
+                          </div>
+                          <div className={`h-4 w-4 rounded-full border ${isSelected ? 'border-[#f5df9a] bg-[#f5df9a]' : 'border-white/30 bg-transparent'}`} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="relative z-[3] mt-8 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playSfx(MERCHANT_EXCHANGE_SFX_PATH, 0.9)
+                        handleEventInteraction('pass')
+                      }}
+                      className="relative h-[52px] flex-1 overflow-hidden rounded-[14px] border border-[#6f6f6f] bg-[rgba(108,108,108,0.32)] text-[16px] font-semibold text-[#b8b8b8]"
+                    >
+                      <img
+                        src={a('assets/particle/btn_bg_sliver.png')}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 h-full w-full object-cover opacity-100"
+                        draggable={false}
+                      />
+                      <span className="relative z-[1]">교환 안 하기</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!merchantOffer.selectedTargetItemId}
+                      onClick={() => {
+                        playSfx(MERCHANT_EXCHANGE_SFX_PATH, 0.9)
+                        const swapResult = applyMerchantMaterialSwap(merchantOffer)
+                        if (!swapResult) return
+                        applyExploreStepRewards(merchantOffer.stepIndex)
+                        markExplorationDiscovery(stage, 'merchant')
+                        showFloatingRewardToasts([
+                          {
+                            text: `${swapResult.fromItemName} → ${swapResult.toItemName}`,
+                            iconSrc: a(`assets/item/it/it_${swapResult.toItemId}.png`),
+                            colors: FLOATING_TOAST_COLORS.default,
+                          },
+                        ])
+                        setMerchantOffer(null)
+                        setActiveEvent(null)
+                        if (pendingFinalResultRef.current) {
+                          pendingFinalResultRef.current = false
+                          finalizeExploreResult()
+                        }
+                      }}
+                      className={`relative h-[52px] flex-1 overflow-hidden rounded-[14px] border text-[16px] font-semibold ${merchantOffer.selectedTargetItemId ? 'border-[#e9c46a]/45 bg-[rgba(201,145,32,0.22)] text-[#f5df9a]' : 'border-[#6f6f6f] bg-[rgba(108,108,108,0.32)] text-[#b8b8b8]'}`}
+                    >
+                      <img
+                        src={a(merchantOffer.selectedTargetItemId ? 'assets/particle/btn_bg_brown.png' : 'assets/particle/btn_bg_sliver.png')}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 h-full w-full object-cover opacity-100"
+                        draggable={false}
+                      />
+                      <span className="relative z-[1]">교환하기</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         ) : activeEvent && !(activeSpiritMiniGameSpec && activeEvent.kind === 'spirit') ? (

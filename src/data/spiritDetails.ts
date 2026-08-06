@@ -16,7 +16,7 @@ export type SpiritDetailMeta = {
 	storyBoxColor: string
 	requestText: string
 	keywords: string[]
-	conversationLines: [string, string, string]
+	conversationLines: string[]
 	craftCount: string
 	requestMatchRate: string
 	firstMetDate: string

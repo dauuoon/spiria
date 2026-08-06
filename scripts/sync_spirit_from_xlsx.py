@@ -163,6 +163,9 @@ def parse_rows() -> list[dict[str, Any]]:
                 str(item.get('소통 대사 1') or f'{name}이(가) 오늘의 빛을 조심스레 건넵니다.').strip(),
                 str(item.get('소통 대사 2') or f'{name}이(가) 작은 소원을 들려달라고 속삭입니다.').strip(),
                 str(item.get('소통 대사 3') or f'{name}이(가) 다음 만남을 기다리며 미소 짓습니다.').strip(),
+                str(item.get('소통 대사 4') or f'{name}이(가) 바람 끝에서 새로운 이야기를 들려줍니다.').strip(),
+                str(item.get('소통 대사 5') or f'{name}이(가) 네 마음의 빛이 오늘도 반짝인다고 말합니다.').strip(),
+                str(item.get('소통 대사 6') or f'{name}이(가) 다음 인연의 문장이 곧 이어질 거라 약속합니다.').strip(),
             ],
         })
 
@@ -266,7 +269,7 @@ def build_spirit_details_ts(rows: list[dict[str, Any]]) -> str:
         '\tstoryBoxColor: string',
         '\trequestText: string',
         '\tkeywords: string[]',
-        '\tconversationLines: [string, string, string]',
+        '\tconversationLines: string[]',
         '\tcraftCount: string',
         '\trequestMatchRate: string',
         '\tfirstMetDate: string',
@@ -285,7 +288,7 @@ def build_spirit_details_ts(rows: list[dict[str, Any]]) -> str:
         "\tstoryBoxColor: 'rgba(8,10,20,0.5)',",
         "\trequestText: '의뢰서 내용이 준비 중입니다.',",
         "\tkeywords: ['데이터 준비중'],",
-        "\tconversationLines: ['안녕하세요, 오늘도 함께해요.', '조용히 반짝이는 기운이 느껴져요.', '다음에 또 이야기해요.'],",
+        "\tconversationLines: ['안녕하세요, 오늘도 함께해요.', '조용히 반짝이는 기운이 느껴져요.', '다음에 또 이야기해요.', '오늘의 기운도 나눠 줄게요.', '네 마음의 속삭임이 들려요.', '다음 만남을 기다릴게요.'],",
         "\tcraftCount: '-',",
         "\trequestMatchRate: '-',",
         "\tfirstMetDate: '-',",

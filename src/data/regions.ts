@@ -18,12 +18,14 @@ export const REGIONS: readonly RegionDef[] = [
       spirit: 30,
       regional: 30,
       treasure: 10,
+      merchant: 10,
     },
     discoveryTotals: {
       material: 7,
       spirit: 3,
       regional: 4,
       treasure: 1,
+      merchant: 1,
     },
     dropTable: [
       { itemId: 'flower', weight: 30, minCount: 1, maxCount: 3 },
@@ -126,12 +128,14 @@ export const REGIONS: readonly RegionDef[] = [
       spirit: 30,
       regional: 30,
       treasure: 10,
+      merchant: 10,
     },
     discoveryTotals: {
       material: 7,
       spirit: 3,
       regional: 4,
       treasure: 1,
+      merchant: 1,
     },
     dropTable: [
       { itemId: 'wind', weight: 30, minCount: 1, maxCount: 3 },
@@ -234,12 +238,14 @@ export const REGIONS: readonly RegionDef[] = [
       spirit: 30,
       regional: 30,
       treasure: 10,
+      merchant: 10,
     },
     discoveryTotals: {
       material: 7,
       spirit: 3,
       regional: 4,
       treasure: 1,
+      merchant: 1,
     },
     dropTable: [
       { itemId: 'moon', weight: 30, minCount: 1, maxCount: 3 },
@@ -342,12 +348,14 @@ export const REGIONS: readonly RegionDef[] = [
       spirit: 30,
       regional: 30,
       treasure: 10,
+      merchant: 10,
     },
     discoveryTotals: {
       material: 7,
       spirit: 3,
       regional: 4,
       treasure: 1,
+      merchant: 1,
     },
     dropTable: [
       { itemId: 'fire', weight: 30, minCount: 1, maxCount: 3 },
@@ -450,12 +458,14 @@ export const REGIONS: readonly RegionDef[] = [
       spirit: 30,
       regional: 30,
       treasure: 10,
+      merchant: 10,
     },
     discoveryTotals: {
       material: 7,
       spirit: 3,
       regional: 4,
       treasure: 1,
+      merchant: 1,
     },
     dropTable: [
       { itemId: 'ether', weight: 30, minCount: 1, maxCount: 3 },
