@@ -2107,7 +2107,9 @@ export default function AdventureMapScreen({
           >
             <div
               className="pointer-events-auto w-full max-w-[420px] rounded-[24px] border-0 bg-no-repeat bg-top px-5 py-5 text-center shadow-none"
-              style={{ backgroundImage: `url(${a('assets/background/bag_bg.png')})`, backgroundSize: '100% auto' }}
+              style={merchantOffer.phase === 'intro'
+                ? undefined
+                : { backgroundImage: `url(${a('assets/background/bag_bg.png')})`, backgroundSize: '100% auto' }}
               onPointerDown={(e) => e.stopPropagation()}
             >
               {merchantOffer.phase === 'intro' ? (
@@ -2138,7 +2140,7 @@ export default function AdventureMapScreen({
                       draggable={false}
                     />
                   </div>
-                  <div className="relative z-[2] mx-auto -mt-[98px] w-full bg-[rgba(25,18,12,0.8)] px-2.5 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
+                  <div className="relative z-[2] mx-auto -mt-[98px] w-full rounded-[16px] bg-[rgba(25,18,12,0.8)] px-2.5 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
                     <div className="text-[20px] font-bold text-[#f5df9a]">떠돌이 상인을 만났습니다.</div>
                     <p className="mt-0.5 whitespace-pre-line text-[13px] leading-relaxed text-[#f5df9a]">
                       이번 탐험에서 얻는 재료를 다른 재료로 교환 가능
@@ -2183,7 +2185,7 @@ export default function AdventureMapScreen({
                 </>
               ) : (
                 <>
-                  <div className="mt-[1rem] text-[20px] font-bold text-[#f5df9a]">
+                  <div className="mt-[0.25rem] text-[20px] font-bold text-[#f5df9a]">
                     <span className="block">{`'${getItemDef(merchantOffer.sourceItemId)?.name ?? merchantOffer.sourceItemId}'`}과(와)</span>
                     <span className="block">어떤 재료와 교환할까요?</span>
                   </div>
