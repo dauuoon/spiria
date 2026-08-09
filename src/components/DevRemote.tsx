@@ -3,7 +3,7 @@ import { EXP_TO_NEXT } from '../data/levels'
 import { CRAFTING_MATERIALS, ETC_ITEMS } from '../data/items'
 import { SPIRITS } from '../data/spirits'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
 
 type Props = {
   screen: Screen
