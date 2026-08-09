@@ -89,7 +89,7 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '누비',
     candidateSpiritIds: ['spirit_nubi', 'spirit_orvis'],
     tier: 'Normal',
-    text: '고대 서고의 사서가 헐레벌떡 달려왔습니다.\n“책의 글자가 하나씩 사라지고 있어요!” \n오래된 주문의 흔적과 공기처럼 흐르는 신비한 빛, \n그리고 태양의 결정만이 기록을 붙잡고 있습니다.',
+    text: '고대 서고의 사서가 헐레벌떡 달려왔습니다.\n“책의 글자가 하나씩 사라지고 있어요!” \n오래된 주문의 흔적과 신비한 기운, \n그리고 태양의 결정만이 기록을 붙잡고 있습니다.',
   },
   {
     id: 'req_spirit_erion',
