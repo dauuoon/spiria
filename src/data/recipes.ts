@@ -5,7 +5,7 @@ export const RECIPES: readonly RecipeDef[] = [
   { id: 'recipe_spirit_soyo', resultItemId: 'spirit_soyo', ingredientIds: ['star', 'flower', 'magic'] },
   { id: 'recipe_spirit_rua', resultItemId: 'spirit_rua', ingredientIds: ['wind', 'leaf', 'star'] },
   { id: 'recipe_spirit_tera', resultItemId: 'spirit_tera', ingredientIds: ['light', 'soil', 'flower'] },
-  { id: 'recipe_spirit_pleo', resultItemId: 'spirit_pleo', ingredientIds: ['water', 'moon', 'star'] },
+  { id: 'recipe_spirit_pleo', resultItemId: 'spirit_pleo', ingredientIds: ['moon', 'star', 'ether'] },
   { id: 'recipe_spirit_porina', resultItemId: 'spirit_porina', ingredientIds: ['wind', 'flower', 'gem'] },
   { id: 'recipe_spirit_igni', resultItemId: 'spirit_igni', ingredientIds: ['fire', 'soil', 'magic'] },
   { id: 'recipe_spirit_nova', resultItemId: 'spirit_nova', ingredientIds: ['water', 'moon', 'star'] },

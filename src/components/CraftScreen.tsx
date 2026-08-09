@@ -488,9 +488,15 @@ export default function CraftScreen() {
       const craftedSpiritId = craftedRecipe?.resultItemId ?? null
 
       if (targetQuest) {
-        const isSuccess = craftedSpiritId !== null && targetQuest.candidateSpiritIds.includes(craftedSpiritId)
-        const resolvedMatchRate = isSuccess && craftedSpiritId
-          ? resolveQuestMatchRate(targetQuest, craftedSpiritId)
+        // Quest crafting should prioritize candidate recipes to avoid false failures
+        // when workbook updates introduce ordering/collision changes outside the quest pair.
+        const craftedCandidateRecipe = targetQuest.candidateSpiritIds
+          .map((candidateId) => RECIPES.find((entry) => entry.resultItemId === candidateId) ?? null)
+          .find((entry) => entry?.ingredientIds.join('>') === recipe.recipeKey) ?? null
+        const resolvedQuestSpiritId = craftedCandidateRecipe?.resultItemId ?? craftedSpiritId
+        const isSuccess = resolvedQuestSpiritId !== null && targetQuest.candidateSpiritIds.includes(resolvedQuestSpiritId)
+        const resolvedMatchRate = isSuccess && resolvedQuestSpiritId
+          ? resolveQuestMatchRate(targetQuest, resolvedQuestSpiritId)
           : 0
         if (isSuccess) {
           clearHintStateForQuest(targetQuest.id)
@@ -498,7 +504,7 @@ export default function CraftScreen() {
           setAcceptedQuestId(null)
         }
         openCraftResult({
-          spiritId: craftedSpiritId,
+          spiritId: resolvedQuestSpiritId,
           requestText: targetQuest.text,
           success: isSuccess,
           candidateSpiritIds: targetQuest.candidateSpiritIds,
