@@ -15,9 +15,9 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     id: 'req_spirit_soyo',
     spiritId: 'spirit_soyo',
     spiritName: '소요',
-    candidateSpiritIds: ['spirit_soyo', 'spirit_lumen'],
+    candidateSpiritIds: ['spirit_soyo', 'spirit_nova'],
     tier: 'Easy',
-    text: '밤하늘의 별빛이 점점 사라지고 있습니다. \n꽃잎에 머무른 빛일까요, \n달빛 비친 호수에 스며든 빛일까요?',
+    text: '밤하늘의 별빛이 점점 사라지고 있습니다. \n꽃잎에 깃든 신비로운 기운이 빛을 붙잡고 있는 걸까요, \n아니면 달빛 비친 호수에 별빛이 스며든 걸까요?',
   },
   {
     id: 'req_spirit_rua',
@@ -73,7 +73,7 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '루멘',
     candidateSpiritIds: ['spirit_lumen', 'spirit_soyo'],
     tier: 'Normal',
-    text: '[탐험 기록 일지 283]\n달의 호수 위에 희미한 별빛이 보임. \n그 아래에는 꽃잎 하나가 사라진 \n기억처럼 천천히 떠다니고 있음.',
+    text: '[탐험 기록 일지 283]\n달의 호수 위에 희미한 별빛이 보임. \n그 아래에는 꽃잎 하나가 사라진 \n마법처럼 천천히 떠다니고 있음.',
   },
   {
     id: 'req_spirit_solaris',
@@ -89,7 +89,7 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '누비',
     candidateSpiritIds: ['spirit_nubi', 'spirit_orvis'],
     tier: 'Normal',
-    text: '고대 서고의 사서가 헐레벌떡 달려왔습니다. \n"책의 글자가 사라지고 있어요!" \n신비로운 기운과 작은 태양의 결정만이 \n책을 지키고 있습니다.',
+    text: '고대 서고의 사서가 헐레벌떡 달려왔습니다.\n“책의 글자가 하나씩 사라지고 있어요!” \n오래된 주문의 흔적과 공기처럼 흐르는 신비한 빛, \n그리고 태양의 결정만이 기록을 붙잡고 있습니다.',
   },
   {
     id: 'req_spirit_erion',
@@ -97,7 +97,7 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '에리온',
     candidateSpiritIds: ['spirit_erion', 'spirit_nova'],
     tier: 'Hard',
-    text: '노인의 기억 속 소중했던 얼굴이 \n점점 흐려지고 있습니다. 달빛 호수에서는 \n별빛과 신비로운 물결이 \n잊혀진 기억을 비춘다고 합니다.',
+    text: '노인의 기억 속 소중했던 \n얼굴이 점점 흐려지고 있습니다. \n달빛 호수에서는 신비로운 물결과 \n별빛이 잊혀진 기억을 비춘다고 합니다.',
   },
   {
     id: 'req_spirit_orvis',
@@ -105,6 +105,6 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '오르비스',
     candidateSpiritIds: ['spirit_orvis', 'spirit_nubi'],
     tier: 'Special',
-    text: '[탐험 기록 일지 217]\n고대 유적 봉인에 균열 발생. 결정은 \n남아 있으나 빛이 약해지고, \n오래된 주문의 흔적도 함께 사라짐.',
+    text: '[탐험 기록 일지 217] \n고대 유적 봉인에 균열 발생.  \n오래된 주문의 흔적과 형태 없이 흐르던 기운, \n햇빛을 품은 결정의 광채도 사라지고 있음.',
   },
 ] as const
