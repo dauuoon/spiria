@@ -17,7 +17,7 @@ export const SPIRIT_REQUEST_PAGES: readonly SpiritRequestPage[] = [
     spiritName: '소요',
     candidateSpiritIds: ['spirit_soyo', 'spirit_nova'],
     tier: 'Easy',
-    text: '밤하늘의 별빛이 점점 사라지고 있습니다. \n꽃잎에 깃든 신비로운 기운이 빛을 붙잡고 있는 걸까요, \n아니면 달빛 비친 호수에 별빛이 스며든 걸까요?',
+    text: '밤하늘의 별빛이 점점 사라지고 있습니다. \n꽃잎에 깃든 신비로운 기운이 \n빛을 붙잡고 있는 걸까요, \n아니면 달빛 비친 호수에 별빛이 스며든 걸까요?',
   },
   {
     id: 'req_spirit_rua',
