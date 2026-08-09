@@ -668,7 +668,7 @@ export default function CraftScreen() {
       {/* quest letter + slots */}
       <div className="absolute inset-0 z-[6] p-4 pt-16">
         {/* quest letter panel */}
-        <div className="absolute left-[-11px] top-[38px] w-[calc(68%+26px)] max-w-[350px] text-[rgb(55,42,36)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] text-center -rotate-[2deg]">
+        <div className="absolute left-[-11px] top-[38px] w-[calc(68%+26px)] max-w-[350px] text-[rgb(55,42,36)] shadow-[0_12px_40px_rgba(0,0,0,0.35)] text-center -rotate-[2deg]" data-tutorial-target="quest">
           <img
             src={a('assets/background/paper_bg_light_l.png')}
             alt="의뢰서 배경"
@@ -780,6 +780,7 @@ export default function CraftScreen() {
             onClick={handleUseHint}
             disabled={!activeQuest || !activeQuestRecipe || activeHintState.hintCount >= CRAFT_HINT_COSTS.length || isHintApplyPending}
             className={`absolute left-0 -top-[40px] inline-flex h-8 items-center gap-2 rounded-full border border-[#d6b88f]/45 px-3 text-[12px] font-semibold text-[#f5e2c7] disabled:cursor-not-allowed disabled:opacity-60 ${canUseHint ? 'bg-[rgb(90,66,34)] opacity-100' : 'bg-[rgba(90,66,34,0.55)]'}`}
+            data-tutorial-target="hint"
           >
             {activeHintState.hintCount >= CRAFT_HINT_COSTS.length ? (
               <span>힌트 모두 확인</span>
@@ -810,7 +811,7 @@ export default function CraftScreen() {
           </button>
 
           <div className="grid grid-cols-4 gap-x-2.5 gap-y-[18px]">
-              {matItems.map((it) => {
+              {matItems.map((it, idx) => {
                 const itemCount = inventory[it.id] ?? 0
                 const isSelectable = itemCount > 0
                 const active = isSelectable && selectedMaterialIds.includes(it.id)
@@ -828,6 +829,7 @@ export default function CraftScreen() {
                       if (!isSelectable) return
                       toggle(it.id)
                     }}
+                    {...(idx === 0 ? { 'data-tutorial-target': 'ingredient-row1' } : {})}
                     className={`relative p-0 w-[90px] h-[90px] overflow-visible transition-transform ${isSelectable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                   >
                     {active && (
@@ -866,6 +868,7 @@ export default function CraftScreen() {
         <div className="absolute left-1/2 -translate-x-1/2 top-[74%] w-[92%] flex items-stretch gap-5 translate-y-[110px]">
           <div className="w-[calc(100%-91px)] rounded-2xl bg-[rgba(10,12,30,0.50)] border border-white/10 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),_0_16px_32px_rgba(0,0,0,0.45)] px-4 h-[88px] flex flex-col justify-center">
             <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center gap-2" data-tutorial-target="craft-slots">
             {slots.map((s, i) => (
               <div key={i} className="relative w-12 h-[64px] flex flex-col items-center">
                 {isSlotLocked(i, lockedSlots) && (
@@ -907,7 +910,8 @@ export default function CraftScreen() {
                   </>
                 )}
               </div>
-            ))}
+            ))}            
+            </div>
             <div className="text-white/60 text-[18px]">→</div>
             <img
               src={a('assets/codex/make_unknown.png')}
@@ -959,6 +963,7 @@ export default function CraftScreen() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

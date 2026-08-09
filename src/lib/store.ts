@@ -167,6 +167,9 @@ type AppState = {
   buyExchangeOffer: (offerId: string) => ExchangeActionResult
   spiritCommunicationRewards: SpiritCommunicationRewardState
   claimSpiritCommunicationReward: (spiritId: string, talkedLineIndex?: number) => SpiritCommunicationRewardResult
+  tutorialCompleted: boolean
+  completeTutorial: () => void
+  resetTutorial: () => void
   resetGameData: () => void
 }
 
@@ -205,6 +208,7 @@ const HIDDEN_STAGE_FIRST_CLEAR_STORAGE_KEY = 'spiria.hidden-stage-first-clear.v1
 const NOTIFICATION_SEEN_STORAGE_KEY = 'spiria.notification-seen.v1'
 const EXCHANGE_STORAGE_KEY = 'spiria.exchange.v1'
 const SPIRIT_COMM_REWARD_STORAGE_KEY = 'spiria.spirit-communication-reward.v1'
+const TUTORIAL_COMPLETED_STORAGE_KEY = 'spiria.tutorial-completed.v1'
 const INITIAL_LEVEL = 1
 const INITIAL_COINS = 1250
 
@@ -578,6 +582,23 @@ const saveSpiritCommunicationRewardState = (state: SpiritCommunicationRewardStat
   }
 }
 
+const loadTutorialCompleted = (): boolean => {
+  try {
+    const raw = localStorage.getItem(TUTORIAL_COMPLETED_STORAGE_KEY)
+    return raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+const saveTutorialCompleted = (value: boolean) => {
+  try {
+    localStorage.setItem(TUTORIAL_COMPLETED_STORAGE_KEY, String(value))
+  } catch {
+    // ignore
+  }
+}
+
 const persistedGameState = loadGameState()
 const persistedDiscoveredSpiritIds = loadDiscoveredSpiritIds()
 const persistedHiddenStageFirstClearByRegion = loadHiddenStageFirstClearByRegion()
@@ -587,6 +608,7 @@ const initialInventoryWithPersisted = { ...initialInventory, ...persistedInvento
 const loadedExchangeState = loadExchangeState()
 const initialExchangeState = ensureExchangeStateFresh(loadedExchangeState ?? createExchangeState())
 const initialSpiritCommunicationRewards = loadSpiritCommunicationRewardState()
+const initialTutorialCompleted = loadTutorialCompleted()
 const initialNotificationSeenState = loadNotificationSeenState({
   seenDiscoveredSpiritCount: persistedDiscoveredSpiritIds.length,
   seenOwnedItemTypeCount: countOwnedItemType(initialInventoryWithPersisted),
@@ -1108,6 +1130,15 @@ const useAppStore = create<AppState>((set, get) => ({
       remaining: Math.max(0, SPIRIT_COMMUNICATION_DAILY_LIMIT - nextCount),
     }
   },
+  tutorialCompleted: initialTutorialCompleted,
+  completeTutorial: () => {
+    saveTutorialCompleted(true)
+    set({ tutorialCompleted: true })
+  },
+  resetTutorial: () => {
+    saveTutorialCompleted(false)
+    set({ tutorialCompleted: false })
+  },
   resetGameData: () => {
     const fresh = createFreshGameState()
     try {
@@ -1121,6 +1152,7 @@ const useAppStore = create<AppState>((set, get) => ({
       localStorage.removeItem('spiria.craft-board-state.v1')
       localStorage.removeItem(EXCHANGE_STORAGE_KEY)
       localStorage.removeItem(SPIRIT_COMM_REWARD_STORAGE_KEY)
+      localStorage.removeItem(TUTORIAL_COMPLETED_STORAGE_KEY)
       localStorage.removeItem(PROFILE_NICKNAME_STORAGE_KEY)
     } catch {
       // ignore storage errors
@@ -1167,6 +1199,7 @@ const useAppStore = create<AppState>((set, get) => ({
       seenOwnedItemIds: freshNotificationSeenState.seenOwnedItemIds,
       hiddenStageFirstClearByRegion: createInitialHiddenStageFirstClearByRegion(),
       explorationProgressByStage: createInitialExplorationProgressByStage(),
+      tutorialCompleted: false,
     })
   },
   inventory: initialInventoryWithPersisted,

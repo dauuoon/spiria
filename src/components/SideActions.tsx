@@ -62,6 +62,7 @@ export default function SideActions() {
               whileTap={{ scale: 0.96 }}
               className="group flex flex-col items-center gap-0.5 pointer-events-auto select-none"
               aria-label={it.label}
+              data-tutorial-target={it.id === 'book' ? 'codex' : undefined}
               onClick={
                 it.id === 'book'
                   ? () => setScreen('book')

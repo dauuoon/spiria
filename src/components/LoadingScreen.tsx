@@ -7,6 +7,7 @@ import useAppStore from '../lib/store'
 export default function LoadingScreen() {
   const progress = useAppStore(s => s.progress)
   const setScreen = useAppStore(s => s.setScreen)
+  const tutorialCompleted = useAppStore(s => s.tutorialCompleted)
   const a = (p: string) => `${import.meta.env.BASE_URL}${p.replace(/^\//, '')}`
   const tips = useMemo(
     () => [
@@ -119,8 +120,8 @@ export default function LoadingScreen() {
       {done && (
         <div
           className="absolute inset-0 z-20"
-          onClick={() => setScreen('main')}
-          onPointerDown={() => setScreen('main')}
+          onClick={() => setScreen(tutorialCompleted ? 'main' : 'craft')}
+          onPointerDown={() => setScreen(tutorialCompleted ? 'main' : 'craft')}
           role="button"
           aria-label="터치하여 시작하기"
         >

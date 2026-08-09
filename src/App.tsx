@@ -7,6 +7,7 @@ import BgmPlayer from './components/BgmPlayer'
 import TapSfx from './components/TapSfx'
 import useAppStore from './lib/store'
 import { LEVEL_COLORS } from './data/levels'
+import TutorialOverlay from './components/TutorialOverlay'
 
 const ExpeditionScreen = lazy(() => import('./components/ExpeditionScreen'))
 const CraftScreen = lazy(() => import('./components/CraftScreen'))
@@ -48,6 +49,9 @@ export default function App() {
   const pendingLevelUp = useAppStore(s => s.pendingLevelUp)
   const showLevelUpPopup = useAppStore(s => s.showLevelUpPopup)
   const claimPendingLevelUpRewards = useAppStore(s => s.claimPendingLevelUpRewards)
+  const tutorialCompleted = useAppStore(s => s.tutorialCompleted)
+  const completeTutorial = useAppStore(s => s.completeTutorial)
+  const [showTutorial, setShowTutorial] = useState(!tutorialCompleted)
   const warmedUpScreenChunksRef = useRef(false)
 
   useEffect(() => {
@@ -196,6 +200,16 @@ export default function App() {
               </Suspense>
             </motion.div>
           </AnimatePresence>
+
+          {/* Tutorial overlay inside viewport so overflow-hidden clips the spotlight */}
+          {showTutorial && screen !== 'loading' && (
+            <TutorialOverlay
+              onComplete={() => {
+                setShowTutorial(false)
+                completeTutorial()
+              }}
+            />
+          )}
         </div>
 
         {/* DEV floating remote (temporarily visible in production per request) */}

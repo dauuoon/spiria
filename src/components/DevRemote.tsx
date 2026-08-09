@@ -3,7 +3,7 @@ import { EXP_TO_NEXT } from '../data/levels'
 import { CRAFTING_MATERIALS, ETC_ITEMS } from '../data/items'
 import { SPIRITS } from '../data/spirits'
 
-type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'craftResult' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
+type Screen = 'loading' | 'main' | 'expedition' | 'book' | 'craft' | 'bag' | 'profile' | 'license' | 'map1' | 'map2' | 'map3' | 'map4' | 'map5' | 'spiritDetail' | 'exchange'
 
 type Props = {
   screen: Screen
@@ -166,17 +166,7 @@ export default function DevRemote({ screen, onSelect }: Props) {
         >
           Craft
         </button>
-        <button
-          type="button"
-          onClick={() => onSelect('craftResult')}
-          className={`px-3 py-1 rounded text-[11px] border transition ${
-            screen === 'craftResult'
-              ? 'bg-white/20 text-white border-white/30'
-              : 'bg-white/10 text-white/80 hover:bg-white/15 border-white/20'
-          }`}
-        >
-          Craft Result
-        </button>
+
         <button
           type="button"
           onClick={() => onSelect('bag')}

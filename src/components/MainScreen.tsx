@@ -163,6 +163,7 @@ export default function MainScreen() {
           whileTap={{ scale: 0.9, y: 2 }}
           className="absolute left-[calc(2%-70px)] bottom-[calc(18%-505px)] w-[70%] max-w-none z-[8] cursor-pointer relative overflow-visible max-[360px]:left-[calc(3%-54px)] max-[360px]:w-[66%] max-[360px]:bottom-[calc(18%-470px)]"
           onClick={() => setScreen('exchange')}
+          data-tutorial-target="exchange"
         >
           <Wiggly>
             <span
@@ -231,7 +232,7 @@ export default function MainScreen() {
         </motion.button>
 
         {/* 솥 (가운데, 최상단) - 래퍼로 위치 고정하여 클릭 시 이동 버그 방지 */}
-        <div className="absolute left-1/2 -translate-x-1/2 ml-0 bottom-[calc(12%+30px)] w-[calc(54%+35px)] z-[12] max-[360px]:w-[calc(52%+24px)] max-[360px]:bottom-[calc(12%+20px)]">
+        <div className="absolute left-1/2 -translate-x-1/2 ml-0 bottom-[calc(12%+30px)] w-[calc(54%+35px)] z-[12] max-[360px]:w-[calc(52%+24px)] max-[360px]:bottom-[calc(12%+20px)]" data-tutorial-target="workshop">
           <motion.button
             type="button"
             aria-label="솥"
